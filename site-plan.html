@@ -612,7 +612,7 @@ dialog.dz{width:min(1200px,96vw);height:min(840px,94vh);max-width:none;max-heigh
     <h3 style="font-family:'Barlow Condensed',sans-serif;font-size:18px;margin:0 0 8px">Other projects in this browser</h3>
     <ul class="projlist" id="proj-list"></ul>
     <div class="status" id="proj-status" role="status"></div>
-    <div class="row" style="justify-content:flex-end"><button class="ghost" id="proj-close" autofocus>Close</button></div>
+    <div class="row" style="justify-content:flex-end"><button class="ghost" id="proj-undo" hidden>Undo</button><button class="ghost" id="proj-close" autofocus>Close</button></div>
   </div>
 </dialog>
 <input type="file" id="bp-file" accept="image/*,.pdf,application/pdf" hidden>
@@ -696,6 +696,27 @@ async function kvSet(k, v) {
   try { const db = await idb(); await new Promise((res, rej) => { const t = db.transaction("kv", "readwrite"); t.objectStore("kv").put(v, k); t.oncomplete = res; t.onerror = () => rej(t.error); }); }
   catch (e) { /* storage unavailable: keep working in memory */ }
 }
+async function kvDel(keys) {
+  if (!keys.length) return;
+  try { const db = await idb(); await new Promise((res, rej) => { const t = db.transaction("kv", "readwrite"), st = t.objectStore("kv"); for (const k of keys) st.delete(k); t.oncomplete = res; t.onerror = () => rej(t.error); }); }
+  catch (e) { /* storage unavailable */ }
+}
+async function kvKeys(prefix) {
+  try { const db = await idb(); return await new Promise((res, rej) => { const q = db.transaction("kv").objectStore("kv").getAllKeys(IDBKeyRange.bound(prefix, prefix + "￿")); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); }
+  catch (e) { return []; }
+}
+// Deleted projects wait in "trash" until the next start, so the Projects dialog's Undo can bring them back.
+async function setTrash(fn) { await kvSet("trash", fn((await kvGet("trash")) || [])); }
+async function cleanStorage(planLoaded) {
+  const trash = ((await kvGet("trash")) || []).filter(id => !projects.some(p => p.id === id));
+  for (const id of trash) await kvDel(await kvKeys(`p:${id}:`));
+  await kvSet("trash", []);
+  // Blueprint images whose blueprint is gone (undo can't reach them after a restart).
+  // Only when this project's plan read back fine, so a damaged save never costs its images.
+  if (!planLoaded) return;
+  const keep = new Set(state.shapes.filter(s => s.kind === "underlay").map(s => PK("bp:" + s.id)));
+  await kvDel((await kvKeys(PK("bp:"))).filter(k => !keep.has(k)));
+}
 let saveTimer = 0;
 function save() { clearTimeout(saveTimer); saveTimer = setTimeout(() => { kvSet(PK("plan"), JSON.stringify(state)); touchProject(); }, 300); }
 
@@ -738,10 +759,19 @@ function fmtArea(m2) {
 }
 
 /* ---------- history ---------- */
-function snapshot() { return JSON.stringify(state.shapes); }
+// Each step keeps the floor it was made on, so Undo and Redo go to that floor to show the change.
+function snapshot(lv = state.level) { return JSON.stringify({ shapes: state.shapes, levels: state.levels, level: lv }); }
 function pushUndo() { undoStack.push(snapshot()); if (undoStack.length > 200) undoStack.shift(); redoStack = []; updateHistory(); }
-function undo() { if (!undoStack.length) return; redoStack.push(snapshot()); state.shapes = JSON.parse(undoStack.pop()); afterChange(); }
-function redo() { if (!redoStack.length) return; undoStack.push(snapshot()); state.shapes = JSON.parse(redoStack.pop()); afterChange(); }
+function restoreHistory(snap, verb) {
+  const d = JSON.parse(snap);
+  state.shapes = d.shapes; state.levels = d.levels;
+  const moved = d.level !== state.level;
+  if (moved) { state.level = d.level; draft = []; dimPhase = false; }
+  renderLevels(); afterChange();
+  if (moved) $("hint").textContent = `${verb} a change on the ${levelName(d.level)}.`;
+}
+function undo() { if (!undoStack.length) return; const s = undoStack.pop(); redoStack.push(snapshot(JSON.parse(s).level)); restoreHistory(s, "Undid"); }
+function redo() { if (!redoStack.length) return; const s = redoStack.pop(); undoStack.push(snapshot(JSON.parse(s).level)); restoreHistory(s, "Redid"); }
 function updateHistory() { $("undo").disabled = !undoStack.length; $("redo").disabled = !redoStack.length; }
 function afterChange() {
   if (selected && !state.shapes.find(s => s.id === selected)) selected = null;
@@ -2790,9 +2820,25 @@ function renderProjects() {
   const others = projects.filter(x => x.id !== pid).sort((a, b) => (b.updated || 0) - (a.updated || 0));
   $("proj-list").innerHTML = others.length ? others.map(x => `<li><span><strong>${esc(x.name)}</strong><small>${x.updated ? "Last changed " + new Date(x.updated).toLocaleDateString() : ""}</small></span><span class="row"><button class="ghost small" data-open="${x.id}">Open</button><button class="danger small" data-del="${x.id}">Delete</button></span></li>`).join("") : `<li class="muted">No other projects yet.</li>`;
 }
-$("open-proj").onclick = () => { renderProjects(); $("proj-status").textContent = ""; $("projdlg").showModal(); };
+// Renaming or deleting a project can be taken back with the dialog's Undo button (one step).
+let projUndo = null;
+function projChanged(label, before, msg) {
+  projUndo = { before }; kvSet("projects", projects); renderProjName(); renderProjects();
+  $("proj-status").textContent = msg; $("proj-undo").textContent = label; $("proj-undo").hidden = false;
+}
+$("proj-undo").onclick = async () => {
+  if (!projUndo) return;
+  projects = JSON.parse(projUndo.before); projUndo = null; $("proj-undo").hidden = true;
+  await kvSet("projects", projects); await setTrash(t => t.filter(id => !projects.some(p => p.id === id)));
+  renderProjName(); renderProjects(); $("proj-status").textContent = "Undone.";
+};
+$("open-proj").onclick = () => { renderProjects(); $("proj-status").textContent = ""; projUndo = null; $("proj-undo").hidden = true; $("projdlg").showModal(); };
 $("proj-close").onclick = () => $("projdlg").close();
-$("proj-rename").addEventListener("change", e => { const p = curProject(); if (!p || !e.target.value.trim()) return; p.name = e.target.value.trim(); kvSet("projects", projects); renderProjName(); });
+$("proj-rename").addEventListener("change", e => {
+  const p = curProject(), name = e.target.value.trim(); if (!p || !name || name === p.name) { renderProjects(); return; }
+  const before = JSON.stringify(projects), old = p.name; p.name = name;
+  projChanged("Undo rename", before, `Renamed “${old}” to “${name}”.`);
+});
 $("proj-save").onclick = saveProjectToComputer;
 $("proj-openfile").addEventListener("change", e => { const f = e.target.files[0]; e.target.value = ""; if (f) openProjectFile(f); });
 $("proj-new").onclick = async () => {
@@ -2806,8 +2852,10 @@ $("proj-list").addEventListener("click", async e => {
   if (o) return switchProject(o.dataset.open);
   if (d) {
     if (delArmed !== d.dataset.del) { delArmed = d.dataset.del; d.textContent = "Tap again to delete"; setTimeout(() => { delArmed = null; renderProjects(); }, 3000); return; }
-    projects = projects.filter(x => x.id !== d.dataset.del); await kvSet("projects", projects); delArmed = null; renderProjects();
-    $("proj-status").textContent = "Project deleted from this browser.";
+    const before = JSON.stringify(projects), gone = projects.find(x => x.id === d.dataset.del);
+    projects = projects.filter(x => x !== gone); delArmed = null;
+    await setTrash(t => t.concat(gone.id));   // its drawings and images are cleared the next time the app starts
+    projChanged("Undo delete", before, `Deleted “${gone.name}” from this browser.`);
   }
 });
 
@@ -3638,12 +3686,14 @@ new ResizeObserver(resize).observe(stage);
   resize();
   await initProjects();
   const saved = await kvGet(PK("plan"));
+  let loaded = false;
   if (saved) {
     try {
       const d = JSON.parse(saved), defL = state.layers;
       Object.assign(state, d);
       state.layers = Object.assign({}, defL, d.layers || {});
       for (const k of Object.keys(defL)) state.layers[k] = Object.assign({}, defL[k], (d.layers || {})[k] || {});
+      loaded = Array.isArray(state.shapes);
     } catch (e) {}
   }
   for (const x of state.shapes) if (x.lockContents) { x.grouped = true; delete x.lockContents; }
@@ -3664,6 +3714,7 @@ new ResizeObserver(resize).observe(stage);
   else if (state.skipPhoto) { view.s = 4; view.x = W / 2; view.y = H / 2; }
   else $("empty").hidden = false;
   renderPanel(); updateHistory(); updateUI();
+  cleanStorage(loaded);
 })();
 })();
 </script>
