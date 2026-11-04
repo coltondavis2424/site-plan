@@ -96,6 +96,7 @@ canvas.select{cursor:default}
 .zoom{position:absolute;right:12px;bottom:16px;display:flex;flex-direction:column;gap:6px}
 .zoom button{width:40px;height:40px;border-radius:8px;border:0;background:rgba(13,23,20,.86);color:#EEF3F1;font-size:20px;font-weight:600;display:grid;place-items:center}
 .zoom svg{width:18px;height:18px}
+.selbar{display:none}   /* phone only, see below */
 
 .empty{position:absolute;inset:0;display:grid;place-items:center;padding:24px}
 .empty-card{background:var(--surface);color:var(--ink);border-radius:12px;padding:28px 28px 24px;max-width:440px;border:2px dashed var(--line)}
@@ -281,6 +282,17 @@ dialog.dz{width:min(1200px,96vw);height:min(840px,94vh);max-width:none;max-heigh
   .dz-head .primary,.dz-head .ghost{padding:8px 12px}
   .actions{bottom:12px}
   .zoom{bottom:12px}
+  /* What's selected, with its main actions, so nothing needs the sheet. */
+  .selbar:not([hidden]){display:flex;flex-direction:column;gap:6px;position:absolute;left:12px;right:64px;bottom:12px;
+    background:rgba(13,23,20,.9);color:#EEF3F1;border-radius:12px;padding:8px 10px;box-shadow:0 2px 10px rgba(0,0,0,.35)}
+  .selbar strong{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .selbar .row{flex-wrap:nowrap;gap:6px}
+  .selbar button{flex:1;min-width:0;border:0;border-radius:8px;padding:9px 6px;font-weight:600;background:#EEF3F1;color:#17231F;white-space:nowrap}
+  .selbar button.danger{background:#B3261E;color:#fff}
+  .phead .dimtoggle{margin-left:auto}
+  .sheet-close{background:var(--bg);border:1px solid var(--line);border-radius:999px;width:36px;height:36px;font-size:22px;line-height:1;flex:0 0 auto}
+  #details:not([hidden]){display:flex;flex-direction:column}
+  #details>.row{order:-1;margin-bottom:14px}   /* Lock, Zoom, Delete first, not at the end of a long sheet */
 }
 @media (prefers-reduced-motion:reduce){.panel{transition:none}}
 </style>
@@ -351,6 +363,14 @@ dialog.dz{width:min(1200px,96vw);height:min(840px,94vh);max-width:none;max-heigh
     <div class="actions" id="actions" hidden>
       <button class="btn-cancel" id="cancel">Cancel</button>
       <button class="btn-done" id="done">Done</button>
+    </div>
+    <div class="selbar" id="selbar" hidden>
+      <strong id="sb-name"></strong>
+      <div class="row">
+        <button id="sb-details">Details</button>
+        <button id="sb-design">Floor plan</button>
+        <button class="danger" id="sb-del">Delete</button>
+      </div>
     </div>
     <div class="roadpick" id="roadpick" hidden>
       <label for="road-preset">Road type</label>
@@ -446,7 +466,7 @@ dialog.dz{width:min(1200px,96vw);height:min(840px,94vh);max-width:none;max-heigh
 
   <aside class="panel" id="panel" aria-label="Structures">
     <section>
-      <div class="phead"><h2>Structures</h2><button class="dimtoggle" id="t-dims" aria-pressed="true" title="Show or hide all dimension strings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h18M3 8v8M21 8v8"/><path d="m1.5 14 3-4M19.5 14l3-4"/></svg><span id="t-dims-label">Dimensions</span></button></div>
+      <div class="phead"><h2>Structures</h2><button class="dimtoggle" id="t-dims" aria-pressed="true" title="Show or hide all dimension strings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h18M3 8v8M21 8v8"/><path d="m1.5 14 3-4M19.5 14l3-4"/></svg><span id="t-dims-label">Dimensions</span></button><button class="sheet-close show-sm" id="panel-close" aria-label="Close">×</button></div>
       <input type="search" class="filter" id="filter" placeholder="Filter by name" aria-label="Filter structures" autocomplete="off">
       <div class="tree" id="list"></div>
       <p class="muted" id="list-empty">Nothing drawn yet. Pick <strong>Building</strong> to outline a house, shed, or garage, or <strong>Road</strong> for a driveway.</p>
@@ -2917,7 +2937,7 @@ function updateUI() {
   $("hint").textContent = h;
   const polyB = (tool === "rect" && state.bldShape === "poly") || (tool === "shape" && state.shapeType === "poly");
   const drafting = (tool in MULTI || ["rect", "room", "stair", "note", "deck", "addon", "shape"].includes(tool)) && draft.length > 0;
-  $("actions").hidden = !drafting;
+  $("actions").hidden = !drafting; renderSelbar();
   $("done").hidden = !(((tool in MULTI && draft.length >= MULTI[tool]) || (polyB && draft.length >= 3)) && !dimPhase);
   $("bldpick").hidden = tool !== "rect"; $("bld-shape").value = state.bldShape || "rect";
   $("openpick").hidden = tool !== "door";
@@ -3290,8 +3310,28 @@ function setDims(on) {
 }
 $("t-dims").onclick = () => setDims(!state.showDims);
 $("filter").addEventListener("input", e => { filterText = e.target.value; renderList(); });
+// Phone: the selected item's name and main actions above the toolbar (CSS keeps it off wider screens).
+function renderSelbar() {
+  const s = state.shapes.find(x => x.id === selected);
+  $("selbar").hidden = !s || !$("actions").hidden;
+  if (!s) return;
+  $("sb-name").textContent = s.name || ({ note: "Note", dim: "Dimension" })[s.kind] || "Selected";
+  $("sb-design").hidden = s.kind !== "building";
+}
+$("panel-close").onclick = () => { if ($("panel").classList.contains("open")) $("panel-toggle").click(); };
+$("sb-details").onclick =() => { if (!$("panel").classList.contains("open")) $("panel-toggle").click(); };
+$("sb-design").onclick = () => {
+  const s = state.shapes.find(x => x.id === selected); if (!s) return;
+  if (s.grouped) { $("hint").textContent = `${s.name} is grouped. Ungroup all items to change its plan.`; return; }
+  openDesigner(s);
+};
+$("sb-del").onclick = () => {
+  const s = state.shapes.find(x => x.id === selected); if (!s) return;
+  deleteSelected();
+  if (!state.shapes.includes(s)) $("hint").textContent = `Deleted ${s.name || "it"}. Undo (the curved arrow at the top) brings it back.`;
+};
 function renderPanel() {
-  renderList();
+  renderList(); renderSelbar();
   const s = state.shapes.find(x => x.id === selected);
   $("details").hidden = !s;
   if (!s) return;
