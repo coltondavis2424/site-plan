@@ -281,6 +281,10 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
 .ps-svg .in{fill:#F8E27A;stroke:none;opacity:.7}.ps-svg .sh{fill:#C79A5B;stroke:#5B4A2E;stroke-width:.004}.ps-svg .sg{fill:#8FA39A;stroke:#17231F;stroke-width:.004}.ps-svg .dw{fill:#FFFFFF;stroke:#17231F;stroke-width:.005}
 .ps-svg .at{fill:#F8E27A;opacity:.55}.ps-svg .rs{fill:#6B6F6D;stroke:#17231F;stroke-width:.005}.ps-svg .tr{stroke:#5B4A2E;stroke-width:.02}
 .ps-svg .fo{fill:none;stroke:#17231F;stroke-width:.02}.ps-svg .ftd{fill:none;stroke:#17231F;stroke-width:.008;stroke-dasharray:.06 .04}.ps-svg .ab{fill:#17231F}.ps-svg .ps-post{fill:#17231F}
+.ps-svg .ei{fill:#FCE3B0;stroke:#B86E00;stroke-width:.008}.ps-svg .pi{fill:#D6E4FA;stroke:#1F5FBF;stroke-width:.008}.ps-svg .far{stroke-dasharray:.03 .02;opacity:.6}
+.ps-svg .eit{fill:#8A5200}.ps-svg .pit{fill:#1F4F9F}.ps-svg .hole{fill:#FFFFFF;stroke:#17231F;stroke-width:.006}.ps-svg .st.sa{fill:#F2A65A}
+.ps-sym{display:inline-block;min-width:16px;height:16px;line-height:14px;text-align:center;font:700 8pt "Barlow Condensed",sans-serif;border:1.4px solid;box-sizing:border-box;padding:0 2px}
+.ps-sym.e{color:#B86E00;border-radius:50%}.ps-sym.p{color:#1F5FBF}.ps-run{display:inline-block;width:22px;border-top:2.5px solid;vertical-align:middle}
 .ps-svg .bm{stroke:#17231F;stroke-width:.03;stroke-dasharray:.12 .04}.ps-svg .tl2{stroke:#7C8582;stroke-width:.005}.ps-svg .rg{stroke:#17231F;stroke-width:.018}.ps-svg .na{fill:#17231F}
 #printroot{display:none}
 @media print{
@@ -2231,7 +2235,7 @@ function buildSteps(s, S, o) {
   add("Wall framing", ["Outside wall framing", "Inside wall framing"], ["Snap lines, lay out plates at the stud spacing, build walls flat with headers, stand and brace them.", "Second floor: repeat floor and walls on the floor below."], "", 2 + A / 300);
   add("Roof framing", ["Roof framing"], ["Set and brace the trusses (or cut and set rafters, ridge and ceiling joists); add fascia."], "", 1 + A0 / 600);
   add("Sheathing and dry-in", ["Wall sheathing and wrap", "Roof sheathing and roofing", "Windows and doors"], ["Sheath walls and roof, wrap the walls, ice and water shield and underlayment on the roof, then roofing.", "Set windows and doors with flashing tape (bottom, sides, then top)."], "Rough framing inspection.", 3 + A0 / 400);
-  add("Rough-ins", [], ["Plumbing, electrical, heating and ventilation run through the open walls.", "Well, septic or city hookups."], "Rough plumbing, electrical and mechanical inspections.", 5 + A / 500);
+  add("Rough-ins", ["Electrical rough-in", "Plumbing rough-in"], ["Plumbing, electrical, heating and ventilation run through the open walls.", "Well, septic or city hookups."], "Rough plumbing, electrical and mechanical inspections.", 5 + A / 500);
   add("Siding, trim and gutters", ["Siding and trim", "Gutters"], ["Trim corners and openings, then siding from the bottom up; soffit and fascia cover; gutters."], "", 3 + A0 / 500);
   add("Insulation and vapor barrier", ["Insulation and vapor barrier"], ["Batts or spray foam in the walls, seal gaps, poly on the warm side, blow in the attic last (after the ceiling drywall)."], "Insulation inspection (energy code).", 1 + A / 1000);
   add("Drywall", ["Drywall"], ["Ceilings first, then walls; tape, three coats of mud, sand."], "", 4 + A / 300);
@@ -2287,6 +2291,60 @@ function studName(H, size) {
 }
 const stockFor = (len, list = [8, 10, 12, 14, 16, 18, 20]) => list.find(L => L >= len - 1e-6) || Math.ceil(len / 2) * 2;
 
+// Outlets, switches, fixtures, wires and pipes drawn in a building's wall views, added up for the material list.
+const MEP_ROWS = {
+  outlet: ["Outlets, 15 A tamper-resistant duplex", "elec"], gfci: ["GFCI outlets, 20 A", "elec"], out240: ["240 V outlets (dryer, range or welder)", "elec"],
+  switch: ["Light switches, single-pole", "elec"], switch3: ["3-way switches", "elec"], data: ["Data / TV jacks", "elec"], sconce: ["Wall light fixtures", "elec"],
+  jbox: ["Junction boxes, 4″ with blank covers", "elec"], thermo: ["Thermostats", "elec"], panel: ["Breaker panel (size it with your electrician)", "elec"],
+  sink: ["Sink rough-ins: stub-outs, 2 shutoff valves, trap adapter", "plumb"], toilet: ["Toilet rough-ins: flange, shutoff valve, wax ring", "plumb"],
+  valve: ["Shower / tub valves", "plumb"], head: ["Shower arms and heads", "plumb"], spout: ["Tub spouts", "plumb"], washer: ["Washer outlet boxes", "plumb"],
+  bibb: ["Frost-free hose bibbs", "plumb"], cleanout: ["Cleanout fittings with plugs", "plumb"],
+};
+function mepCount(b) {
+  const n = {}, run = {}, bends = {}; let any = false, plates = 0;
+  for (const s of state.shapes) {
+    if (s.kind !== "wallview" || s.bid !== b.id || !s.data) continue;
+    const oc = (s.data.oc || 16) / 12;
+    for (const it of s.data.items || []) {
+      if (it.run) {
+        let L = 0; for (let i = 1; i < it.pts.length; i++) { const dt = it.pts[i].t - it.pts[i - 1].t, dy = it.pts[i].y - it.pts[i - 1].y; L += Math.hypot(dt, dy); plates += it.type === "wire" ? 0 : Math.floor(Math.abs(dt) / oc); }
+        const k = it.type + "|" + runSize(it); run[k] = (run[k] || 0) + L; bends[it.type] = (bends[it.type] || 0) + Math.max(0, it.pts.length - 2); any = true;
+      } else if (MEP_ROWS[it.type]) { n[it.type] = (n[it.type] || 0) + 1; any = true; }
+    }
+  }
+  return { n, run, bends, any, plates };
+}
+function mepSections(b, section, row) {
+  const { n, run, bends, any, plates } = mepCount(b); if (!any) return;
+  const c = k => n[k] || 0, ft = v => Math.round(v).toLocaleString() + " ft drawn", sizeName = (ty, sz) => ty === "wire" ? sz : (WV_SIZES[ty].find(x => x[0] == sz) || [0, sz + "″"])[1];
+  const runs = ty => Object.entries(run).filter(([k]) => k.split("|")[0] === ty).map(([k, L]) => [k.split("|")[1], L]);
+  const elecN = Object.keys(n).filter(k => MEP_ROWS[k][1] === "elec").reduce((a, k) => a + n[k], 0), wires = runs("wire");
+  if (elecN || wires.length) {
+    section("Electrical rough-in");
+    for (const k of Object.keys(MEP_ROWS)) if (MEP_ROWS[k][1] === "elec") row(MEP_ROWS[k][0], c(k), "each", "From the wall views");
+    row("Boxes, 1-gang new-work", c("outlet") + c("gfci") + c("switch") + c("switch3"), "each");
+    row("Boxes, 2-gang new-work", c("out240"), "each");
+    row("Fixture boxes, 4″ round", c("sconce"), "each");
+    row("Low-voltage mounting rings", c("data"), "each");
+    row("Cover plates", c("outlet") + c("gfci") + c("switch") + c("switch3") + c("data") + c("out240"), "each");
+    let wireFt = 0;
+    for (const [sz, L] of wires) { wireFt += L; if (sz === "14/2" || sz === "12/2") row(`Wire, NM-B ${sz} with ground`, Math.ceil(L * 1.2 / 250), "rolls 250 ft", ft(L) + " + 20%; add the runs to the panel"); else row(`Wire, NM-B ${sz} with ground`, Math.ceil(L * 1.2), "ft", ft(L) + " + 20%"); }
+    if (wireFt) row("Cable staples", Math.ceil(wireFt / 250), "boxes (250)", "One within 8″ of each box, then every 4½ ft");
+    if (elecN) row("Wire connectors, assorted", Math.max(1, Math.ceil(elecN / 25)), "boxes");
+    if (!wires.length) row("Wire runs", "draw them", "", "Draw wires in the wall views to count wire");
+  }
+  const plN = Object.keys(n).filter(k => MEP_ROWS[k][1] === "plumb").reduce((a, k) => a + n[k], 0), pex = [...runs("hot").map(x => ["hot", ...x]), ...runs("cold").map(x => ["cold", ...x])], dwv = [...runs("drain").map(x => ["drain", ...x]), ...runs("vent").map(x => ["vent", ...x])];
+  if (plN || pex.length || dwv.length) {
+    section("Plumbing rough-in");
+    for (const k of Object.keys(MEP_ROWS)) if (MEP_ROWS[k][1] === "plumb") row(MEP_ROWS[k][0], c(k), "each", "From the wall views");
+    for (const [ty, sz, L] of pex) row(`PEX-A ${sizeName(ty, sz)}, ${ty === "hot" ? "red (hot)" : "blue (cold)"}`, Math.ceil(L * 1.15), "ft", ft(L) + " + 15%; add the runs back to the water heater");
+    if (pex.length) row("PEX elbows, tees and rings", (bends.hot || 0) + (bends.cold || 0) + 2 * (c("sink") + c("valve") + c("washer")) + c("toilet") + c("bibb"), "each", "Bends drawn plus fixture connections");
+    for (const [ty, sz, L] of dwv) row(`PVC DWV pipe ${sizeName(ty, sz)} (${ty === "drain" ? "drain" : "vent"})`, Math.ceil(L * 1.15 / 10), "pcs 10 ft", ft(L) + " + 15%");
+    if (dwv.length) { row("DWV fittings (elbows, wyes, sanitary tees)", (bends.drain || 0) + (bends.vent || 0) + c("sink") + c("toilet") + c("washer") + c("spout"), "each"); row("PVC primer and cement", 1, "set"); }
+    if (pex.length || dwv.length) row("Pipe straps and hangers", Math.ceil(pex.concat(dwv).reduce((a, x) => a + x[2], 0) / 3), "each", "About every 3 ft");
+    if (plates) row("Steel nail plates", plates, "each", "Over each hole close to the stud face");
+  }
+}
 function stickList(b) {
   const o = matOpt(b), G = matGeom(b), fl = G.floors, g0 = fl[0], waste = 1 + (+o.waste) / 100, oc = +o.oc / 12;
   const S = []; let sec;
@@ -2377,7 +2435,7 @@ function stickList(b) {
     for (const q of ext) {
       extra += 2 + (q.w > 6 ? 4 : 2) - Math.floor(q.w / oc);
       const c = Math.ceil(q.w / oc) + 1; if (q.win && q.sill > 0.3) crip += c; if (f.H - q.head > 0.4) crip += c;
-      const hs = q.w <= 3 ? "2×6" : q.w <= 4.5 ? "2×8" : q.w <= 6 ? "2×10" : q.w <= 8 ? "2×12" : "LVL 1¾×11⅞";
+      const hs = hdrSize(q.w)[0];
       headLF[hs] = (headLF[hs] || 0) + (q.w + 0.25) * hdrPly;
       inl += q.w * q.h; openPer += 2 * q.h + (q.win ? 2 : 1) * q.w;
     }
@@ -2564,6 +2622,8 @@ function stickList(b) {
     od.set(key, (od.get(key) || 0) + 1);
   }
   if (od.size) { section("Windows and doors"); for (const [k2, n] of [...od].sort()) row(k2, n, "each", "Rough opening: add about ½\" each way"); }
+
+  mepSections(b, section, row);
 
   // ---------- fasteners ----------
   section("Fasteners and glue");
@@ -2987,86 +3047,251 @@ const psE = t => esc(t);
 const ps = { b: null, paper: "tabloid" };
 const n2 = v => +v.toFixed(3);
 
-// Every wall to frame on a floor: outside edges (E1, E2…) and inside wall runs (I1…), with the openings in each.
+// Every wall to frame on a floor: outside edges (E1, E2…) and inside wall runs (I1…), with the openings in each, and the
+// wall view record for that wall line (moved/added studs, outlets, fixtures, wires and pipes), all in feet along a→c.
+const PS_CODES = { outlet: "R", gfci: "GFI", out240: "240", switch: "S", switch3: "S3", data: "TV", sconce: "WL", jbox: "J", thermo: "T", panel: "P",
+  sink: "SK", toilet: "WC", valve: "SV", head: "SH", spout: "TS", washer: "WB", bibb: "HB", cleanout: "CO" };
+const PS_RUNC = { wire: "#D9822B", hot: "#D9342B", cold: "#2F6BD8", drain: "#5F5F5F", vent: "#8A8A8A" };
 function psWalls(b, lv) {
-  const F = buildingFrame(b), base = orientPoly(b.points.map(F.toL)), f = matFloor(b, F, lv, base), out = [];
+  const F = buildingFrame(b), base = orientPoly(b.points.map(F.toL)), f = matFloor(b, F, lv, base), out = [], o = matOpt(b);
   const ext = state.shapes.find(s => s.bid === b.id && s.level === lv && s.kind === "wall" && s.closed);
   const opens = state.shapes.filter(s => s.bid === b.id && s.level === lv && s.kind === "opening" && s.points && s.points.length >= 2 && s.otype !== "opening");
+  const recs = state.shapes.filter(s => s.bid === b.id && s.level === lv && s.kind === "wallview" && s.points && s.points.length >= 2 && s.data).map(s => ({ ...s.data, p1: F.toL(s.points[0]), p2: F.toL(s.points[1]) }));
   const take = (a, c, near) => {
     const u = unit(a, c), L = dist(a, c), res = [];
-    for (const o of opens) { const p = F.toL(o.points[0]), q = F.toL(o.points[1]), m = { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 }; if (segDist(m, a, c) > near) continue; const w = dist(p, q), t = (m.x - a.x) * u.x + (m.y - a.y) * u.y; if (t < -0.5 || t > L + 0.5) continue; const vt = openVert(o, f.H); res.push({ o, t, w, sill: vt.sill, head: vt.head, win: o.otype === "window" }); }
+    for (const o2 of opens) { const p = F.toL(o2.points[0]), q = F.toL(o2.points[1]), m = { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 }; if (segDist(m, a, c) > near) continue; const w = dist(p, q), t = (m.x - a.x) * u.x + (m.y - a.y) * u.y; if (t < -0.5 || t > L + 0.5) continue; const vt = openVert(o2, f.H); res.push({ o: o2, t, w, sill: vt.sill, head: vt.head, win: o2.otype === "window" }); }
     return res.sort((x, y) => x.t - y.t);
   };
-  const P = f.P;
-  for (let i = 0; i < P.length; i++) { const a = P[i], c = P[(i + 1) % P.length]; if (dist(a, c) < 0.5) continue; out.push({ tag: "E" + (out.length + 1), ext: true, a, c, L: dist(a, c), H: f.H, opens: take(a, c, 1.2), F }); }
+  // the wall view record on this wall line, turned into this wall's own direction (t from a toward c)
+  const view = (a, c, near, isExt) => {
+    const u = unit(a, c), L = dist(a, c), def = { oc: isExt ? +o.oc || 16 : 16, layFrom: "lo", studAdd: [], studDel: [] };
+    for (const v of recs) {
+      const vu = unit(v.p1, v.p2); if (Math.abs(vu.x * u.y - vu.y * u.x) > 0.02) continue;
+      const nn = { x: -vu.y, y: vu.x }; if (Math.abs((a.x - v.p1.x) * nn.x + (a.y - v.p1.y) * nn.y) > near) continue;
+      const tv = p => (p.x - v.p1.x) * vu.x + (p.y - v.p1.y) * vu.y, ta = tv(a), tc = tv(c), dir = tc >= ta ? 1 : -1, W = t => (t - ta) * dir;
+      if (Math.min(ta, tc) > dist(v.p1, v.p2) + 0.5 && !(v.items || []).length) continue;
+      const items = (v.items || []).filter(it => it.layer === "elec" || it.layer === "plumb").map(it => it.run ? { ...it, pts: it.pts.map(p => ({ t: W(p.t), y: p.y })) } : { ...it, t: W(it.t), face: it.face ? it.face * dir : 0 })
+        .filter(it => it.run ? it.pts.some(p => p.t > -0.1 && p.t < L + 0.1) : it.t > -0.2 && it.t < L + 0.2);
+      return { vw: { oc: v.oc || 16, layFrom: dir > 0 ? v.layFrom : v.layFrom === "hi" ? "lo" : "hi", studAdd: (v.studAdd || []).map(W), studDel: (v.studDel || []).map(W) }, items, has: true };
+    }
+    return { vw: def, items: [], has: false };
+  };
+  const P = f.P, th0 = ext ? (ext.thickness || 0) / FT : 0.5;
+  for (let i = 0; i < P.length; i++) {
+    const a = P[i], c = P[(i + 1) % P.length]; if (dist(a, c) < 0.5) continue;
+    const u = unit(a, c), m = { x: (a.x + c.x) / 2 + -u.y * 0.3, y: (a.y + c.y) / 2 + u.x * 0.3 };
+    out.push({ tag: "E" + (out.length + 1), ext: true, a, c, L: dist(a, c), H: f.H, th: th0, inSide: inPoly(m, P) ? 1 : -1, opens: take(a, c, 1.2), ...view(a, c, th0 / 2 + 0.4, true), F });
+  }
   let k = 0;
   for (const w of state.shapes.filter(s => s.bid === b.id && s.level === lv && s.kind === "wall" && s !== ext && s.points.length >= 2)) {
-    const Lp = w.points.map(F.toL), m = w.closed ? Lp.length : Lp.length - 1;
-    for (let i = 0; i < m; i++) { const a = Lp[i], c = Lp[(i + 1) % Lp.length]; if (dist(a, c) < 0.75) continue; out.push({ tag: "I" + (++k), ext: false, a, c, L: dist(a, c), H: f.H, opens: take(a, c, 0.8), F, thin: (w.thickness || 0) < 5 * IN }); }
+    const Lp = w.points.map(F.toL), m = w.closed ? Lp.length : Lp.length - 1, th = (w.thickness || 0) / FT;
+    for (let i = 0; i < m; i++) { const a = Lp[i], c = Lp[(i + 1) % Lp.length]; if (dist(a, c) < 0.75) continue; out.push({ tag: "I" + (++k), ext: false, a, c, L: dist(a, c), H: f.H, th, inSide: 0, opens: take(a, c, 0.8), ...view(a, c, Math.max(0.35, th / 2 + 0.1), false), F, thin: th < 5 / 12 }); }
   }
   return { walls: out, f, F };
 }
-const hdrSize = w => w <= 3 ? ["2×6", 5.5] : w <= 4.5 ? ["2×8", 7.25] : w <= 6 ? ["2×10", 9.25] : w <= 8 ? ["2×12", 11.25] : ["LVL 1¾×11⅞", 11.875];
-
-// One wall's framing, drawn with its bottom-left at (x0, y0) page inches, s inches per foot.
-function psFrameSVG(w, oc, studIn, plies, s, x0, y0) {
+// Where a wall's outlet or fixture sits on the floor plan (building feet), on its face of the wall.
+function psItemPt(w, it) {
+  const u = unit(w.a, w.c), nW = { x: -u.y, y: u.x }, m = { x: w.a.x + u.x * it.t, y: w.a.y + u.y * it.t };
+  if (!it.face) return w.ext ? { x: m.x + nW.x * w.inSide * w.th / 2, y: m.y + nW.y * w.inSide * w.th / 2 } : m;
+  const d = w.ext ? (it.face === w.inSide ? w.th + 0.55 : 0.55) : w.th / 2 + 0.55;
+  return { x: m.x + nW.x * it.face * d, y: m.y + nW.y * it.face * d };
+}
+function psRunPts(w, it) {   // a wire or pipe along the middle of its wall, plan view
+  const u = unit(w.a, w.c), nW = { x: -u.y, y: u.x }, off = w.ext ? w.inSide * w.th / 2 : 0, ts = it.pts.map(p => Math.max(0, Math.min(w.L, p.t)));
+  const t0 = Math.min(...ts), t1 = Math.max(...ts), P = t => ({ x: w.a.x + u.x * t + nW.x * off, y: w.a.y + u.y * t + nW.y * off });
+  return t1 - t0 > 0.05 ? [P(t0), P(t1)] : null;
+}
+// Holes a wire or pipe needs through the framing (t, y feet).
+function psHoles(pts, fr) {
+  const out = [];
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i];
+    for (const f of fr) {
+      if (!["plate", "header", "sill"].includes(f.kind)) { const cx = (f.t0 + f.t1) / 2; if ((a.t - cx) * (b.t - cx) > 0 || a.t === b.t) continue; const y = a.y + (b.y - a.y) * (cx - a.t) / (b.t - a.t); if (y >= f.y && y <= f.y + f.h) out.push({ t: cx, y }); }
+      else { const cy = f.y + f.h / 2; if ((a.y - cy) * (b.y - cy) > 0 || a.y === b.y) continue; const t = a.t + (b.t - a.t) * (cy - a.y) / (b.y - a.y); if (t >= f.t0 && t <= f.t1) out.push({ t, y: cy }); }
+    }
+  }
+  return out;
+}
+let psClip = 0;
+// One wall's framing (same layout as the wall view), with its outlets, fixtures, wires and pipes. Bottom-left at (x0, y0) page inches.
+function psFrameSVG(w, plies, s, x0, y0, studName) {
   const t = 1.5 / 12, L = w.L, H = w.H, X = v => n2(x0 + v * s), Y = v => n2(y0 - v * s), g = [];
   const R = (xa, xb, ya, yb, cls) => { if (xb - xa > 1e-4 && yb - ya > 1e-4) g.push(`<rect x="${X(xa)}" y="${Y(yb)}" width="${n2((xb - xa) * s)}" height="${n2((yb - ya) * s)}" class="${cls}"/>`); };
-  const top = H - 2 * t, keep = [];
-  // openings: blocked zones for layout studs
-  const ops = w.opens.map(q => { const a = Math.max(0, q.t - q.w / 2), b = Math.min(L, q.t + q.w / 2), hd = w.ext || q.w > 3 ? hdrSize(q.w) : ["2×4 flat", 1.5]; return { ...q, a, b, hd, hdF: hd[1] / 12 }; });
-  const blocked = x => ops.some(q => x > q.a - 2 * t - 1e-6 && x < q.b + 2 * t + 1e-6);
-  for (let x = 0; x <= L + 1e-6; x += oc) { const c = Math.min(Math.max(x, t / 2), L - t / 2); if (!blocked(c)) keep.push(c); }
-  if (!keep.some(c => c > L - t)) keep.push(L - t / 2);
-  if (w.ext) { keep.push(t * 1.5, L - t * 1.5); }   // corner studs
-  R(0, L, 0, t, "pl"); R(0, L, top, top + t, "pl"); R(0, L, top + t, H, "pl");
-  for (const c of keep) R(c - t / 2, c + t / 2, t, top, "st");
-  for (const q of ops) {
-    const hb = q.head, ht = hb + q.hdF;
-    R(q.a - 2 * t, q.a - t, t, top, "st"); R(q.b + t, q.b + 2 * t, t, top, "st");       // kings
-    R(q.a - t, q.a, t, hb, "st"); R(q.b, q.b + t, t, hb, "st");                         // jacks
-    R(q.a - t, q.b + t, hb, Math.min(ht, top), "hd");                                    // header
-    if (q.win && q.sill > 0.2) { R(q.a, q.b, q.sill - t, q.sill, "pl"); for (let x = Math.ceil(q.a / oc) * oc; x < q.b; x += oc) R(x - t / 2, x + t / 2, t, q.sill - t, "st"); }
-    if (top - ht > 0.15) for (let x = Math.ceil(q.a / oc) * oc; x < q.b; x += oc) R(x - t / 2, x + t / 2, ht, top, "st");
-    g.push(`<rect x="${X(q.a)}" y="${Y(hb)}" width="${n2((q.b - q.a) * s)}" height="${n2((hb - (q.win ? q.sill : t)) * s)}" class="op"/>`);
-    g.push(`<text x="${X((q.a + q.b) / 2)}" y="${n2(Y((hb + (q.win ? q.sill : 0)) / 2))}" class="tc">${psE(q.win ? "Window" : OTYPES[q.o.otype] || "Door")} ${psE(fmtLen(q.w * FT))}×${psE(fmtLen((q.head - q.sill) * FT))}</text>`);
-    g.push(`<text x="${X((q.a + q.b) / 2)}" y="${n2(Y(hb) - 0.04)}" class="tc ts">Hdr ${psE((w.ext ? plies + "-" : "") + q.hd[0])}</text>`);
+  const fr = framingAlong(w.vw, 0, L, H, w.opens);
+  for (const r of fr) R(r.t0, r.t1, r.y, r.y + r.h, r.kind === "plate" || r.kind === "sill" ? "pl" : r.kind === "header" ? "hd" : r.kind === "added" ? "st sa" : "st");
+  if (w.ext) { R(t, 2 * t, t, H - 2 * t, "st"); R(L - 2 * t, L - t, t, H - 2 * t, "st"); }   // corner studs (3-stud corners)
+  for (const q of w.opens) {
+    const a = Math.max(0, q.t - q.w / 2), b2 = Math.min(L, q.t + q.w / 2), hb = q.head, hd = hdrSize(q.w);
+    g.push(`<rect x="${X(a)}" y="${Y(hb)}" width="${n2((b2 - a) * s)}" height="${n2((hb - (q.win ? q.sill : t)) * s)}" class="op"/>`);
+    g.push(`<text x="${X((a + b2) / 2)}" y="${n2(Y((hb + (q.win ? q.sill : 0)) / 2))}" class="tc">${psE(q.win ? "Window" : OTYPES[q.o.otype] || "Door")} ${psE(fmtLen(q.w * FT))}×${psE(fmtLen((q.head - q.sill) * FT))}</text>`);
+    g.push(`<text x="${X((a + b2) / 2)}" y="${n2(Y(hb) - 0.04)}" class="tc ts">Hdr ${psE((w.ext ? plies + "-" : "2-") + hd[0])}</text>`);
     g.push(`<text x="${X(q.t)}" y="${n2(y0 + 0.32)}" class="tc ts">${psE(fmtLen(q.t * FT))} to center</text>`);
   }
-  // length dimension and title
+  // outlets, fixtures, wires and pipes from the wall view; things on the far side of the wall are dashed
+  if (w.items.length) {
+    const id = "psc" + (++psClip);
+    g.push(`<clipPath id="${id}"><rect x="${X(0)}" y="${Y(H)}" width="${n2(L * s)}" height="${n2(H * s)}"/></clipPath><g clip-path="url(#${id})">`);
+    for (const it of w.items.filter(it => it.run)) {
+      const sz = runSize(it), lw = it.type === "wire" ? 0.014 : it.type === "drain" ? 0.03 : 0.022;
+      g.push(`<polyline points="${it.pts.map(p => X(p.t) + "," + Y(p.y)).join(" ")}" fill="none" stroke="${PS_RUNC[it.type]}" stroke-width="${lw}"${it.type === "vent" ? ' stroke-dasharray=".05 .03"' : ""}/>`);
+      for (const h of psHoles(it.pts, fr)) g.push(`<circle cx="${X(h.t)}" cy="${Y(h.y)}" r="${n2(Math.max(0.025, runHole(it) / 24 * s))}" class="hole"/>`);
+      const p0 = it.pts[0]; g.push(`<text x="${n2(X(p0.t) + 0.03)}" y="${n2(Y(p0.y) - 0.03)}" class="tl ts" fill="${PS_RUNC[it.type]}">${psE(WV_RUNS[it.type][0])} ${psE(it.type === "wire" ? sz : (WV_SIZES[it.type].find(x => x[0] == sz) || [0, sz + "″"])[1])}</text>`);
+    }
+    g.push(`</g>`);
+    for (const it of w.items.filter(it => !it.run)) {
+      const far = it.face && it.face !== 1, cls = it.layer === "elec" ? "ei" : "pi";
+      g.push(`<rect x="${X(it.t - it.w / 2)}" y="${Y(it.cy + it.h / 2)}" width="${n2(it.w * s)}" height="${n2(it.h * s)}" class="${cls}${far ? " far" : ""}"/>`);
+      g.push(`<text x="${X(it.t)}" y="${n2(Y(it.cy + it.h / 2) - 0.025)}" class="tc ts ${cls}t">${psE(PS_CODES[it.type] || it.type)} ${psE(fmtLen(it.cy * FT))}</text>`);
+    }
+  }
   const dy = n2(y0 + 0.17);
   g.push(`<line x1="${X(0)}" y1="${dy}" x2="${X(L)}" y2="${dy}" class="dm"/><line x1="${X(0)}" y1="${n2(dy - 0.06)}" x2="${X(0)}" y2="${n2(dy + 0.06)}" class="dm"/><line x1="${X(L)}" y1="${n2(dy - 0.06)}" x2="${X(L)}" y2="${n2(dy + 0.06)}" class="dm"/>`);
   g.push(`<text x="${X(L / 2)}" y="${n2(dy - 0.03)}" class="tc">${psE(fmtLen(L * FT))}</text>`);
-  g.push(`<text x="${X(0)}" y="${n2(Y(H) - 0.1)}" class="tl tb">${w.lvName ? psE(w.lvName) + " · " : ""}${psE(w.tag)} · ${w.ext ? "Outside" : "Inside"} wall · ${psE(fmtLen(L * FT))} long × ${psE(fmtLen(H * FT))} · ${psE((w.ext ? studIn : "2×4"))} @ ${w.ext ? oc * 12 : 16}" o.c.</text>`);
+  const side = w.ext ? (w.inSide === 1 ? " · seen from inside" : " · seen from outside") : "";
+  g.push(`<text x="${X(0)}" y="${n2(Y(H) - 0.1)}" class="tl tb">${w.lvName ? psE(w.lvName) + " · " : ""}${psE(w.tag)} · ${w.ext ? "Outside" : "Inside"} wall · ${psE(fmtLen(L * FT))} × ${psE(fmtLen(H * FT))} · ${psE(studName)} @ ${w.vw.oc}" o.c.${side}</text>`);
   return g.join("");
 }
 
-// Outside view of the building from one side. dir = outward normal in the building frame.
-function psElevSVG(b, n, s, x0, y0, o) {
-  const G = matGeom(b), fl = G.floors, F = G.F, r = { x: n.y, y: -n.x }, along = q => q.x * r.x + q.y * r.y, g = [];
-  const isPost = o.frame === "post", wHt = f => isPost ? +o.eave : f.H, jd = isPost ? 0 : 1;
-  let base = 0; const bases = fl.map(f => { const v = base; base += wHt(f) + jd; return v; }); const Ht = base - jd + (isPost ? 0 : 0.1);
-  const allA = fl.flatMap(f => f.P.map(along)), A0 = Math.min(...allA), A1 = Math.max(...allA);
-  const X = a => n2(x0 + (a - A0 + 3) * s), Y = v => n2(y0 - v * s);
-  const fd = isPost ? 4.5 : o.found === "bsmt" ? 8 : o.found === "crawl" ? 6 : o.found === "slab" ? 1.3 : o.found === "frost" ? 5 : 0;
-  if (fd) g.push(`<rect x="${X(A0)}" y="${Y(0)}" width="${n2((A1 - A0) * s)}" height="${n2(fd * s)}" class="fd"/>`);
-  const sidingV = ["bb", "steel"].includes(o.siding) || isPost;
-  fl.forEach((f, i) => {
-    const P = f.P, nP = P.length; let A2 = 0; for (let j = 0; j < nP; j++) A2 += P[j].x * P[(j + 1) % nP].y - P[(j + 1) % nP].x * P[j].y;
-    for (let j = 0; j < nP; j++) {
-      const a = P[j], c = P[(j + 1) % nP], u = unit(a, c), on = A2 > 0 ? { x: u.y, y: -u.x } : { x: -u.y, y: u.x };
-      if (on.x * n.x + on.y * n.y < 0.3) continue;
-      const xa = Math.min(along(a), along(c)), xb = Math.max(along(a), along(c)), y1 = bases[i], y2 = bases[i] + wHt(f) + (i < fl.length - 1 ? jd : 0.1);
-      g.push(`<rect x="${X(xa)}" y="${Y(y2)}" width="${n2((xb - xa) * s)}" height="${n2((y2 - y1) * s)}" class="wl"/>`);
-      if (sidingV) for (let x = xa + 1; x < xb; x += isPost ? 0.75 : 1) g.push(`<line x1="${X(x)}" y1="${Y(y1)}" x2="${X(x)}" y2="${Y(y2)}" class="sd"/>`);
-      else for (let y = y1 + 7 / 12; y < y2; y += 7 / 12) g.push(`<line x1="${X(xa)}" y1="${Y(y)}" x2="${X(xb)}" y2="${Y(y)}" class="sd"/>`);
+// ---------- roofs, for the elevations and the roof plan ----------
+// Straight-skeleton style hip roof over any outline: q → [distance up from the eave line (negative out past the walls), edge index].
+function hipField(P, ovr) {
+  const nP = P.length; let A2 = 0; for (let i = 0; i < nP; i++) { const p = P[i], q = P[(i + 1) % nP]; A2 += p.x * q.y - q.x * p.y; }
+  const E = P.map((p, i) => { const q = P[(i + 1) % nP], L = dist(p, q) || 1, d = { x: (q.x - p.x) / L, y: (q.y - p.y) / L }; return { p, q, L, d, n: A2 > 0 ? { x: -d.y, y: d.x } : { x: d.y, y: -d.x } }; });
+  const cr = (u, v) => u.x * v.y - u.y * v.x;
+  E.forEach((e, i) => {
+    const pr = E[(i + nP - 1) % nP], nx = E[(i + 1) % nP];
+    e.ua = { x: pr.n.x + e.n.x, y: pr.n.y + e.n.y }; e.ub = { x: e.n.x + nx.n.x, y: e.n.y + nx.n.y };
+    e.sa = Math.sign(cr(e.ua, { x: e.q.x - e.p.x, y: e.q.y - e.p.y })); e.sb = Math.sign(cr(e.ub, { x: e.p.x - e.q.x, y: e.p.y - e.q.y }));
+    e.reflex = Math.sign(cr(e.d, nx.d)) !== Math.sign(A2) && Math.abs(cr(e.d, nx.d)) > 1e-6;   // the corner at this edge's end turns inward
+  });
+  return q => {
+    let m = Infinity, k = 0;
+    if (inPoly(q, P)) {
+      for (let j = 0; j < nP; j++) {
+        const e = E[j], d = (q.x - e.p.x) * e.n.x + (q.y - e.p.y) * e.n.y; if (d < -1e-6 || d >= m) continue;
+        if (Math.sign(cr(e.ua, { x: q.x - e.p.x, y: q.y - e.p.y })) === -e.sa || Math.sign(cr(e.ub, { x: q.x - e.q.x, y: q.y - e.q.y })) === -e.sb) continue;
+        m = d; k = j;
+      }
+      if (m === Infinity) for (let j = 0; j < nP; j++) { const sd = segDist(q, P[j], P[(j + 1) % nP]); if (sd < m) { m = sd; k = j; } }
+      return [m, k];
     }
-    const W = psWalls(b, f.lv).walls.filter(w => w.ext);
-    for (const w of W) {
-      const u = unit(w.a, w.c); let A2b = 0; for (let j = 0; j < nP; j++) A2b += P[j].x * P[(j + 1) % nP].y - P[(j + 1) % nP].x * P[j].y;
-      const on = A2b > 0 ? { x: u.y, y: -u.x } : { x: -u.y, y: u.x }; if (on.x * n.x + on.y * n.y < 0.3) continue;
+    // out past the walls (the overhang): the lowest of the slopes reaching here, except at an inside corner,
+    // where the two slopes meet in a valley (the higher one wins)
+    const cand = new Map();
+    for (let j = 0; j < nP; j++) {
+      const e = E[j], d = (q.x - e.p.x) * e.n.x + (q.y - e.p.y) * e.n.y, t = (q.x - e.p.x) * e.d.x + (q.y - e.p.y) * e.d.y;
+      if (d > 1e-6 || d < -ovr || t < -ovr || t > e.L + ovr) continue;
+      cand.set(j, d);
+    }
+    for (let j = 0; j < nP; j++) { const j2 = (j + 1) % nP; if (E[j].reflex && cand.has(j) && cand.has(j2)) { const a = cand.get(j), c = cand.get(j2); cand.delete(j); cand.delete(j2); cand.set(a >= c ? j : j2, Math.max(a, c)); } }
+    for (const [j, d] of cand) if (d < m) { m = d; k = j; }
+    if (m === Infinity) { m = Infinity; for (let j = 0; j < nP; j++) { const sd = segDist(q, P[j], P[(j + 1) % nP]); if (sd < m) { m = sd; k = j; } } m = -m; }
+    return [m, k];
+  };
+}
+// One roof for each floor that has open sky over part of it, at that floor's own wall height.
+function psRoofs(b, o) {
+  const G = matGeom(b), fl = G.floors, post = o.frame === "post", jd = post ? 0 : 1, wHt = f => post ? +o.eave : f.H;
+  let base = 0; const bases = fl.map(f => { const v = base; base += wHt(f) + jd; return v; }), tops = fl.map((f, i) => bases[i] + wHt(f));
+  const ov = +o.over / 12, pitch = +o.pitch / 12, roofs = [];
+  fl.forEach((f, i) => {
+    const P = f.P, ups = fl.slice(i + 1).map(u => u.P), B = bbox(P), st = Math.max(B.x1 - B.x0, B.y1 - B.y0) / 40;
+    let open = 0, tot = 0;
+    for (let x = B.x0 + st / 2; x < B.x1; x += st) for (let y = B.y0 + st / 2; y < B.y1; y += st) { const q = { x, y }; if (!inPoly(q, P)) continue; tot++; if (!ups.some(U => inPoly(q, U))) open++; }
+    if (!open || open < tot * 0.02) return;
+    const rect = matRect(P); let shape = o.roof; if (!rect && shape !== "flat") shape = "hip";
+    const E = tops[i]; let fn;
+    if (shape === "gable") {
+      const L01 = dist(P[0], P[1]), L12 = dist(P[1], P[2]), u = L01 >= L12 ? unit(P[0], P[1]) : unit(P[1], P[2]), nr = { x: -u.y, y: u.x }, RW = Math.min(L01, L12);
+      const c = { x: (P[0].x + P[2].x) / 2, y: (P[0].y + P[2].y) / 2 };
+      fn = q => { const w = (q.x - c.x) * nr.x + (q.y - c.y) * nr.y; return [E + pitch * (RW / 2 - Math.abs(w)), w >= 0 ? 1 : 2]; };
+    } else if (shape === "shed") {
+      const u = unit(P[0], P[1]); let nn = { x: -u.y, y: u.x }; const c = { x: (P[0].x + P[2].x) / 2, y: (P[0].y + P[2].y) / 2 };
+      if ((c.x - P[0].x) * nn.x + (c.y - P[0].y) * nn.y < 0) nn = { x: -nn.x, y: -nn.y };
+      fn = q => [E + pitch * ((q.x - P[0].x) * nn.x + (q.y - P[0].y) * nn.y), 1];
+    } else if (shape === "flat") fn = () => [E + 0.6, 1];
+    else { const hf = hipField(P, ov + 0.5); fn = q => { const [m, k] = hf(q); return [E + pitch * m, k + 1]; }; }
+    roofs.push({ i, P, out: offsetPoly(P, -ov), ups, upsOut: ups.map(U => offsetPoly(U, -ov)), E, shape, fn, flat: shape === "flat" });
+  });
+  let maxY = tops[tops.length - 1] + 0.6;
+  for (const r of roofs) { const B = bbox(r.out), sx = (B.x1 - B.x0) / 50, sy = (B.y1 - B.y0) / 50; for (let x = B.x0; x <= B.x1; x += sx) for (let y = B.y0; y <= B.y1; y += sy) { const q = { x, y }; if (inPoly(q, r.out)) maxY = Math.max(maxY, r.fn(q)[0]); } }
+  return { G, fl, bases, tops, roofs, ov, pitch, wHt, jd, maxY, o };
+}
+const psRoofAt = (r, q) => inPoly(q, r.out) && !r.ups.some(U => inPoly(q, U)) && !(r.upsOut.some(U => inPoly(q, U)) && !inPoly(q, r.P));   // no lower overhang under an upper roof
+function psShade(nx, ny, nz, L) { const l = Math.hypot(L.x, L.y, L.z), m = Math.hypot(nx, ny, nz) || 1; return Math.max(0, (nx * L.x + ny * L.y + nz * L.z) / l / m); }
+
+// The outside view from one side, drawn like a camera looking straight at it: walls with siding, every roof at its own
+// height, gable ends filled in, nearer parts hiding farther ones. n = outward direction of the side, building frame.
+function psElevRaster(R, n, pxft, A0, A1, Ytop) {
+  const r = { x: n.y, y: -n.x }, Wp = Math.max(2, Math.ceil((A1 - A0) * pxft)), Hp = Math.max(2, Math.ceil(Ytop * pxft) + 2), N = Wp * Hp;
+  const id = new Int32Array(N), dep = new Float32Array(N), br = new Float32Array(N);
+  const pts = R.roofs.flatMap(f => f.out).concat(R.fl.flatMap(f => f.P)), ds = pts.map(q => q.x * n.x + q.y * n.y), D0 = Math.min(...ds), D1 = Math.max(...ds);
+  const step = Math.max(1 / pxft, 0.06), rt = Math.max(0.3, R.pitch * step * 2.5), rowOf = y => Math.floor((Ytop - y) * pxft), fl = R.fl;
+  const walls = fl.map((f, i) => ({ P: f.P, y0: R.bases[i], y1: R.bases[i] + R.wHt(f) + (i < fl.length - 1 ? R.jd : 0), roof: R.roofs.find(x => x.i === i) }));
+  const ownN = fl.map(f => { const P = f.P, nP = P.length; let A2 = 0; for (let j = 0; j < nP; j++) A2 += P[j].x * P[(j + 1) % nP].y - P[(j + 1) % nP].x * P[j].y; return P.map((p, j) => { const u = unit(p, P[(j + 1) % nP]); return A2 > 0 ? { x: u.y, y: -u.x } : { x: -u.y, y: u.x }; }); });
+  const Lt = { x: n.x * 0.8 - r.x * 0.4, y: n.y * 0.8 - r.y * 0.4, z: 0.6 };
+  const fill = (cx, y0, y1, v, d, b2) => { let r0 = Math.max(0, rowOf(y1)), r1 = Math.min(Hp - 1, rowOf(y0)); for (let rr = r0; rr <= r1; rr++) { const k = rr * Wp + cx; if (!id[k]) { id[k] = v; dep[k] = d; br[k] = b2; } } };
+  const need = (cx, y0, y1) => { const r0 = Math.max(0, rowOf(y1)), r1 = Math.min(Hp - 1, rowOf(y0)); for (let rr = r0; rr <= r1; rr++) if (!id[rr * Wp + cx]) return true; return false; };
+  for (let cx = 0; cx < Wp; cx++) {
+    const a = A0 + (cx + 0.5) / pxft;
+    for (let d = D1 + 0.05; d >= D0 - 0.05; d -= step) {
+      const q = { x: r.x * a + n.x * d, y: r.y * a + n.y * d };
+      walls.forEach((w, i) => {
+        if (!need(cx, w.y0, Ytop) || !inPoly(q, w.P)) return;
+        let k = -1, m = Infinity; for (let j = 0; j < w.P.length; j++) { const sd = segDist(q, w.P[j], w.P[(j + 1) % w.P.length]); if (sd < m) { m = sd; k = j; } }
+        if (m > step * 1.6) return;   // only the outside face of the wall
+        const nn = ownN[i][k], bw = 0.84 + 0.16 * Math.max(0, nn.x * n.x + nn.y * n.y);
+        let top = w.y1; if (w.roof && psRoofAt(w.roof, q)) top = Math.max(w.y1 - (i < fl.length - 1 ? R.jd : 0), w.roof.fn(q)[0] - rt);
+        fill(cx, w.y0, top, 1000 + i * 100 + k, d, bw);
+      });
+      R.roofs.forEach((rf, ri) => {
+        if (!psRoofAt(rf, q)) return;
+        const [h, fc] = rf.fn(q), inside = inPoly(q, rf.P), e = 0.05, y0 = h - (inside ? rt : Math.max(rt, 0.45));
+        if (!need(cx, y0, h)) return;
+        const hx = (rf.fn({ x: q.x + e, y: q.y })[0] - rf.fn({ x: q.x - e, y: q.y })[0]) / (2 * e), hy = (rf.fn({ x: q.x, y: q.y + e })[0] - rf.fn({ x: q.x, y: q.y - e })[0]) / (2 * e);
+        fill(cx, y0, h, 5000 + ri * 100 + fc, d, 0.45 + 0.55 * psShade(-hx, -hy, 1, Lt));
+      });
+    }
+  }
+  const c = document.createElement("canvas"); c.width = Wp; c.height = Hp; const g = c.getContext("2d"), im = g.createImageData(Wp, Hp), px = im.data;
+  const o = R.o, vert = ["bb", "steel"].includes(o.siding) || o.frame === "post", metal = ["metal", "seam"].includes(o.roofing) || o.frame === "post";
+  const roofC = metal ? [150, 158, 160] : [132, 136, 134];
+  for (let rr = 0; rr < Hp; rr++) for (let cx = 0; cx < Wp; cx++) {
+    const k = rr * Wp + cx, v = id[k], j = k * 4; if (!v) continue;
+    const edge = (cx + 1 < Wp && id[k + 1] !== v) || (cx > 0 && id[k - 1] !== v) || (rr + 1 < Hp && id[k + Wp] !== v) || (rr > 0 && id[k - Wp] !== v);
+    let col;
+    if (edge) col = [23, 35, 31];
+    else if (v >= 5000) col = roofC.map(x => x * (0.55 + 0.6 * br[k]));
+    else {
+      const y = Ytop - (rr + 0.5) / pxft, a = A0 + (cx + 0.5) / pxft, sp = vert ? (o.frame === "post" ? 0.75 : 1) : 7 / 12, line = vert ? Math.floor(a / sp) !== Math.floor((a - 1 / pxft) / sp) : Math.floor(y / sp) !== Math.floor((y - 1 / pxft) / sp);
+      col = (line ? [196, 203, 199] : [255, 255, 255]).map(x => x * br[k]);
+    }
+    px[j] = col[0]; px[j + 1] = col[1]; px[j + 2] = col[2]; px[j + 3] = 255;
+  }
+  g.putImageData(im, 0, 0);
+  return { url: c.toDataURL("image/png"), Wp, Hp, id, dep, pxft, A0, Ytop, rowOf };
+}
+function psElevSize(R, n) {
+  const r = { x: n.y, y: -n.x }, al = R.roofs.flatMap(f => f.out).concat(R.fl.flatMap(f => f.P)).map(q => q.x * r.x + q.y * r.y), o = R.o;
+  const fd = o.frame === "post" ? 4.5 : o.found === "bsmt" ? 8 : o.found === "crawl" ? 6 : o.found === "slab" ? 1.3 : o.found === "frost" ? 5 : 0;
+  return { A0: Math.min(...al), A1: Math.max(...al), w: Math.max(...al) - Math.min(...al) + 9, h: R.maxY + fd + 1.5, fd };
+}
+function psElevSVG(b, R, n, s, x0, y0) {
+  const o = R.o, F = R.G.F, Z = psElevSize(R, n), { A0, A1, fd } = Z, r = { x: n.y, y: -n.x }, along = q => q.x * r.x + q.y * r.y, depth = q => q.x * n.x + q.y * n.y, g = [];
+  const X = a => n2(x0 + (a - A0 + 3) * s), Y = v => n2(y0 - v * s), Ytop = R.maxY + 0.3;
+  const pxft = Math.min(28, s * 160), img = psElevRaster(R, n, pxft, A0, A1, Ytop);
+  if (fd) g.push(`<rect x="${X(A0 + R.ov)}" y="${Y(0)}" width="${n2(Math.max(0.1, A1 - A0 - 2 * R.ov) * s)}" height="${n2(fd * s)}" class="fd"/>`);
+  g.push(`<image href="${img.url}" x="${X(A0)}" y="${Y(Ytop)}" width="${n2((A1 - A0) * s)}" height="${n2(img.Hp / pxft * s)}" preserveAspectRatio="none"/>`);
+  // doors and windows on the walls you can see from here
+  R.fl.forEach((f, i) => {
+    for (const w of psWalls(b, f.lv).walls.filter(w => w.ext)) {
+      const u = unit(w.a, w.c), on = { x: u.y * w.inSide, y: -u.x * w.inSide };
+      if (on.x * n.x + on.y * n.y < 0.3) continue;
       for (const q of w.opens) {
-        const m = { x: w.a.x + u.x * q.t, y: w.a.y + u.y * q.t }, cA = along(m), y1 = bases[i] + q.sill, y2 = bases[i] + q.head;
+        const m = { x: w.a.x + u.x * q.t, y: w.a.y + u.y * q.t }, cA = along(m), y1 = R.bases[i] + q.sill, y2 = R.bases[i] + q.head;
+        const cx = Math.floor((cA - A0) * pxft), rr = img.rowOf((y1 + y2) / 2), k = rr * img.Wp + cx;
+        if (cx < 0 || cx >= img.Wp || rr < 0 || rr >= img.Hp || !img.id[k] || img.id[k] >= 5000 || Math.abs(img.dep[k] - depth(m)) > 0.6) continue;
         g.push(`<rect x="${X(cA - q.w / 2)}" y="${Y(y2)}" width="${n2(q.w * s)}" height="${n2((y2 - y1) * s)}" class="ow"/>`);
         if (q.win) g.push(`<line x1="${X(cA - q.w / 2)}" y1="${Y((y1 + y2) / 2)}" x2="${X(cA + q.w / 2)}" y2="${Y((y1 + y2) / 2)}" class="dm"/><line x1="${X(cA)}" y1="${Y(y1)}" x2="${X(cA)}" y2="${Y(y2)}" class="dm"/>`);
         else if (q.o.otype === "overhead") for (let y = y1 + 1.75; y < y2; y += 1.75) g.push(`<line x1="${X(cA - q.w / 2)}" y1="${Y(y)}" x2="${X(cA + q.w / 2)}" y2="${Y(y)}" class="dm"/>`);
@@ -3074,26 +3299,40 @@ function psElevSVG(b, n, s, x0, y0, o) {
       }
     }
   });
-  // roof
-  const topF = fl.reduce((a, f) => f.area > a.area + 1 ? f : a, fl[0]), P = topF.P, rect = matRect(P), ov = +o.over / 12, pitch = +o.pitch / 12;
-  let shape = o.roof; if (!rect && shape !== "flat") shape = "hip";
-  const e1 = rect ? unit(P[0], P[1]) : { x: 1, y: 0 }, long = rect ? (dist(P[0], P[1]) >= dist(P[1], P[2]) ? e1 : unit(P[1], P[2])) : (topF.L >= topF.W ? { x: 1, y: 0 } : { x: 0, y: 1 });
-  const RW = rect ? Math.min(dist(P[0], P[1]), dist(P[1], P[2])) : Math.min(topF.L, topF.W), Pa = P.map(along), a0 = Math.min(...Pa) - ov, a1 = Math.max(...Pa) + ov, sideView = Math.abs(long.x * r.x + long.y * r.y) > 0.7;
-  const eave = Ht, rise = shape === "shed" ? RW * pitch : RW / 2 * pitch, ridge = eave + rise, pts = [];
-  if (shape === "flat") pts.push([a0, eave], [a1, eave], [a1, eave + 0.8], [a0, eave + 0.8]);
-  else if (shape === "gable") { if (sideView) pts.push([a0, eave], [a1, eave], [a1, ridge], [a0, ridge]); else pts.push([a0, eave], [a1, eave], [(a0 + a1) / 2, ridge]); }
-  else if (shape === "hip") { const inset = RW / 2 + ov; if (sideView && a1 - a0 > 2 * inset) pts.push([a0, eave], [a1, eave], [a1 - inset, ridge], [a0 + inset, ridge]); else pts.push([a0, eave], [a1, eave], [(a0 + a1) / 2, ridge]); }
-  else { // shed: high side is the P[2]-P[3] side (as in 3D, A-B low eave)
-    if (sideView) pts.push([a0, eave], [a1, eave], [a1, eave + 0.6], [a0, eave + 0.6]);
-    else { const hiRight = (() => { const lo = P.slice(0, 2), mlo = { x: (lo[0].x + lo[1].x) / 2, y: (lo[0].y + lo[1].y) / 2 }, mc = { x: (P[2].x + P[3].x) / 2, y: (P[2].y + P[3].y) / 2 }; return along(mc) > along(mlo); })(); pts.push([a0, eave], [a1, eave], hiRight ? [a1, ridge] : [a0, ridge]); }
-  }
-  g.push(`<polygon points="${pts.map(([a, y]) => X(a) + "," + Y(y)).join(" ")}" class="rf"/>`);
   g.push(`<line x1="${X(A0 - 3)}" y1="${Y(0)}" x2="${X(A1 + 3)}" y2="${Y(0)}" class="gr"/>`);
-  const mark = (y, t) => g.push(`<line x1="${X(A1 + 0.6)}" y1="${Y(y)}" x2="${X(A1 + 2.6)}" y2="${Y(y)}" class="dm"/><text x="${X(A1 + 2.7)}" y="${n2(Y(y) + 0.04)}" class="tl ts">${psE(t)} ${psE(fmtLen(y * FT))}</text>`);
-  mark(0, "Floor / grade"); fl.forEach((f, i) => { if (i) mark(bases[i], levelName(f.lv)); }); mark(eave, "Top of wall"); if (shape !== "flat") mark(ridge, "Ridge");
-  if (shape !== "flat") g.push(`<text x="${X((a0 + a1) / 2)}" y="${n2(Y(eave + rise * 0.45))}" class="tc">${psE(o.pitch)}/12</text>`);
-  const nw = F.dir(n.x, n.y), ang = Math.atan2(-nw.y, nw.x) * 180 / Math.PI, names = ["East", "Northeast", "North", "Northwest", "West", "Southwest", "South", "Southeast"], name = names[((Math.round(ang / 45) % 8) + 8) % 8];
-  return { svg: g.join(""), w: (A1 - A0 + 9) * s, h: (ridge + fd + 1.5) * s, name, top: ridge };
+  const marks = [], mark = (y, t) => marks.push([y, t]);
+  mark(0, "Floor / grade"); R.fl.forEach((f, i) => { if (i) mark(R.bases[i], levelName(f.lv)); }); R.roofs.forEach(rf => mark(rf.E, R.roofs.length > 1 ? `Top of wall (${levelName(R.fl[rf.i].lv)})` : "Top of wall"));
+  if (R.roofs.some(rf => !rf.flat)) mark(R.maxY, "Top of roof");
+  marks.sort((p, q) => p[0] - q[0]); let lastTy = Infinity;
+  for (const [y, t] of marks) { const ty = Math.min(+Y(y) + 0.04, lastTy - 0.12); lastTy = ty; g.push(`<line x1="${X(A1 + 0.6)}" y1="${Y(y)}" x2="${X(A1 + 2.6)}" y2="${Y(y)}" class="dm"/><text x="${X(A1 + 2.7)}" y="${n2(ty)}" class="tl ts">${psE(t)} ${psE(fmtLen(y * FT))}</text>`); }
+  const nw = F.dir(n.x, n.y), ang = Math.atan2(-nw.y, nw.x) * 180 / Math.PI, names = ["East", "Northeast", "North", "Northwest", "West", "Southwest", "South", "Southeast"];
+  return { svg: g.join(""), name: names[((Math.round(ang / 45) % 8) + 8) % 8] };
+}
+// Roof plan seen from above: every roof, with hips, valleys and ridges where the slopes meet. B = area in building feet.
+function psRoofImg(R, B, pxft) {
+  const Wp = Math.max(2, Math.ceil((B.x1 - B.x0) * pxft)), Hp = Math.max(2, Math.ceil((B.y1 - B.y0) * pxft)), id = new Int32Array(Wp * Hp), shade = new Map(), acc = new Map(), Lt = { x: -0.45, y: -0.6, z: 0.75 };
+  for (let py = 0; py < Hp; py++) for (let px = 0; px < Wp; px++) {
+    const q = { x: B.x0 + (px + 0.5) / pxft, y: B.y0 + (py + 0.5) / pxft }; let best = -Infinity, v = 0;
+    R.roofs.forEach((rf, ri) => { if (!psRoofAt(rf, q)) return; const [h, fc] = rf.fn(q); if (h > best) { best = h; v = 5000 + ri * 100 + fc; } });
+    if (!v) continue; id[py * Wp + px] = v;
+    let A = acc.get(v); if (!A) { A = { x: 0, y: 0, n: 0, ri: Math.floor((v - 5000) / 100) }; acc.set(v, A); } A.x += q.x; A.y += q.y; A.n++;
+    if (!shade.has(v)) { const rf = R.roofs[A.ri], e = 0.05, hx = (rf.fn({ x: q.x + e, y: q.y })[0] - rf.fn({ x: q.x - e, y: q.y })[0]) / (2 * e), hy = (rf.fn({ x: q.x, y: q.y + e })[0] - rf.fn({ x: q.x, y: q.y - e })[0]) / (2 * e); shade.set(v, 0.55 + 0.45 * psShade(-hx, -hy, 1, Lt)); }
+  }
+  const c = document.createElement("canvas"); c.width = Wp; c.height = Hp; const g = c.getContext("2d"), im = g.createImageData(Wp, Hp), d = im.data;
+  for (let k = 0; k < Wp * Hp; k++) {
+    const v = id[k]; if (!v) continue; const px = k % Wp, py = (k / Wp) | 0, j = k * 4;
+    const edge = (px + 1 < Wp && id[k + 1] !== v) || (px > 0 && id[k - 1] !== v) || (py + 1 < Hp && id[k + Wp] !== v) || (py > 0 && id[k - Wp] !== v);
+    const b2 = shade.get(v), col = edge ? [23, 35, 31] : [205 * b2, 210 * b2, 207 * b2];
+    d[j] = col[0]; d[j + 1] = col[1]; d[j + 2] = col[2]; d[j + 3] = 255;
+  }
+  g.putImageData(im, 0, 0);
+  const facets = [];
+  for (const [v, A] of acc) {
+    const rf = R.roofs[A.ri], q = { x: A.x / A.n, y: A.y / A.n }, e = 0.05;
+    const hx = (rf.fn({ x: q.x + e, y: q.y })[0] - rf.fn({ x: q.x - e, y: q.y })[0]) / (2 * e), hy = (rf.fn({ x: q.x, y: q.y + e })[0] - rf.fn({ x: q.x, y: q.y - e })[0]) / (2 * e), L = Math.hypot(hx, hy);
+    facets.push({ q, n: A.n / pxft / pxft, dir: L > 0.01 ? { x: -hx / L, y: -hy / L } : null, flat: rf.flat });
+  }
+  return { url: c.toDataURL("image/png"), facets };
 }
 
 // Typical wall section through the outside wall: foundation to roof, every layer labeled.
@@ -3162,13 +3401,13 @@ function psSectionSVG(b, x0, y0, aw, ah) {
 }
 
 // The map's own drawing of one floor (or the site), on white, at a true scale.
-function psRaster(b, lv, ext, sIn, ppi, tags) {
+function psRaster(b, lv, ext, sIn, ppi, tags, opt = {}) {
   const wIn = (ext.x1 - ext.x0) / FT * sIn, hIn = (ext.y1 - ext.y0) / FT * sIn, k = 2, cw = Math.max(2, Math.round(wIn * ppi * k)), ch = Math.max(2, Math.round(hIn * ppi * k));
   const c = document.createElement("canvas"); c.width = cw; c.height = ch; const g = c.getContext("2d");
   g.fillStyle = "#FFFFFF"; g.fillRect(0, 0, cw, ch); g.setTransform(k, 0, 0, k, 0, 0);
   const save = { ctx, view: { ...view }, level: state.level, shapes: state.shapes, sel: selected, dims: state.showDims, ghost: state.ghost, nextId: state.nextId, layers: state.layers };
   try {
-    ctx = g; view.s = ppi * sIn / FT; view.x = -ext.x0 * view.s; view.y = -ext.y0 * view.s; selected = null; state.showDims = true; state.ghost = false;
+    ctx = g; view.s = ppi * sIn / FT; view.x = -ext.x0 * view.s; view.y = -ext.y0 * view.s; selected = null; state.showDims = !opt.noDims; state.ghost = false;
     if (b) {
       state.shapes = JSON.parse(JSON.stringify([b, ...state.shapes.filter(s => s.bid === b.id && s.kind !== "wallview" && s.kind !== "underlay")]));
       state.level = lv; autoDimension(state.shapes[0], lv);
@@ -3178,6 +3417,7 @@ function psRaster(b, lv, ext, sIn, ppi, tags) {
       const p = toS(t.p); g.beginPath(); g.arc(p.x, p.y, 9, 0, Math.PI * 2); g.fillStyle = "#FFFFFF"; g.fill(); g.lineWidth = 1.2; g.strokeStyle = "#17231F"; g.stroke();
       g.fillStyle = "#17231F"; g.font = '700 9px "Barlow Condensed", sans-serif'; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(t.tag, p.x, p.y + 0.5);
     }
+    if (opt.extra) opt.extra(g);
   } catch (e) { console.warn("plan drawing:", e); }
   finally { ctx = save.ctx; Object.assign(view, save.view); state.level = save.level; state.shapes = save.shapes; selected = save.sel; state.showDims = save.dims; state.ghost = save.ghost; state.nextId = save.nextId; }
   return { url: c.toDataURL("image/png"), wIn, hIn };
@@ -3238,33 +3478,38 @@ function psBuild(b) {
   fpPages.forEach(([f, R, sTxt, WL], i) => page("A-" + (2 + i), levelName(f.lv) + " plan", sTxt, `<img class="ps-img" src="${R.url}" style="left:${ax}in;top:${ay}in;width:${n2(R.wIn)}in;height:${n2(R.hIn)}in">` + svg(`<text x="${ax}" y="${n2(PH - M - 0.05)}" class="tl">${psE(levelName(f.lv))}: ${Math.round(f.area).toLocaleString()} sq ft. Circled tags (E1, I1…) match the wall framing sheets. Wall height ${psE(fmtLen(f.H * FT))}.</text>`)));
   let an = 2 + fpPages.length;
   // ---- roof plan ----
+  const RF = psRoofs(b, o);
   {
-    const topF = G.floors.reduce((a, f) => f.area > a.area + 1 ? f : a, G.floors[0]), P = topF.P, ov = +o.over / 12, RP = offsetPoly(P, -ov), B = bbox(RP), [s, sTxt] = psPick(B.x1 - B.x0 + 8, B.y1 - B.y0 + 8, aw * 0.7, ah - 0.4, PS_ARCH);
-    const X = v => n2(ax + 0.3 + (v - B.x0 + 4) * s), Y = v => n2(ay + 0.3 + (v - B.y0 + 4) * s), pl = Q => Q.map(q => X(q.x) + "," + Y(q.y)).join(" "), g = [];
-    g.push(`<polygon points="${pl(RP)}" class="fo"/><polygon points="${pl(P)}" class="ftd"/>`);
-    const rect = matRect(P), shape = !rect && o.roof !== "flat" ? "hip" : o.roof;
-    if (rect) {
-      let [A, Bp, C, D] = RP; if (dist(A, Bp) < dist(Bp, C)) [A, Bp, C, D] = [Bp, C, D, A];
-      const mid = (p, q) => ({ x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 }), Ra = mid(D, A), Rb = mid(Bp, C), Lr = dist(A, Bp), Wr = dist(Bp, C), u = unit(A, Bp);
-      const ts = post ? +o.tsp : o.rframe === "truss" ? 2 : 16 / 12, n = Math.floor((Lr - 2 * ov) / ts + 1e-6);
-      for (let j = 0; j <= n; j++) { const t = ov + j * ts; const p = { x: A.x + u.x * t, y: A.y + u.y * t }, q = { x: D.x + u.x * t, y: D.y + u.y * t }; g.push(`<line x1="${X(p.x)}" y1="${Y(p.y)}" x2="${X(q.x)}" y2="${Y(q.y)}" class="tl2"/>`); }
-      if (shape === "gable") g.push(`<line x1="${X(Ra.x)}" y1="${Y(Ra.y)}" x2="${X(Rb.x)}" y2="${Y(Rb.y)}" class="rg"/>`);
-      if (shape === "hip") { const r1 = { x: Ra.x + u.x * Wr / 2, y: Ra.y + u.y * Wr / 2 }, r2 = { x: Rb.x - u.x * Wr / 2, y: Rb.y - u.y * Wr / 2 }; g.push(`<line x1="${X(r1.x)}" y1="${Y(r1.y)}" x2="${X(r2.x)}" y2="${Y(r2.y)}" class="rg"/>`); for (const [c1, rr] of [[A, r1], [D, r1], [Bp, r2], [C, r2]]) g.push(`<line x1="${X(c1.x)}" y1="${Y(c1.y)}" x2="${X(rr.x)}" y2="${Y(rr.y)}" class="rg"/>`); }
-      g.push(`<text x="${X((A.x + Ra.x) / 2 + (Rb.x - Ra.x) / 2)}" y="${Y((A.y + Ra.y) / 2 + (Rb.y - Ra.y) / 2)}" class="tc tb">${shape === "flat" ? "Low slope" : o.pitch + "/12 ↓"}</text>`);
-    } else g.push(`<text x="${X((B.x0 + B.x1) / 2)}" y="${Y((B.y0 + B.y1) / 2)}" class="tc tb">Hip roof, ${psE(o.pitch)}/12, follows the outline (truss package by the supplier)</text>`);
+    const B0 = bbox(RF.roofs.flatMap(r => r.out).concat(G.floors.flatMap(f => f.P)));
+    const [s, sTxt] = psPick(B0.x1 - B0.x0 + 8, B0.y1 - B0.y0 + 8, aw * 0.7, ah - 0.4, PS_ARCH);
+    const X = v => n2(ax + 0.3 + (v - B0.x0 + 4) * s), Y = v => n2(ay + 0.3 + (v - B0.y0 + 4) * s), pl = Q => Q.map(q => X(q.x) + "," + Y(q.y)).join(" "), g = [];
+    const img = psRoofImg(RF, B0, Math.min(30, s * 160));
+    g.push(`<image href="${img.url}" x="${X(B0.x0)}" y="${Y(B0.y0)}" width="${n2((B0.x1 - B0.x0) * s)}" height="${n2((B0.y1 - B0.y0) * s)}" preserveAspectRatio="none"/>`);
+    for (const f of G.floors) g.push(`<polygon points="${pl(f.P)}" class="ftd"/>`);
+    if (RF.roofs.length === 1 && matRect(RF.roofs[0].P) && !RF.roofs[0].flat) {   // trusses or rafters over one rectangular roof
+      let [A, Bp, C, D] = RF.roofs[0].out; if (dist(A, Bp) < dist(Bp, C)) [A, Bp, C, D] = [Bp, C, D, A];
+      const Lr = dist(A, Bp), u = unit(A, Bp), ts = post ? +o.tsp : o.rframe === "truss" ? 2 : 16 / 12, ov = RF.ov, n = Math.floor((Lr - 2 * ov) / ts + 1e-6);
+      for (let j = 0; j <= n; j++) { const t = ov + j * ts, p = { x: A.x + u.x * t, y: A.y + u.y * t }, q = { x: D.x + u.x * t, y: D.y + u.y * t }; g.push(`<line x1="${X(p.x)}" y1="${Y(p.y)}" x2="${X(q.x)}" y2="${Y(q.y)}" class="tl2"/>`); }
+    }
+    for (const fc of img.facets) {
+      if (fc.n < 12) continue;
+      const x = +X(fc.q.x), y = +Y(fc.q.y);
+      g.push(`<text x="${n2(x)}" y="${n2(y - 0.06)}" class="tc tb">${fc.flat ? "Low slope" : psE(o.pitch) + "/12"}</text>`);
+      if (fc.dir) { const L = 0.32, ex = x + fc.dir.x * L, ey = y + fc.dir.y * L, hx = -fc.dir.x * 0.07, hy = -fc.dir.y * 0.07; g.push(`<line x1="${n2(x)}" y1="${n2(y)}" x2="${n2(ex)}" y2="${n2(ey)}" class="dm"/><polygon points="${n2(ex)},${n2(ey)} ${n2(ex + hx - hy * 0.6)},${n2(ey + hy + hx * 0.6)} ${n2(ex + hx + hy * 0.6)},${n2(ey + hy - hx * 0.6)}" class="na"/>`); }
+    }
     const { S } = matList(b), rs = S.find(x => x.title === "Roof framing"), rn = S.find(x => x.title === (post ? "Roofing" : "Roof sheathing and roofing")), nx = ax + aw * 0.72;
-    const notes = [...(rs ? rs.rows : []), ...(rn ? rn.rows : [])].map(r => `${r[0]}: ${typeof r[1] === "number" ? r[1].toLocaleString() : r[1]} ${r[2]}`);
-    page("A-" + an++, "Roof plan", sTxt, svg(g.join("") + `<text x="${n2(nx)}" y="${n2(ay + 0.3)}" class="tl tb">Roof</text>` + notes.slice(0, 22).map((t, i) => `<text x="${n2(nx)}" y="${n2(ay + 0.6 + i * 0.25)}" class="tl">• ${psE(t.length > Math.floor(aw * 0.27 / 0.05) ? t.slice(0, Math.floor(aw * 0.27 / 0.05) - 1) + "…" : t)}</text>`).join("") + `<text x="${n2(nx)}" y="${n2(ay + 0.6 + Math.min(22, notes.length) * 0.25 + 0.2)}" class="tl">Dashed line: outside of the walls. Thin lines: ${post ? "trusses" : o.rframe === "truss" ? "trusses @ 24\"" : "rafters @ 16\""}.</text>`));
+    const notes = [...(rs ? rs.rows : []), ...(rn ? rn.rows : [])].map(r => `${r[0]}: ${typeof r[1] === "number" ? r[1].toLocaleString() : r[1]} ${r[2]}`), mc = Math.floor(aw * 0.27 / 0.05);
+    const more = RF.roofs.length > 1 ? ` ${RF.roofs.length} roofs: each floor with open sky above gets its own roof at its wall height.` : "";
+    page("A-" + an++, "Roof plan", sTxt, svg(g.join("") + `<text x="${n2(nx)}" y="${n2(ay + 0.3)}" class="tl tb">Roof</text>` + notes.slice(0, 22).map((t, i) => `<text x="${n2(nx)}" y="${n2(ay + 0.6 + i * 0.25)}" class="tl">• ${psE(t.length > mc ? t.slice(0, mc - 1) + "…" : t)}</text>`).join("") + `<text x="${ax}" y="${n2(PH - M - 0.05)}" class="tl ts">Dark lines: ridges, hips and valleys where the slopes meet. Arrows point downhill. Dashed: outside of the walls on each floor.${RF.roofs.length === 1 && matRect(RF.roofs[0].P) && !RF.roofs[0].flat ? ` Thin lines: ${post ? "trusses" : o.rframe === "truss" ? "trusses @ 24\"" : "rafters @ 16\""}.` : ""}${more} Material counts cover the biggest floor's roof.</text>`));
   }
   // ---- elevations, two to a sheet ----
   {
-    const dirs = [{ x: 0, y: 1 }, { x: 0, y: -1 }, { x: 1, y: 0 }, { x: -1, y: 0 }];
-    const E0 = dirs.map(n => psElevSVG(b, n, 1, 0, 0, o)), wMax = Math.max(...E0.map(e => e.w)), hMax = Math.max(...E0.map(e => e.h));
+    const dirs = [{ x: 0, y: 1 }, { x: 0, y: -1 }, { x: 1, y: 0 }, { x: -1, y: 0 }], Z = dirs.map(n => psElevSize(RF, n)), wMax = Math.max(...Z.map(e => e.w)), hMax = Math.max(...Z.map(e => e.h));
     const [s, sTxt] = psPick(wMax, hMax, aw, ah / 2 - 0.45, PS_ARCH);
     for (let i = 0; i < 4; i += 2) {
       let body = "";
       for (let j = 0; j < 2; j++) {
-        const n = dirs[i + j], yb = ay + (j + 1) * ah / 2 - 0.35 - (G.bsmt || o.found !== "slab" ? (o.found === "bsmt" ? 8 : 5) * s : 0), e = psElevSVG(b, n, s, ax + 0.2, yb, o);
+        const n = dirs[i + j], yb = ay + (j + 1) * ah / 2 - 0.35 - Z[i + j].fd * s, e = psElevSVG(b, RF, n, s, ax + 0.2, yb);
         body += e.svg + `<text x="${n2(ax + 0.2)}" y="${n2(ay + j * ah / 2 + 0.25)}" class="tl tb">${psE(e.name)} elevation</text>`;
       }
       page("A-" + an++, "Elevations", sTxt, svg(body));
@@ -3293,16 +3538,54 @@ function psBuild(b) {
       const studIn = o.stud.replace("x", "×"), oc = +o.oc / 12, plies = o.stud === "2x6" ? 3 : 2;
       const maxL = Math.max(...items.map(([, w]) => w.L)), [s, sTxt] = psPick(maxL + 1, 1, aw - 0.3, ah, PS_ARCH.slice(2));
       let pg = null, x = 0, y = 0, rowH = 0, sn = 1, lastLv = null;
-      const flush = () => { if (pg) page("S-" + sn++, "Wall framing", sTxt, svg(pg)); pg = ""; x = 0; y = 0; rowH = 0; };
+      const foot = `<text x="${ax}" y="${n2(PH - M - 0.05)}" class="tl ts">Orange studs were added or moved in the wall view. Boxes are outlets and fixtures (codes on the E and P sheets) with their height to center; dashed = on the far side of the wall. Rings = holes to drill.</text>`;
+      const flush = () => { if (pg) page("S-" + sn++, "Wall framing", sTxt, svg(pg + foot)); pg = ""; x = 0; y = 0; rowH = 0; };
       flush(); pg = "";
       for (const [f, w] of items) {
         const wi = Math.max(w.L * s + 0.5, (ord.length > 1 ? 66 : 52) * 0.058 + 0.3), hi = w.H * s + 0.85;
         if (x > 0 && x + wi > aw) { x = 0; y += rowH; rowH = 0; }
         if (y + hi > ah) { flush(); }
-                pg += psFrameSVG({ ...w, lvName: ord.length > 1 ? levelName(f.lv) : "" }, w.ext ? oc : 16 / 12, studIn, plies, s, ax + x + 0.15, ay + y + 0.4 + w.H * s);
+                pg += psFrameSVG({ ...w, lvName: ord.length > 1 ? levelName(f.lv) : "" }, plies, s, ax + x + 0.15, ay + y + 0.4 + w.H * s, w.ext ? studIn : "2×4");
         x += wi; rowH = Math.max(rowH, hi);
       }
       flush();
+    }
+  }
+  // ---- electrical and plumbing plans ----
+  for (const [kind, pre, title] of [["elec", "E-", "electrical"], ["plumb", "P-", "plumbing"]]) {
+    let sn = 1;
+    for (const f of ord) {
+      const WL = psWalls(b, f.lv), mine = it => it.run ? (it.type === "wire") === (kind === "elec") : it.layer === kind;
+      const items = WL.walls.flatMap(w => w.items.filter(mine).map(it => [w, it])); if (!items.length) continue;
+      const pts = state.shapes.filter(s => s.bid === b.id && (s.level === f.lv || s.kind === "building")).flatMap(s => s.points).concat(b.points);
+      const B = bbox(pts), pad = 6 * FT, ext = { x0: B.x0 - pad, y0: B.y0 - pad, x1: B.x1 + pad, y1: B.y1 + pad };
+      const [sIn, sTxt] = psPick((ext.x1 - ext.x0) / FT, (ext.y1 - ext.y0) / FT, aw * 0.72, ah - 0.5, PS_ARCH);
+      const col = kind === "elec" ? "#B86E00" : "#1F5FBF";
+      const R = psRaster(b, f.lv, ext, sIn, 100, null, { noDims: true, extra: g => {
+        g.save(); g.globalAlpha = 1;
+        for (const [w, it] of items.filter(([, it]) => it.run)) { const L = psRunPts(w, it); if (!L) continue; const a = toS(F.toW(L[0])), c = toS(F.toW(L[1])); g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(c.x, c.y); g.strokeStyle = PS_RUNC[it.type]; g.lineWidth = it.type === "drain" ? 3.5 : 2.2; g.setLineDash(it.type === "wire" ? [6, 4] : it.type === "vent" ? [3, 3] : []); g.stroke(); }
+        g.setLineDash([]);
+        for (const [w, it] of items.filter(([, it]) => !it.run)) {
+          const p = toS(F.toW(psItemPt(w, it))), code = PS_CODES[it.type] || "?";
+          g.beginPath(); if (kind === "elec") g.arc(p.x, p.y, 8, 0, Math.PI * 2); else g.rect(p.x - 8, p.y - 8, 16, 16);
+          g.fillStyle = "#FFFFFF"; g.fill(); g.lineWidth = 1.4; g.strokeStyle = col; g.stroke();
+          g.fillStyle = col; g.font = `700 ${code.length > 2 ? 6.5 : 8}px "Barlow Condensed", sans-serif`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(code, p.x, p.y + 0.5);
+        }
+        g.restore();
+      } });
+      const by = new Map(), runs = new Map();
+      for (const [, it] of items) {
+        if (it.run) { const k = it.type + "|" + runSize(it); let L = 0; for (let i = 1; i < it.pts.length; i++) L += Math.hypot(it.pts[i].t - it.pts[i - 1].t, it.pts[i].y - it.pts[i - 1].y); runs.set(k, (runs.get(k) || 0) + L); }
+        else { const r = by.get(it.type) || { n: 0, ys: [] }; r.n++; r.ys.push(it.cy); by.set(it.type, r); }
+      }
+      const med = a => { const v = [...a].sort((x, y) => x - y); return v[Math.floor(v.length / 2)]; };
+      const sym = code => kind === "elec" ? `<span class="ps-sym e">${psE(code)}</span>` : `<span class="ps-sym p">${psE(code)}</span>`;
+      const rowsH = [...by].map(([ty, r]) => `<tr><td>${sym(PS_CODES[ty] || "?")}</td><td>${psE(WV_ITEMS[kind][ty] ? WV_ITEMS[kind][ty][0] : ty)}</td><td class="r">${r.n}</td><td class="r">${psE(fmtLen(med(r.ys) * FT))}</td></tr>`).join("")
+        + [...runs].map(([k, L]) => { const [ty, sz] = k.split("|"); return `<tr><td><span class="ps-run" style="border-color:${PS_RUNC[ty]};border-top-style:${ty === "wire" ? "dashed" : "solid"}"></span></td><td>${psE(WV_RUNS[ty][0])} ${psE(ty === "wire" ? sz : (WV_SIZES[ty].find(x => x[0] == sz) || [0, sz + "″"])[1])}</td><td class="r" colspan="2">${Math.round(L)} ft drawn</td></tr>`; }).join("");
+      const notes = kind === "elec" ? ["Heights are from the floor to the center of the box.", "Wires show only what is drawn in the wall views. Circuits and runs back to the panel are up to your electrician.", "Electrical work needs its own permit and inspection (in Minnesota, usually through the Department of Labor and Industry).", "GFCI outlets in bathrooms, kitchen counters, laundry, garage and outside; AFCI breakers for most living areas."]
+        : ["Heights are from the floor to the center of the fixture rough-in.", "Pipes show only what is drawn in the wall views; runs back to the water heater, main and drain are up to your plumber.", "Drain lines slope ¼″ per foot toward the main drain; every fixture needs a trap and a vent.", "Plumbing needs a permit and rough-in inspection before the walls are closed."];
+      const lx = ax + aw * 0.75, lw = aw * 0.25;
+      page(pre + sn++, levelName(f.lv) + " " + title, sTxt, `<img class="ps-img" src="${R.url}" style="left:${ax}in;top:${ay}in;width:${n2(R.wIn)}in;height:${n2(R.hIn)}in"><div class="ps-html" style="left:${n2(lx)}in;top:${ay}in;width:${n2(lw)}in;height:${n2(ah)}in"><h3>${kind === "elec" ? "Electrical" : "Plumbing"} legend</h3><table class="ps-tbl"><thead><tr><th></th><th>Item</th><th>Qty</th><th>Height</th></tr></thead><tbody>${rowsH}</tbody></table><ul class="ps-notes">${notes.map(t => `<li>${psE(t)}</li>`).join("")}</ul></div>`);
     }
   }
   // ---- material list ----
@@ -3324,6 +3607,7 @@ function psBuild(b) {
     const area0 = G.floors.reduce((a, f) => a + f.area, 0);
     const info = [["Project", proj], ["Structure", b.name], ["Type", post ? "Post-frame (pole barn)" : "Stick-framed"], ["Floors", G.floors.map(f => `${levelName(f.lv)} ${Math.round(f.area).toLocaleString()} sq ft`).join(" · ")], ["Total floor area", Math.round(area0).toLocaleString() + " sq ft"], ["Walls", post ? `${o.eave} ft posts @ ${o.poc} ft` : `${o.stud.replace("x", "×")} @ ${o.oc}" o.c., ${G.floors.map(f => fmtLen(f.H * FT)).join(" / ")}`], ["Foundation", post ? (o.pfoot === "pad" ? "Poured pads and collars" : "Precast pier pads") + ", 4½ ft deep" : ((MAT_OPTS.flatMap(g2 => g2[1]).find(x => x[0] === "found") || [0, 0, []])[2].find(x => x[0] === o.found) || ["", ""])[1]], ["Roof", `${o.roof}, ${o.pitch}/12, ${o.over}" overhang`]];
     const notes = ["Build to the current Minnesota Residential Code (IRC) and energy code, and any county rules. These drawings don't replace an engineer or the building official.", "Check every dimension on site before cutting or ordering. Written dimensions beat scaled ones.", "Frost depth: footings at least 60\" below grade in northern Minnesota (check your county).", "Truss drawings come from the truss supplier; follow their bracing details.", "Headers shown are typical for one-story bearing walls; check them for snow load (about 60 psf ground snow in Carlton County) and anything above.", "All lumber touching concrete or the ground is pressure-treated; use hot-dip or stainless fasteners in treated wood.", "Windows: flash with tape, bottom then sides then top. Bedrooms need an egress window."];
+    if (!mepCount(b).any) notes.push("No outlets, fixtures, wires or pipes are drawn yet. Add them in each wall's wall view (designer > a wall > Wall view) to get electrical and plumbing sheets and counts.");
     pages[0].body = `<div class="ps-html" style="left:${ax}in;top:${ay}in;width:${n2(aw)}in;height:${n2(ah)}in"><h1 class="ps-h1">${psE(b.name)}</h1><p class="ps-sub">${psE(proj)} · plan set printed ${psE(date)}</p>
       <div class="ps-cov"><div><h3>About this building</h3><table class="ps-tbl">${info.map(([k2, v]) => `<tr><th>${psE(k2)}</th><td>${psE(v)}</td></tr>`).join("")}</table><h3>General notes</h3><ol class="ps-notes">${notes.map(t => `<li>${psE(t)}</li>`).join("")}</ol></div>
       <div><h3>Sheets</h3><table class="ps-tbl">${pages.map(p => `<tr><td>${psE(p.no)}</td><td>${psE(p.title)}</td></tr>`).join("")}</table></div></div></div>`;
@@ -5104,11 +5388,14 @@ function wvMoveOpening(o, t) {   // put the opening's center at t on this wall, 
   if (o.ref.type === "free") { const d = (c.x - o.cx) * o.ux + (c.y - o.cy) * o.uy; o.cx += o.ux * d; o.cy += o.uy * d; }
   else { const L = lineOf(o.ref); if (L) { const len = Math.hypot(L.x2 - L.x1, L.y2 - L.y1); o.along = Math.max(o.w / 2, Math.min(len - o.w / 2, projAlong(L, c))); } }
 }
-// Studs, plates, headers, sills and cripples for this wall (view feet). Each: {x, y, w, h, kind, t?}
-function wvFraming() {
-  const { v } = wv, fr = wvFrame(), H = dz.wallH, P = WI(1.5), out = [];
-  const lo = fr.lo, hi = fr.hi, oc = WI(v.oc || 16), ops = wvOpenings().map(q => ({ a: q.t - q.w / 2, b: q.t + q.w / 2, ...q }));
-  const rect = (t0, t1, y0, y1, kind, t) => { const x0 = fr.x(t0), x1 = fr.x(t1); out.push({ x: Math.min(x0, x1), w: Math.abs(x1 - x0), y: y0, h: y1 - y0, kind, t }); };
+// Header for an opening width (feet): [name, depth in inches]. Same rule in the wall view, material list and plan set.
+const hdrSize = w => w <= 3 ? ["2×6", 5.5] : w <= 4.5 ? ["2×8", 7.25] : w <= 6 ? ["2×10", 9.25] : w <= 8 ? ["2×12", 11.25] : ["LVL 1¾×11⅞", 11.875];
+// Studs, plates, headers, sills and cripples along one wall line, from lo to hi (feet along the line), wall height H.
+// v = wall view record ({oc, layFrom, studAdd, studDel}); ops = [{t, w, sill, head}]. Each piece: {t0, t1, y, h, kind, t?}
+function framingAlong(v, lo, hi, H, ops) {
+  const P = WI(1.5), out = [], oc = WI(v.oc || 16);
+  ops = ops.map(q => ({ a: q.t - q.w / 2, b: q.t + q.w / 2, ...q }));
+  const rect = (t0, t1, y0, y1, kind, t) => out.push({ t0: Math.min(t0, t1), t1: Math.max(t0, t1), y: y0, h: y1 - y0, kind, t });
   rect(lo, hi, 0, P, "plate"); rect(lo, hi, H - 2 * P, H - P, "plate"); rect(lo, hi, H - P, H, "plate");
   const top = H - 2 * P, near = (t, list, d) => list.some(x => Math.abs(x - t) < d);
   let lay = [];
@@ -5121,19 +5408,24 @@ function wvFraming() {
     const inOp = ops.find(q => t > q.a - P * 2 && t < q.b + P * 2);
     if (!inOp) { rect(t - P / 2, t + P / 2, P, top, kind, t); continue; }
     if (t > inOp.a && t < inOp.b) {   // cripples above the header and under a window's sill
-      const hdr = inOp.head + (inOp.w <= 4 ? WI(7.25) : inOp.w <= 6 ? WI(9.25) : WI(11.25));
+      const hdr = inOp.head + WI(hdrSize(inOp.w)[1]);
       if (hdr < top - WI(2)) rect(t - P / 2, t + P / 2, hdr, top, "cripple", t);
       if (inOp.sill > WI(4)) rect(t - P / 2, t + P / 2, P, inOp.sill - P, "cripple", t);
     }
   }
   for (const q of ops) {
-    const hd = Math.min(q.w <= 4 ? WI(7.25) : q.w <= 6 ? WI(9.25) : WI(11.25), top - q.head);
+    const hd = Math.min(WI(hdrSize(q.w)[1]), top - q.head);
     rect(q.a - 2 * P, q.a - P, P, top, "king"); rect(q.b + P, q.b + 2 * P, P, top, "king");
     rect(q.a - P, q.a, P, q.head, "jack"); rect(q.b, q.b + P, P, q.head, "jack");
     if (hd > 0) rect(q.a - P, q.b + P, q.head, q.head + hd, "header");
     if (q.sill > WI(4)) rect(q.a, q.b, q.sill - P, q.sill, "sill");
   }
   return out;
+}
+// Studs, plates, headers, sills and cripples for this wall (view feet). Each: {x, y, w, h, kind, t?}
+function wvFraming() {
+  const fr = wvFrame();
+  return framingAlong(wv.v, fr.lo, fr.hi, dz.wallH, wvOpenings()).map(r => { const x0 = fr.x(r.t0), x1 = fr.x(r.t1); return { x: Math.min(x0, x1), w: Math.abs(x1 - x0), y: r.y, h: r.h, kind: r.kind, t: r.t }; });
 }
 function wvResize() {
   const r = wvc.parentElement.getBoundingClientRect(), pr = window.devicePixelRatio || 1;
