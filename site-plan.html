@@ -218,7 +218,9 @@ dialog::backdrop{background:rgba(5,10,8,.55)}
 .roadpick select{background:#EEF3F1;color:#17231F;border:0;border-radius:999px;padding:5px 10px;font-weight:600}
 .readout{position:absolute;left:12px;bottom:16px;background:rgba(13,23,20,.86);color:#EEF3F1;padding:7px 12px;border-radius:8px;
   font-family:"Barlow Condensed",sans-serif;font-size:16px;font-weight:600;pointer-events:none}
-dialog.dz{width:min(1200px,96vw);height:min(840px,94vh);max-width:none;max-height:none}
+dialog.dz{width:100vw;height:100vh;height:100dvh;max-width:none;max-height:none;margin:0;border-radius:0;border:0}
+.dz-zoom{bottom:12px}
+.dz-zoom button{box-shadow:0 2px 10px rgba(0,0,0,.25)}
 .dz-wrap{display:flex;flex-direction:column;height:100%}
 .dz-head{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
 .dz-head h2{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:22px;margin:0;flex:1;min-width:180px}
@@ -239,12 +241,13 @@ dialog.dz{width:min(1200px,96vw);height:min(840px,94vh);max-width:none;max-heigh
 .dz-tools .chips button[aria-pressed="true"]{background:var(--flag);color:var(--flag-ink)}
 .dz-tools [hidden]{display:none !important}
 .dz-tools select{background:rgba(247,249,248,.95);color:#17231F;border:0;border-radius:999px;padding:7px 12px;font-weight:500}
-.dz-hint{position:absolute;left:12px;bottom:12px;background:rgba(13,23,20,.86);color:#EEF3F1;padding:6px 12px;border-radius:999px;font-size:13px;pointer-events:none;max-width:calc(100% - 24px)}
+.dz-hint{position:absolute;left:12px;bottom:12px;background:rgba(13,23,20,.86);color:#EEF3F1;padding:6px 12px;border-radius:999px;font-size:13px;pointer-events:none;max-width:calc(100% - 80px)}
 .check{display:flex;align-items:center;gap:8px;font-weight:500}
 .check input{width:18px;height:18px;accent-color:var(--flag)}
 @media (max-width:760px){
   .dz-body{grid-template-columns:1fr;grid-template-rows:55% 45%}
   .dz-stage{order:1}.dz-side{order:2;border-right:0;border-top:1px solid var(--line)}
+  .dz-hint{font-size:12px;line-height:1.3;border-radius:12px;padding:5px 10px}
 }
 @media (max-width:760px){
   .layers{left:12px;right:12px;width:auto;max-height:70%}
@@ -275,7 +278,6 @@ dialog.dz{width:min(1200px,96vw);height:min(840px,94vh);max-width:none;max-heigh
   .hint{top:8px;font-size:13px;line-height:1.35;padding:6px 12px;border-radius:14px;max-width:calc(100% - 16px)}
   .roadpick{top:var(--pick-top,56px);max-width:calc(100% - 16px);font-size:13px}
   .roadpick select{min-width:0;max-width:100%}
-  dialog.dz{width:100vw;height:100dvh;margin:0;border-radius:0}
   .dz-head{padding:8px 10px;gap:6px}
   .dz-head h2{flex:1 1 100%;font-size:18px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .dz-head select{flex:1;min-width:0}
@@ -590,6 +592,11 @@ dialog.dz{width:min(1200px,96vw);height:min(840px,94vh);max-width:none;max-heigh
           <select id="dz-wth" aria-label="New wall type"><option value="4.5">2×4 wall (4½″)</option><option value="6.5">2×6 wall (6½″)</option><option value="3.5">2×4 flat / half wall (3½″)</option><option value="8">8″ block</option></select>
         </div>
         <div class="dz-hint" id="dz-hint"></div>
+        <div class="zoom dz-zoom">
+          <button id="dz-zin" aria-label="Zoom in" title="Zoom in">+</button>
+          <button id="dz-zout" aria-label="Zoom out" title="Zoom out">−</button>
+          <button id="dz-zfit" aria-label="Show the whole building" title="Show the whole building"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+        </div>
       </div>
     </div>
   </div>
@@ -2161,7 +2168,7 @@ function parseLen(str) {
 }
 const fl = v => fmtLen(v * FT);
 const DZ_HINTS = {
-  move: "Drag a room or wall to move it. Drag edges, corners or wall ends to resize. Everything snaps to walls and edges.",
+  move: "Drag a room or wall to move it. Drag edges, corners or wall ends to resize. Drag empty space to pan; scroll or pinch to zoom.",
   rect: "Drag from one corner to the opposite corner to draw a rectangle, then name it.",
   wall: "Drag to draw a wall, or click its start and end. Walls stay straight; hold Shift for any angle.",
   open: "Click any wall, inside or outside, to add the opening. Then drag it along the wall to position it.",
@@ -2224,11 +2231,11 @@ function dzSetTool(t) {
   dzDraw();
 }
 function openDesigner(b, keep) {
-  const prev = keep && dz ? { drafts: dz.drafts, nid: dz.nid, F: dz.F, tool: dz.tool, openType: dz.openType, openW: dz.openW, rot: dz.rot, rotC: dz.rotC } : null;
+  const prev = keep && dz ? { drafts: dz.drafts, nid: dz.nid, F: dz.F, tool: dz.tool, openType: dz.openType, openW: dz.openW, rot: dz.rot, rotC: dz.rotC, view: dz.view } : null;
   const F = prev ? prev.F : buildingFrame(b), lv = state.level, ext = state.shapes.find(s => s.bid === b.id && s.level === lv && s.kind === "wall" && s.closed);
   const t = ext ? ext.thickness / FT : 6.5 / 12;
   const poly = ext ? offsetPoly(orientPoly(ext.points.map(F.toL)), -t / 2) : orientPoly(b.points.map(F.toL));
-  dz = { b, lv, F, t, poly, drafts: prev ? prev.drafts : {}, rot: prev ? prev.rot : 0, rotC: prev ? prev.rotC : null, ox: 0, oy: 0, W: 0, D: 0, rooms: [], walls: [], opens: [], openType: "door", openW: 36, sel: null, snap: +$("dz-snap").value || 0.5, nid: prev ? prev.nid : 1, tool: "move", wallTh: +$("dz-wth").value / 12 };
+  dz = { b, lv, F, t, poly, drafts: prev ? prev.drafts : {}, rot: prev ? prev.rot : 0, rotC: prev ? prev.rotC : null, ox: 0, oy: 0, W: 0, D: 0, rooms: [], walls: [], opens: [], openType: "door", openW: 36, sel: null, snap: +$("dz-snap").value || 0.5, nid: prev ? prev.nid : 1, tool: "move", wallTh: +$("dz-wth").value / 12, view: prev ? prev.view : null };
   syncBox();
   for (const r of state.shapes.filter(s => s.bid === b.id && s.level === lv && s.kind === "room" && !["fixture", "porch"].includes(s.style))) {
     const B = bbox(r.points.map(F.toL));
@@ -2325,10 +2332,22 @@ function dzResize() {
   dW = r.width; dH = r.height; dzc.width = Math.round(dW * pr); dzc.height = Math.round(dH * pr); dzc.style.width = dW + "px"; dzc.style.height = dH + "px";
   dctx.setTransform(pr, 0, 0, pr, 0, 0); dzDraw();
 }
+// The view fits the whole building until you zoom or pan; then dz.view {k, x, y} holds it (Fit clears it).
+function dzFitK() { const pad = 50, mg = 6; return Math.min((dW - pad * 2) / Math.max(dz.W + mg * 2, 1), (dH - pad * 2 - 30) / Math.max(dz.D + mg * 2, 1)); }
 function dzView() {
-  const pad = 50, mg = 6; dk = Math.min((dW - pad * 2) / Math.max(dz.W + mg * 2, 1), (dH - pad * 2 - 30) / Math.max(dz.D + mg * 2, 1));
+  if (dz.view) { dk = dz.view.k; dox = dz.view.x; doy = dz.view.y; return; }
+  dk = dzFitK();
   dox = (dW - dz.W * dk) / 2 - dz.ox * dk; doy = (dH - dz.D * dk) / 2 + 15 - dz.oy * dk;
 }
+function dzZoomAt(f, sx, sy) {
+  if (!dz) return; dzView();
+  const fit = dzFitK(), k = Math.max(fit * 0.5, Math.min(fit * 25, dk * f)); f = k / dk;
+  dz.view = { k, x: sx - (sx - dox) * f, y: sy - (sy - doy) * f }; dzDraw();
+}
+function dzPanBy(dx, dy) { if (!dz) return; dzView(); dz.view = { k: dk, x: dox + dx, y: doy + dy }; dzDraw(); }
+$("dz-zin").onclick = () => dzZoomAt(1.4, dW / 2, dH / 2);
+$("dz-zout").onclick = () => dzZoomAt(1 / 1.4, dW / 2, dH / 2);
+$("dz-zfit").onclick = () => { if (dz) { dz.view = null; dzDraw(); } };
 const dS = (x, y) => ({ x: x * dk + dox, y: y * dk + doy });
 function overlaps(a, b) { const w = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x), h = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y); return w > 0.1 && h > 0.1; }
 function dzDrawWall(w, col, dash, ext) {
@@ -2457,8 +2476,31 @@ function dzCommitWall() {
   const w = { id: dz.nid++, x1: d.x1, y1: d.y1, x2: d.x2, y2: d.y2, th: dz.wallTh };
   dz.walls.push(w); dz.sel = w.id; dzSelFields(); dzDraw();
 }
+// Pan and zoom: two fingers pinch and pan, the wheel zooms at the pointer, and dragging empty space,
+// the middle mouse button, or Space + drag pans.
+const dzPtrs = new Map(); let dzPinch = null, dzSpace = false;
+function dzScreen(e) { const r = dzc.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+function dzUndoDrag() {   // a second finger landed: put back what the first one started moving
+  if (!dDrag) return;
+  if ((dDrag.mode === "move" || dDrag.mode === "size") && dDrag.o) Object.assign(dDrag.r, dDrag.o);
+  if (dDrag.mode === "wmove") Object.assign(dDrag.w, dDrag.o);
+  if (dDrag.mode === "ext") { dz.poly = dDrag.o; syncBox(); }
+  dDrag = null; dz.rdraft = null; if (dz.wdraft && !dz.wdraft.waiting) dz.wdraft = null;
+}
+dzc.addEventListener("wheel", e => { if (!dz) return; e.preventDefault(); const p = dzScreen(e); dzZoomAt(Math.exp(-e.deltaY * 0.0015), p.x, p.y); }, { passive: false });
+document.addEventListener("keydown", e => { if (e.code === "Space" && dz && $("designer").open && !/INPUT|SELECT|TEXTAREA|BUTTON/.test(document.activeElement.tagName)) { dzSpace = true; e.preventDefault(); } });
+document.addEventListener("keyup", e => { if (e.code === "Space") dzSpace = false; });
 dzc.addEventListener("pointerdown", e => {
   if (!dz) return; dzc.setPointerCapture(e.pointerId);
+  dzPtrs.set(e.pointerId, dzScreen(e));
+  if (dzPtrs.size === 2) {
+    dzUndoDrag(); dzView();
+    const [a, b] = [...dzPtrs.values()];
+    dzPinch = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, k: dk, x: dox, y: doy };
+    dzSelFields(); dzDraw(); return;
+  }
+  if (dzPtrs.size > 2) return;
+  if (e.button === 1 || dzSpace) { e.preventDefault(); dDrag = { mode: "pan", last: dzScreen(e) }; return; }
   const p = dzLocal(e);
   if (dz.tool === "rect") { const s = dzSnapPt(p, null, e.shiftKey); dDrag = { mode: "rect", start: s }; dz.rdraft = { x: s.x, y: s.y, w: 0, h: 0 }; return; }
   if (dz.tool === "wall") {
@@ -2485,11 +2527,20 @@ dzc.addEventListener("pointerdown", e => {
   if (eHit) { dz.sel = eHit.id; dDrag = { mode: "ext", idx: eHit.idx, o: dz.poly.map(q => ({ ...q })) }; dzSelFields(); dzDraw(); return; }
   const hits = dz.rooms.filter(r => p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h).sort((a, b) => a.w * a.h - b.w * b.h);
   if (hits.length) { dz.sel = hits[0].id; dDrag = { mode: "move", r: hits[0], start: p, o: { ...hits[0] } }; }
-  else { dz.sel = null; dDrag = null; }
+  else { dz.sel = null; dDrag = { mode: "pan", last: dzScreen(e) }; }
   dzSelFields(); dzDraw();
 });
 dzc.addEventListener("pointermove", e => {
   if (!dz) return;
+  if (dzPtrs.has(e.pointerId)) dzPtrs.set(e.pointerId, dzScreen(e));
+  if (dzPinch) {
+    if (dzPtrs.size < 2) return;
+    const [a, b] = [...dzPtrs.values()], P = dzPinch, fit = dzFitK();
+    const k = Math.max(fit * 0.5, Math.min(fit * 25, P.k * Math.hypot(a.x - b.x, a.y - b.y) / P.d)), mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    const wx = (P.mid.x - P.x) / P.k, wy = (P.mid.y - P.y) / P.k;   // the spot first under the fingers stays under them
+    dz.view = { k, x: mid.x - wx * k, y: mid.y - wy * k }; dzDraw(); return;
+  }
+  if (dDrag && dDrag.mode === "pan") { const s = dzScreen(e); dzPanBy(s.x - dDrag.last.x, s.y - dDrag.last.y); dDrag.last = s; return; }
   const p = dzLocal(e);
   if (dz.tool === "wall" && dz.wdraft && (dDrag || dz.wdraft.waiting)) { const end = dzWallEnd({ x: dz.wdraft.x1, y: dz.wdraft.y1 }, p, e.shiftKey); dz.wdraft.x2 = end.x; dz.wdraft.y2 = end.y; dzDraw(); return; }
   if (dz.tool === "open" && !dDrag) {
@@ -2543,6 +2594,8 @@ dzc.addEventListener("pointermove", e => {
   dzSelFields(); dzDraw();
 });
 dzc.addEventListener("pointerup", e => {
+  dzPtrs.delete(e.pointerId);
+  if (dzPinch) { if (!dzPtrs.size) dzPinch = null; dDrag = null; return; }   // lifting after a pinch never places anything
   if (!dz || !dDrag) { dDrag = null; return; }
   if (dDrag.mode === "rect") {
     const d = dz.rdraft; dz.rdraft = null; dDrag = null;
@@ -2560,7 +2613,7 @@ dzc.addEventListener("pointerup", e => {
   }
   dDrag = null;
 });
-dzc.addEventListener("pointercancel", () => { dDrag = null; if (dz) { dz.rdraft = null; dzDraw(); } });
+dzc.addEventListener("pointercancel", e => { dzPtrs.delete(e.pointerId); if (!dzPtrs.size) dzPinch = null; dDrag = null; if (dz) { dz.rdraft = null; dzDraw(); } });
 document.querySelectorAll("#dz-tools button").forEach(b => b.onclick = () => dzSetTool(b.dataset.dt));
 $("dz-wth").addEventListener("change", e => { if (dz) dz.wallTh = +e.target.value / 12; });
 $("dz-wsel").addEventListener("change", e => {
@@ -2665,6 +2718,7 @@ function rotData(d, c) {
 }
 function dzRotate(k) {
   if (!dz) return;
+  dz.view = null;   // refit around the turned building
   const cur = dz.lv, b = dz.b;
   dz.drafts[cur] = levelSnap();
   const lowest = GROUND;   // the floor that owns the building outline
