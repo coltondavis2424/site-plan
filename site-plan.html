@@ -220,6 +220,12 @@ dialog::backdrop{background:rgba(5,10,8,.55)}
   font-family:"Barlow Condensed",sans-serif;font-size:16px;font-weight:600;pointer-events:none}
 dialog.dz{width:100vw;height:100vh;height:100dvh;max-width:none;max-height:none;margin:0;border-radius:0;border:0}
 .dz-zoom{bottom:12px}
+.wv-layer{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.wv-layer button{flex:1;text-align:left;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-weight:600;display:flex;align-items:center;gap:8px}
+.wv-layer button[aria-pressed="true"]{border-color:var(--flag);box-shadow:inset 3px 0 0 var(--flag)}
+.wv-layer .sw{width:12px;height:12px;border-radius:3px;flex:0 0 auto}
+.wv-layer label{display:flex;align-items:center;gap:4px;font-size:13px;color:var(--muted)}
+#wv-tools .dz-presets{margin-bottom:8px}
 .dz-zoom button{box-shadow:0 2px 10px rgba(0,0,0,.25)}
 .dz-wrap{display:flex;flex-direction:column;height:100%}
 .dz-head{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
@@ -554,6 +560,8 @@ dialog.dz{width:100vw;height:100vh;height:100dvh;max-width:none;max-height:none;
           <div class="field"><label for="dz-rstyle">Kind</label><select id="dz-rstyle"><option value="room">Room</option><option value="open">Open to below/above</option><option value="stair">Stairs</option></select></div>
           <div class="field" id="dz-sgo-f" hidden><label for="dz-sgo">Goes</label><select id="dz-sgo"></select></div>
           <div class="row"><button class="ghost small" id="dz-rot">Turn 90°</button><button class="ghost small" id="dz-dup">Duplicate</button><button class="danger small" id="dz-del">Remove</button></div>
+          <div id="dz-rviews"><p class="muted" style="font-size:13px;margin:10px 0 6px">Wall views from inside this room</p>
+          <div class="row"><button class="ghost small" data-side="0">Top wall</button><button class="ghost small" data-side="1">Right wall</button><button class="ghost small" data-side="2">Bottom wall</button><button class="ghost small" data-side="3">Left wall</button></div></div>
         </div>
         <div id="dz-openbox" hidden>
           <h3>Selected opening</h3>
@@ -570,7 +578,8 @@ dialog.dz{width:100vw;height:100vh;height:100dvh;max-width:none;max-height:none;
             <div class="field"><label for="dz-wlen">Length</label><input id="dz-wlen" type="text" inputmode="decimal"></div>
             <div class="field"><label for="dz-wsel">Type</label><select id="dz-wsel"><option value="3.5">3½″</option><option value="4.5">2×4 (4½″)</option><option value="6.5">2×6 (6½″)</option><option value="8">8″ block</option><option value="12">12″ foundation</option></select></div>
           </div>
-          <div class="row"><button class="danger small" id="dz-wdel">Remove wall</button></div>
+          <div class="row"><button class="primary small" id="dz-wview">Wall view</button><button class="danger small" id="dz-wdel">Remove wall</button></div>
+          <p class="muted" style="font-size:13px;margin:8px 0 0">Wall view opens a side view of this wall: studs, doors and windows, wiring, plumbing, drywall and what hangs on it. Double-click a wall to open it too.</p>
         </div>
         <h3>Options</h3>
         <div class="field"><label for="dz-snap">Snap sizes to</label><select id="dz-snap"><option value="0.0833333">1 inch</option><option value="0.5" selected>6 inches</option><option value="1">1 foot</option></select></div>
@@ -596,6 +605,44 @@ dialog.dz{width:100vw;height:100vh;height:100dvh;max-width:none;max-height:none;
           <button id="dz-zin" aria-label="Zoom in" title="Zoom in">+</button>
           <button id="dz-zout" aria-label="Zoom out" title="Zoom out">−</button>
           <button id="dz-zfit" aria-label="Show the whole building" title="Show the whole building"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+        </div>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="wallview" class="dz" aria-labelledby="wv-title">
+  <div class="dz-wrap">
+    <div class="dz-head">
+      <h2 id="wv-title">Wall view</h2>
+      <button class="ghost" id="wv-flip">Other side</button>
+      <button class="ghost" id="wv-cancel">Cancel</button>
+      <button class="primary" id="wv-done">Done</button>
+    </div>
+    <div class="dz-body">
+      <aside class="dz-side">
+        <h3>Layers</h3>
+        <p class="muted" style="font-size:13px;margin:0 0 8px">Tap a layer to work on it. The box shows or hides it.</p>
+        <div id="wv-layers"></div>
+        <div class="pair" style="margin-top:10px">
+          <div class="field"><label for="wv-h">Wall height (this floor)</label><input id="wv-h" type="text" inputmode="decimal"></div>
+          <div class="field"><label for="wv-len">Wall length</label><input id="wv-len" type="text" disabled></div>
+        </div>
+        <div id="wv-tools"></div>
+        <div id="wv-selbox" hidden>
+          <h3 id="wv-selname">Selected</h3>
+          <div id="wv-selfields"></div>
+          <div class="row"><button class="danger small" id="wv-del">Remove</button></div>
+        </div>
+        <p class="status" id="wv-status"></p>
+      </aside>
+      <div class="dz-stage" id="wv-stage">
+        <canvas id="wvc" aria-label="Wall side view"></canvas>
+        <div class="dz-hint" id="wv-hint"></div>
+        <div class="zoom dz-zoom">
+          <button id="wv-zin" aria-label="Zoom in" title="Zoom in">+</button>
+          <button id="wv-zout" aria-label="Zoom out" title="Zoom out">−</button>
+          <button id="wv-zfit" aria-label="Show the whole wall" title="Show the whole wall"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
         </div>
       </div>
     </div>
@@ -1292,7 +1339,7 @@ const PLANKINDS = new Set(["opening", "room", "stair", "dim", "note"]);
 const noteBoxes = new Map();
 let dimPhase = false, templateArmed = 0;
 const esc = t => String(t ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-function visible(s) { return !s.level || s.level === state.level; }
+function visible(s) { return s.kind !== "wallview" && (!s.level || s.level === state.level); }   // wall views only show in the designer
 function buildingAt(p) {
   for (let k = state.shapes.length - 1; k >= 0; k--) { const s = state.shapes[k]; if (s.kind === "building" && s.closed && inPoly(p, s.points)) return s; }
   return null;
@@ -1910,7 +1957,7 @@ function extraHTML(s) {
       <div class="chips" style="margin-bottom:12px"><button data-act="boards" data-v="h" aria-pressed="${!bv}">Horizontal</button><button data-act="boards" data-v="v" aria-pressed="${bv}">Vertical</button></div>
       <div class="field"><label>Decking</label><select data-prop="material">${optList(Object.entries(DECK_MATS).map(([k, v]) => [k, v[0]]), s.material || "pt")}</select></div>`;
   } else if (s.kind === "building") {
-    const all = childrenOf(s), kids = all.filter(k => k.level), att = all.filter(k => !k.level), n = kids.length;
+    const all = childrenOf(s), kids = all.filter(k => k.level && k.kind !== "wallview"), att = all.filter(k => !k.level), n = kids.length;
     const avail = state.shapes.filter(x => !x.bid && !x.level && ["deck", "addon", "pad", "wall"].includes(x.kind));
     h += `<div class="attach"><p class="attach-title">${GROUP_SVG}Attached structures</p>
       <p class="muted" style="margin:0 0 8px;font-size:13px">${att.length ? att.map(a => esc(a.name)).join(" · ") + " move, rotate, group and lock with this building." : "Attach a deck, lean-to, porch, carport, pergola or patio slab so it moves and locks with this building."}</p>
@@ -2260,6 +2307,7 @@ function openDesigner(b, keep) {
       const d = segDist(m, { x: L.x1, y: L.y1 }, { x: L.x2, y: L.y2 }); if (d < bd) { bd = d; best = { tg, lu }; }
     }
     const rec = { id: dz.nid++, otype: o.otype || "door", w, hinge: o.hinge || 0, side: o.side || 1, label: o.label || "" };
+    if (o.sill != null) rec.sill = o.sill; if (o.head != null) rec.head = o.head;   // feet from the floor, set in the wall view
     if (best) {
       const flip = best.lu.x * u.x + best.lu.y * u.y < 0;
       if (flip) { rec.hinge = rec.hinge ? 0 : 1; rec.side = -rec.side; }
@@ -2267,6 +2315,10 @@ function openDesigner(b, keep) {
     } else Object.assign(rec, { ref: { type: "free" }, cx: m.x, cy: m.y, ux: u.x, uy: u.y, th });
     dz.opens.push(rec);
   }
+  // Wall views (studs, wiring, plumbing, drywall, wall items), one per wall line, in designer feet.
+  dz.views = state.shapes.filter(s => s.kind === "wallview" && s.bid === b.id && s.level === lv)
+    .map(s => Object.assign(JSON.parse(JSON.stringify(s.data || {})), { p1: F.toL(s.points[0]), p2: F.toL(s.points[1]) }));
+  dz.wallH = (b.wallH && b.wallH[lv]) || 8;
   const lvName = (state.levels.find(l => l.id === lv) || {}).name || "";
   $("dz-title").textContent = `Design floor plan: ${b.name}`;
   $("dz-level").innerHTML = optList(state.levels.map(l => [l.id, l.name]), lv);
@@ -2318,7 +2370,7 @@ function dzSelFields() {
     if (document.activeElement !== $("dz-rw")) $("dz-rw").value = fl(s.w);
     if (document.activeElement !== $("dz-rh")) $("dz-rh").value = fl(s.h);
     $("dz-rstyle").value = s.type === "stair" ? "stair" : s.style;
-    $("dz-sgo-f").hidden = s.type !== "stair";
+    $("dz-sgo-f").hidden = s.type !== "stair"; $("dz-rviews").hidden = s.type === "stair";
     if (s.type === "stair") { const up = levelAbove(dz.lv), dn = levelBelow(dz.lv); $("dz-sgo").innerHTML = optList([["UP", "Up" + (up ? " to " + levelName(up) : "")], ["DN", "Down" + (dn ? " to " + levelName(dn) : "")]], s.label || "UP"); }
   }
   if (isWall) {
@@ -2682,7 +2734,7 @@ $("dz-sgo").addEventListener("change", e => { const r = dzSel(); if (r && r.type
 $("dz-rot").onclick = () => { const r = dzSel(); if (r && "h" in r) { [r.w, r.h] = [r.h, r.w]; if (r.type === "stair") r.dir = ((r.dir || 0) + 1) % 4; dzSelFields(); dzDraw(); } };
 $("dz-dup").onclick = () => { const r = dzSel(); if (!r || !("h" in r)) return; const s = dzFindSpot(r.w, r.h), c = Object.assign({}, r, { id: dz.nid++, x: s.x, y: s.y }); dz.rooms.push(c); dz.sel = c.id; dzSelFields(); dzDraw(); };
 $("dz-del").onclick = () => { dz.rooms = dz.rooms.filter(x => x.id !== dz.sel); dz.sel = null; dzSelFields(); dzDraw(); };
-function levelKey() { return JSON.stringify({ t: dz.t, poly: dz.poly, ox: dz.ox, oy: dz.oy, W: dz.W, D: dz.D, rooms: dz.rooms, walls: dz.walls, opens: dz.opens, stairIds: dz.stairIds }); }
+function levelKey() { return JSON.stringify({ t: dz.t, poly: dz.poly, ox: dz.ox, oy: dz.oy, W: dz.W, D: dz.D, rooms: dz.rooms, walls: dz.walls, opens: dz.opens, stairIds: dz.stairIds, views: dz.views, wallH: dz.wallH }); }
 function levelSnap() { return { lv: dz.lv, base: dz.base, data: JSON.parse(levelKey()) }; }
 function restoreSnap(sn) { Object.assign(dz, sn.data); dz.lv = sn.lv; dz.base = sn.base; dz.sel = null; }
 function snapDirty(sn) { return JSON.stringify(sn.data) !== sn.base; }
@@ -2715,6 +2767,7 @@ function rotData(d, c) {
   for (const o of d.opens) {
     if (o.ref.type === "free") { const q = rotPt({ x: o.cx, y: o.cy }, c); o.cx = q.x; o.cy = q.y; [o.ux, o.uy] = [-o.uy, o.ux]; }
   }
+  for (const v of d.views || []) { v.p1 = rotPt(v.p1, c); v.p2 = rotPt(v.p2, c); }
 }
 function dzRotate(k) {
   if (!dz) return;
@@ -2807,7 +2860,7 @@ $("dz-save").onclick = () => {
 function saveCurrentLevel() {
   const { b, lv, F } = dz, t = dz.t, I = innerPoly();
   const loaded = new Set(dz.stairIds || []);
-  state.shapes = state.shapes.filter(s => !(s.bid === b.id && s.level === lv && (s.kind === "wall" || s.kind === "opening" || (s.kind === "room" && !["fixture", "porch"].includes(s.style)) || (s.kind === "stair" && loaded.has(s.id)))));
+  state.shapes = state.shapes.filter(s => !(s.bid === b.id && s.level === lv && (s.kind === "wall" || s.kind === "opening" || s.kind === "wallview" || (s.kind === "room" && !["fixture", "porch"].includes(s.style)) || (s.kind === "stair" && loaded.has(s.id)))));
   const add = (o) => state.shapes.push(Object.assign({ id: state.nextId++, bid: b.id, level: lv, closed: false, thickness: 4.5 * IN }, o));
   const c = offsetPoly(dz.poly, t / 2);
   add({ kind: "wall", name: "Exterior walls", closed: true, thickness: t * FT, points: c.map(F.toW) });
@@ -2819,14 +2872,507 @@ function saveCurrentLevel() {
   }
   for (const op of dz.opens) {
     const E = openEnds(op); if (!E) continue;
-    add({ kind: "opening", name: OTYPES[op.otype] || "Opening", otype: op.otype, hinge: op.hinge, side: op.side, lside: -1, label: op.label, thickness: E[2].th * FT, points: [F.toW(E[0]), F.toW(E[1])] });
+    const o2 = { kind: "opening", name: OTYPES[op.otype] || "Opening", otype: op.otype, hinge: op.hinge, side: op.side, lside: -1, label: op.label, thickness: E[2].th * FT, points: [F.toW(E[0]), F.toW(E[1])] };
+    if (op.sill != null) o2.sill = op.sill; if (op.head != null) o2.head = op.head;
+    add(o2);
   }
+  for (const v of dz.views || []) { const { p1, p2, ...data } = v; add({ kind: "wallview", name: "Wall view", points: [F.toW(p1), F.toW(p2)], thickness: 0, data }); }
+  b.wallH = Object.assign({}, b.wallH, { [lv]: dz.wallH || 8 });
   let n = 0;
   for (const r of rooms) add({ kind: "room", name: r.name.trim() || "Room " + (++n), sub: r.sub, style: r.style, closed: true, points: [[r.x, r.y], [r.x + r.w, r.y], [r.x + r.w, r.y + r.h], [r.x, r.y + r.h]].map(([x, y]) => F.toW({ x, y })) });
   for (const r of dz.rooms.filter(r => r.type === "stair")) add(Object.assign({}, r.extra, { kind: "stair", name: r.name || "Stairs", label: r.label || "UP", closed: true, points: dzStairPts(r).map(([x, y]) => F.toW({ x, y })) }));
   if (lv === GROUND) b.points = dz.poly.map(p => F.toW(p));
   if ($("dz-autodim").checked) autoDimension(b, lv);
 }
+
+/* ---------- wall view: side view of one wall (studs, openings, wiring, plumbing, drywall, wall items) ---------- */
+// A view record (dz.views) belongs to a wall line through p1→p2 (designer feet). Positions along the wall are
+// t = feet from p1 toward p2; heights are feet from the floor. Faces: +1 is the left side going p1→p2, -1 the right;
+// 0 means inside the wall (framing, pipes, wires). Openings are the designer's own dz.opens, plus sill/head heights.
+const WV_LAYERS = [["framing", "Studs & framing", "#C99A5B"], ["openings", "Doors & windows", "#5B8DB8"], ["elec", "Electrical", "#E0A526"], ["plumb", "Plumbing", "#2F6BD8"], ["drywall", "Drywall & paint", "#BDB6A6"], ["finish", "Wall items", "#8E5BB0"]];
+const WI = v => v / 12;   // inches to feet
+const WV_ITEMS = {
+  elec: { outlet: ["Outlet", 2.75, 4.5, 16], gfci: ["GFCI outlet", 2.75, 4.5, 42], out240: ["240 V outlet", 4.5, 4.5, 24], switch: ["Light switch", 2.75, 4.5, 48], switch3: ["3-way switch", 2.75, 4.5, 48],
+    data: ["Data / TV jack", 2.75, 4.5, 16], sconce: ["Wall light", 6, 10, 66], jbox: ["Junction box", 4, 4, 84], thermo: ["Thermostat", 4, 4.5, 60], panel: ["Breaker panel", 14.5, 30, 54] },
+  plumb: { sink: ["Sink supply & drain", 10, 8, 20], toilet: ["Toilet supply", 3, 3, 8], valve: ["Shower valve", 8, 8, 48], head: ["Shower head", 4, 4, 80], spout: ["Tub spout", 6, 3, 22],
+    washer: ["Washer box", 10, 8, 42], bibb: ["Hose bibb", 3, 3, 18], cleanout: ["Cleanout", 4, 4, 12] },
+  finish: { shelf: ["Shelf", 36, 10, 54], floating: ["Floating shelf", 30, 2, 48], art: ["Art / photo", 24, 18, 60], photo: ["Small photo", 11, 14, 60], mirror: ["Mirror", 24, 36, 60],
+    tv55: ["TV 55″", 48.5, 28, 54], tv65: ["TV 65″", 57, 33, 56], upper: ["Upper cabinet", 30, 30, 69], base: ["Base cabinet", 36, 34.5, 17.25], tall: ["Tall cabinet", 24, 84, 42],
+    hooks: ["Coat hooks", 24, 4, 60], towel: ["Towel bar", 24, 3, 48], curtain: ["Curtain rod", 60, 3, 84], clock: ["Clock", 12, 12, 72] },
+};
+const WV_RUNS = { wire: ["Wire", "#D9822B", 1.5], hot: ["Hot water", "#D9342B", 3], cold: ["Cold water", "#2F6BD8", 3], drain: ["Drain", "#5F5F5F", 6], vent: ["Vent", "#9A9A9A", 4] };
+const WV_COLORS = [["wood", "Wood", "#B98552"], ["white", "White", "#F4F2EC"], ["black", "Black", "#2A2A2A"], ["gray", "Gray", "#8B8F93"], ["navy", "Navy", "#2B3E63"], ["green", "Green", "#4F6B4A"]];
+const wvColor = k => (WV_COLORS.find(c => c[0] === k) || WV_COLORS[0])[2];
+function openVert(o, H) {   // sill and head heights in feet
+  const door = o.otype !== "window", head = o.head != null ? o.head : o.otype === "overhead" ? Math.min(8, H - 0.5) : 80 / 12;
+  return { sill: o.sill != null ? o.sill : door ? 0 : 3, head: Math.min(head, H - 0.25) };
+}
+let wv = null;   // { v: record, S: segment, face, lo, hi, layer, show, sel, tool, view, snap }
+const wvc = $("wvc"), wctx = wvc.getContext("2d");
+let wk = 1, wox = 0, woy = 0, wW = 0, wH = 0;
+const wvU = v => unit(v.p1, v.p2);
+const wvT = (v, p) => { const u = wvU(v); return (p.x - v.p1.x) * u.x + (p.y - v.p1.y) * u.y; };
+const wvPt = (v, t) => { const u = wvU(v); return { x: v.p1.x + u.x * t, y: v.p1.y + u.y * t }; };
+// The wall line a segment lies on, or a new one for it.
+function wvRecordFor(S) {
+  const a = { x: S.x1, y: S.y1 }, b = { x: S.x2, y: S.y2 }, u = unit(a, b);
+  const on = v => { const vu = wvU(v); if (Math.abs(vu.x * u.y - vu.y * u.x) > 0.01) return false; const n = { x: -vu.y, y: vu.x }; return Math.abs((a.x - v.p1.x) * n.x + (a.y - v.p1.y) * n.y) < 0.3; };
+  return (dz.views || []).find(on) || null;
+}
+function wvSideLabel(S, n) {
+  const m = { x: (S.x1 + S.x2) / 2 + n.x * ((S.th || 0.4) / 2 + 0.75), y: (S.y1 + S.y2) / 2 + n.y * ((S.th || 0.4) / 2 + 0.75) };
+  const r = dz.rooms.filter(r => r.type === "room" && m.x >= r.x && m.x <= r.x + r.w && m.y >= r.y && m.y <= r.y + r.h).sort((p, q) => p.w * p.h - q.w * q.h)[0];
+  if (r) return r.name.trim() || "Room";
+  return inPoly(m, innerPoly()) ? "Inside" : "Outside";
+}
+// Open the side view of segment S (designer feet: x1,y1,x2,y2,th), looking at it from point `from` if given.
+function openWallView(S, from) {
+  if (!dz) return;
+  let v = wvRecordFor(S), isNew = false;
+  if (!v) { v = { p1: { x: S.x1, y: S.y1 }, p2: { x: S.x2, y: S.y2 }, oc: 16, layFrom: "lo", studAdd: [], studDel: [], items: [], paint: {} }; isNew = true; }
+  const nL = inN({ x: S.x1, y: S.y1 }, { x: S.x2, y: S.y2 }), mid = { x: (S.x1 + S.x2) / 2, y: (S.y1 + S.y2) / 2 };
+  let face = 1;
+  if (from) face = (from.x - mid.x) * nL.x + (from.y - mid.y) * nL.y >= 0 ? 1 : -1;
+  else { const inL = wvSideLabel(S, nL), inR = wvSideLabel(S, { x: -nL.x, y: -nL.y }); face = inL === "Outside" ? -1 : inR === "Outside" ? 1 : inL !== "Inside" ? 1 : inR !== "Inside" ? -1 : 1; }
+  wv = { v, S, nL, face, isNew, layer: "framing", show: { framing: true, openings: true, elec: true, plumb: true, drywall: false, finish: true }, sel: null, tool: null, view: null,
+    undo: JSON.stringify({ v, opens: dz.opens, wallH: dz.wallH }) };
+  wvSetLayer("framing");
+  $("wallview").showModal(); requestAnimationFrame(wvResize);
+}
+function wvFrame() {   // view x runs left to right as seen from the chosen face
+  const { S, v, nL, face } = wv, n = { x: nL.x * face, y: nL.y * face }, d = { x: -n.x, y: -n.y }, r = { x: -d.y, y: d.x }, u = wvU(v);
+  const ta = wvT(v, { x: S.x1, y: S.y1 }), tb = wvT(v, { x: S.x2, y: S.y2 }), lo = Math.min(ta, tb), hi = Math.max(ta, tb), s = u.x * r.x + u.y * r.y >= 0 ? 1 : -1;
+  const vf = Math.sign((n.x * nL.x + n.y * nL.y) * (wvU(v).x * (S.x2 - S.x1) + wvU(v).y * (S.y2 - S.y1)) || 1);   // record face seen from here
+  return { lo, hi, L: hi - lo, s, vf, x: t => s > 0 ? t - lo : hi - t, t: x => s > 0 ? lo + x : hi - x };
+}
+function wvOpenings() {   // openings on this wall, with their center t and width
+  const { v } = wv, u = wvU(v), n = { x: -u.y, y: u.x }, fr = wvFrame(), out = [];
+  for (const o of dz.opens) {
+    const E = openEnds(o); if (!E) continue;
+    const ou = unit(E[0], E[1]); if (Math.abs(ou.x * u.y - ou.y * u.x) > 0.02) continue;
+    const c = { x: (E[0].x + E[1].x) / 2, y: (E[0].y + E[1].y) / 2 };
+    if (Math.abs((c.x - v.p1.x) * n.x + (c.y - v.p1.y) * n.y) > 0.6) continue;
+    const t = wvT(v, c); if (t < fr.lo - 0.1 || t > fr.hi + 0.1) continue;
+    out.push({ o, t, w: o.w, ...openVert(o, dz.wallH) });
+  }
+  return out;
+}
+function wvMoveOpening(o, t) {   // put the opening's center at t on this wall, keeping it on its own wall line
+  const c = wvPt(wv.v, t), g = openGeom(o); if (!g) return;
+  if (o.ref.type === "free") { const d = (c.x - o.cx) * o.ux + (c.y - o.cy) * o.uy; o.cx += o.ux * d; o.cy += o.uy * d; }
+  else { const L = lineOf(o.ref); if (L) { const len = Math.hypot(L.x2 - L.x1, L.y2 - L.y1); o.along = Math.max(o.w / 2, Math.min(len - o.w / 2, projAlong(L, c))); } }
+}
+// Studs, plates, headers, sills and cripples for this wall (view feet). Each: {x, y, w, h, kind, t?}
+function wvFraming() {
+  const { v } = wv, fr = wvFrame(), H = dz.wallH, P = WI(1.5), out = [];
+  const lo = fr.lo, hi = fr.hi, oc = WI(v.oc || 16), ops = wvOpenings().map(q => ({ a: q.t - q.w / 2, b: q.t + q.w / 2, ...q }));
+  const rect = (t0, t1, y0, y1, kind, t) => { const x0 = fr.x(t0), x1 = fr.x(t1); out.push({ x: Math.min(x0, x1), w: Math.abs(x1 - x0), y: y0, h: y1 - y0, kind, t }); };
+  rect(lo, hi, 0, P, "plate"); rect(lo, hi, H - 2 * P, H - P, "plate"); rect(lo, hi, H - P, H, "plate");
+  const top = H - 2 * P, near = (t, list, d) => list.some(x => Math.abs(x - t) < d);
+  let lay = [];
+  if (v.layFrom === "hi") for (let t = hi - oc; t > lo + P; t -= oc) lay.push(t); else for (let t = lo + oc; t < hi - P; t += oc) lay.push(t);
+  lay = lay.filter(t => t > lo + P * 1.5 && t < hi - P * 1.5);
+  const ends = [lo + P / 2, hi - P / 2];
+  const del = v.studDel || [], add = (v.studAdd || []).filter(t => t > lo && t < hi);
+  for (const t of [...ends, ...lay, ...add]) {
+    if (near(t, del, WI(1)) && !ends.includes(t)) continue;
+    const inOp = ops.find(q => t > q.a - P * 2 && t < q.b + P * 2);
+    if (!inOp) { rect(t - P / 2, t + P / 2, P, top, ends.includes(t) ? "end" : add.includes(t) ? "added" : "stud", t); continue; }
+    if (t > inOp.a && t < inOp.b) {   // cripples above the header and under a window's sill
+      const hdr = inOp.head + (inOp.w <= 4 ? WI(7.25) : inOp.w <= 6 ? WI(9.25) : WI(11.25));
+      if (hdr < top - WI(2)) rect(t - P / 2, t + P / 2, hdr, top, "cripple", t);
+      if (inOp.sill > WI(4)) rect(t - P / 2, t + P / 2, P, inOp.sill - P, "cripple", t);
+    }
+  }
+  for (const q of ops) {
+    const hd = Math.min(q.w <= 4 ? WI(7.25) : q.w <= 6 ? WI(9.25) : WI(11.25), top - q.head);
+    rect(q.a - 2 * P, q.a - P, P, top, "king"); rect(q.b + P, q.b + 2 * P, P, top, "king");
+    rect(q.a - P, q.a, P, q.head, "jack"); rect(q.b, q.b + P, P, q.head, "jack");
+    if (hd > 0) rect(q.a - P, q.b + P, q.head, q.head + hd, "header");
+    if (q.sill > WI(4)) rect(q.a, q.b, q.sill - P, q.sill, "sill");
+  }
+  return out;
+}
+function wvResize() {
+  const r = wvc.parentElement.getBoundingClientRect(), pr = window.devicePixelRatio || 1;
+  wW = r.width; wH = r.height; wvc.width = Math.round(wW * pr); wvc.height = Math.round(wH * pr); wvc.style.width = wW + "px"; wvc.style.height = wH + "px";
+  wctx.setTransform(pr, 0, 0, pr, 0, 0); wvDraw();
+}
+function wvFitK() { const fr = wvFrame(), pad = 60; return Math.min((wW - pad * 2) / Math.max(fr.L, 1), (wH - pad * 2 - 40) / Math.max(dz.wallH, 1)); }
+function wvView() {
+  if (wv.view) { wk = wv.view.k; wox = wv.view.x; woy = wv.view.y; return; }
+  const fr = wvFrame(); wk = wvFitK(); wox = (wW - fr.L * wk) / 2; woy = (wH + dz.wallH * wk) / 2 + 10;
+}
+const wS = (x, y) => ({ x: wox + x * wk, y: woy - y * wk });
+function wvZoomAt(f, sx, sy) { wvView(); const fit = wvFitK(), k = Math.max(fit * 0.5, Math.min(fit * 30, wk * f)); f = k / wk; wv.view = { k, x: sx - (sx - wox) * f, y: sy - (sy - woy) * f }; wvDraw(); }
+// Every item seen from here, with view coordinates: {it, x (center), y (center), w, h, faded}
+function wvVisibleItems() {
+  const fr = wvFrame(), out = [];
+  for (const it of wv.v.items) {
+    if (!wv.show[it.layer]) continue;
+    if (it.run) { if (it.pts.some(p => p.t >= fr.lo - 0.1 && p.t <= fr.hi + 0.1)) out.push({ it, pts: it.pts.map(p => ({ x: fr.x(p.t), y: p.y })) }); continue; }
+    if (it.t < fr.lo - it.w / 2 || it.t > fr.hi + it.w / 2) continue;
+    const mine = !it.face || it.face === fr.vf;
+    if (!mine && it.layer === "finish") continue;   // things hung on the other side
+    out.push({ it, x: fr.x(it.t), y: it.cy, w: it.w, h: it.h, faded: !mine });
+  }
+  return out;
+}
+function wvRoundRect(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+function wvDrawItem(q, sel, drywallOn) {
+  const g = wctx, it = q.it, a = wS(q.x - q.w / 2, q.y + q.h / 2), w = q.w * wk, h = q.h * wk, cx = a.x + w / 2, cy = a.y + h / 2;
+  g.save(); if (q.faded) { g.globalAlpha = .35; g.setLineDash([4, 3]); }
+  g.lineWidth = 1.2; g.strokeStyle = INK;
+  if (it.layer === "elec") {
+    if (drywallOn && !q.faded && it.type !== "panel") { wvRoundRect(g, a.x - 2, a.y - 2, w + 4, h + 4, 3); g.fillStyle = "#FBFBF8"; g.fill(); g.stroke(); }
+    else { g.fillStyle = it.type === "panel" ? "#8B8F93" : "#3D7FD9"; g.fillRect(a.x, a.y, w, h); g.strokeRect(a.x, a.y, w, h); }
+    g.fillStyle = drywallOn ? INK : "#fff"; g.font = `700 ${Math.max(7, Math.min(12, w * .45))}px "Barlow Condensed", sans-serif`; g.textAlign = "center"; g.textBaseline = "middle";
+    g.fillText({ outlet: "⊖", gfci: "G", out240: "240", switch: "S", switch3: "S3", data: "TV", sconce: "☼", jbox: "J", thermo: "T", panel: "" }[it.type] || "", cx, cy);
+  } else if (it.layer === "plumb") {
+    g.fillStyle = "#fff"; g.fillRect(a.x, a.y, w, h); g.strokeRect(a.x, a.y, w, h);
+    const dot = (x, y, r, c) => { g.beginPath(); g.arc(x, y, Math.max(2, r * wk), 0, Math.PI * 2); g.fillStyle = c; g.fill(); g.stroke(); };
+    if (it.type === "sink") { dot(cx - w * .3, a.y + h * .3, WI(.6), "#D9342B"); dot(cx + w * .3, a.y + h * .3, WI(.6), "#2F6BD8"); dot(cx, a.y + h * .7, WI(1), "#5F5F5F"); }
+    else if (it.type === "toilet" || it.type === "bibb") dot(cx, cy, WI(.6), "#2F6BD8");
+    else if (it.type === "cleanout") dot(cx, cy, WI(1.5), "#5F5F5F");
+    else { g.fillStyle = INK; g.font = `600 ${Math.max(7, Math.min(11, w * .3))}px "Barlow Condensed", sans-serif`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText({ valve: "VALVE", head: "HEAD", spout: "SPOUT", washer: "W/D" }[it.type] || "", cx, cy); }
+  } else {   // wall items, drawn simply in their color
+    const col = wvColor(it.color || ({ tv55: "black", tv65: "black", mirror: "gray", art: "white", photo: "white", clock: "white", curtain: "black", towel: "gray", hooks: "black" }[it.type] || "wood"));
+    g.fillStyle = col;
+    if (it.type === "shelf") { const bh = Math.max(2, WI(1.5) * wk); g.fillRect(a.x, a.y, w, bh); g.strokeRect(a.x, a.y, w, bh); for (const f of [.12, .88]) { g.beginPath(); g.moveTo(a.x + w * f, a.y + bh); g.lineTo(a.x + w * f, a.y + h); g.lineTo(a.x + w * f + Math.min(h, w * .1), a.y + bh); g.stroke(); } }
+    else if (it.type === "art" || it.type === "photo") { g.fillRect(a.x, a.y, w, h); g.strokeRect(a.x, a.y, w, h); const m = Math.min(w, h) * .14; g.fillStyle = "#C9D6CF"; g.fillRect(a.x + m, a.y + m, w - 2 * m, h - 2 * m); g.beginPath(); g.moveTo(a.x + m, a.y + h - m); g.lineTo(a.x + w * .45, a.y + h * .45); g.lineTo(a.x + w * .62, a.y + h * .62); g.lineTo(a.x + w * .75, a.y + h * .5); g.lineTo(a.x + w - m, a.y + h - m); g.fillStyle = "#7F9C8C"; g.fill(); }
+    else if (it.type === "tv55" || it.type === "tv65") { wvRoundRect(g, a.x, a.y, w, h, 3); g.fill(); g.stroke(); g.fillStyle = "#3A4652"; g.fillRect(a.x + 3, a.y + 3, w - 6, h - 6); }
+    else if (it.type === "mirror") { wvRoundRect(g, a.x, a.y, w, h, 4); g.fill(); g.stroke(); g.fillStyle = "#DDE7EC"; g.fillRect(a.x + 4, a.y + 4, w - 8, h - 8); }
+    else if (it.type === "clock") { g.beginPath(); g.arc(cx, cy, Math.min(w, h) / 2, 0, Math.PI * 2); g.fill(); g.stroke(); g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx, cy - h * .3); g.moveTo(cx, cy); g.lineTo(cx + w * .2, cy); g.stroke(); }
+    else if (it.type === "upper" || it.type === "base" || it.type === "tall") {
+      g.fillRect(a.x, a.y, w, h); g.strokeRect(a.x, a.y, w, h);
+      const doors = Math.max(1, Math.round(q.w / 1.5)), dw = w / doors;
+      for (let i = 0; i < doors; i++) { g.strokeRect(a.x + i * dw + 3, a.y + (it.type === "base" ? h * .2 : 3), dw - 6, h - (it.type === "base" ? h * .2 : 3) - 3); g.beginPath(); g.arc(a.x + i * dw + (i % 2 ? 7 : dw - 7), it.type === "upper" ? a.y + h - 8 : a.y + (it.type === "base" ? h * .3 : h * .5), 1.8, 0, Math.PI * 2); g.fillStyle = INK; g.fill(); g.fillStyle = col; }
+      if (it.type === "base") { g.strokeRect(a.x + 3, a.y + 3, w - 6, h * .2 - 5); g.fillStyle = "#E5E1D6"; g.fillRect(a.x - 2, a.y - WI(1.5) * wk, w + 4, WI(1.5) * wk); g.strokeRect(a.x - 2, a.y - WI(1.5) * wk, w + 4, WI(1.5) * wk); }
+    }
+    else { g.fillRect(a.x, a.y + h * .3, w, Math.max(2, h * .4)); g.strokeRect(a.x, a.y + h * .3, w, Math.max(2, h * .4)); if (it.type === "hooks") for (let i = 1; i <= 4; i++) { g.beginPath(); g.arc(a.x + w * i / 5, a.y + h * .85, 2, 0, Math.PI * 2); g.fillStyle = INK; g.fill(); } }
+  }
+  g.restore();
+  if (sel) { g.save(); g.strokeStyle = MARK; g.lineWidth = 2; g.setLineDash([5, 3]); g.strokeRect(a.x - 3, a.y - 3, w + 6, h + 6); g.restore(); }
+}
+function wvDrawRun(q, sel) {
+  const g = wctx, R = WV_RUNS[q.it.type] || WV_RUNS.wire;
+  g.save(); g.strokeStyle = sel ? MARK : R[1]; g.lineWidth = Math.max(1.5, WI(R[2] / 2) * wk); g.lineJoin = g.lineCap = "round";
+  if (q.it.type === "vent") g.setLineDash([6, 4]);
+  g.beginPath(); q.pts.forEach((p, i) => { const s = wS(p.x, p.y); i ? g.lineTo(s.x, s.y) : g.moveTo(s.x, s.y); }); g.stroke(); g.restore();
+}
+function wvDim(x0, y0, x1, y1, text, off) {   // dimension line in view feet; off = screen px to the side
+  const g = wctx, a = wS(x0, y0), b = wS(x1, y1), L = Math.hypot(b.x - a.x, b.y - a.y); if (L < 6) return;
+  const ux = (b.x - a.x) / L, uy = (b.y - a.y) / L, nx = -uy * off, ny = ux * off;
+  g.save(); g.strokeStyle = MARK; g.fillStyle = MARK; g.lineWidth = 1;
+  g.beginPath(); g.moveTo(a.x + nx, a.y + ny); g.lineTo(b.x + nx, b.y + ny); g.stroke();
+  for (const p of [a, b]) { g.beginPath(); g.moveTo(p.x + nx - uy * 5 - ux * 4, p.y + ny + ux * 5 - uy * 4); g.lineTo(p.x + nx + uy * 5 + ux * 4, p.y + ny - ux * 5 + uy * 4); g.stroke(); }
+  g.translate((a.x + b.x) / 2 + nx * 1.9, (a.y + b.y) / 2 + ny * 1.9); let r = Math.atan2(uy, ux); if (r > Math.PI / 2) r -= Math.PI; if (r < -Math.PI / 2) r += Math.PI; g.rotate(r);
+  g.font = '600 12px "Barlow Condensed", sans-serif'; g.textAlign = "center"; g.textBaseline = "middle";
+  const tw = g.measureText(text).width; g.fillStyle = "rgba(255,255,255,.9)"; g.fillRect(-tw / 2 - 3, -8, tw + 6, 16); g.fillStyle = MARK; g.fillText(text, 0, 0); g.restore();
+}
+function wvDraw() {
+  if (!wv) return; wvView();
+  const g = wctx, fr = wvFrame(), H = dz.wallH, L = fr.L, act = wv.layer;
+  g.clearRect(0, 0, wW, wH); g.fillStyle = "#F4F2EC"; g.fillRect(0, 0, wW, wH);
+  const step = wk * 1 >= 14 ? 1 : wk * 2 >= 14 ? 2 : 4;   // a light foot grid
+  g.strokeStyle = "rgba(0,0,0,.06)"; g.lineWidth = 1;
+  for (let x = Math.floor(-wox / wk / step) * step; wS(x, 0).x < wW; x += step) { const s = wS(x, 0); g.beginPath(); g.moveTo(s.x, 0); g.lineTo(s.x, wH); g.stroke(); }
+  for (let y = Math.floor((woy - wH) / wk / step) * step; wS(0, y).y > 0; y += step) { const s = wS(0, y); g.beginPath(); g.moveTo(0, s.y); g.lineTo(wW, s.y); g.stroke(); }
+  const W0 = wS(0, H), W1 = wS(L, 0);
+  g.fillStyle = "#E9E5DA"; g.fillRect(W0.x, W0.y, W1.x - W0.x, W1.y - W0.y);
+  if (wv.show.framing) for (const f of wvFraming()) {
+    const a = wS(f.x, f.y + f.h); g.fillStyle = { header: "#B9884B", sill: "#C9995C", plate: "#C99A5B", added: "#E3B26E" }[f.kind] || "#D8AE73";
+    g.fillRect(a.x, a.y, f.w * wk, f.h * wk); g.strokeStyle = "#7A5A30"; g.lineWidth = 1; g.strokeRect(a.x, a.y, f.w * wk, f.h * wk);
+    if (wv.sel && wv.sel.stud != null && f.t != null && Math.abs(f.t - wv.sel.stud) < 1e-6 && (f.kind === "stud" || f.kind === "added")) { g.save(); g.strokeStyle = MARK; g.lineWidth = 2.5; g.strokeRect(a.x - 2, a.y - 2, f.w * wk + 4, f.h * wk + 4); g.restore(); }
+  }
+  const items = wvVisibleItems(), runs = items.filter(q => q.pts), boxes = items.filter(q => !q.pts);
+  for (const q of runs) if (q.it.layer === "plumb") wvDrawRun(q, wv.sel && wv.sel.item === q.it);
+  for (const q of boxes) if (q.it.layer === "plumb") wvDrawItem(q, wv.sel && wv.sel.item === q.it, false);
+  for (const q of runs) if (q.it.layer === "elec") wvDrawRun(q, wv.sel && wv.sel.item === q.it);
+  const dw = wv.show.drywall;
+  if (!dw) for (const q of boxes) if (q.it.layer === "elec") wvDrawItem(q, wv.sel && wv.sel.item === q.it, false);
+  if (dw) {   // drywall: see-through while you work on what's behind it
+    const behind = ["framing", "elec", "plumb"].includes(act);
+    g.save(); g.globalAlpha = behind ? .4 : 1; g.fillStyle = (wv.v.paint || {})[fr.vf] || "#F1EEE6"; g.fillRect(W0.x, W0.y, W1.x - W0.x, W1.y - W0.y);
+    g.strokeStyle = "rgba(0,0,0,.12)"; g.setLineDash([3, 4]);   // 4×8 sheets hung sideways
+    for (let y = 4; y < H; y += 4) { const s = wS(0, y); g.beginPath(); g.moveTo(W0.x, s.y); g.lineTo(W1.x, s.y); g.stroke(); }
+    for (let row = 0; row * 4 < H; row++) for (let x = row % 2 ? 4 : 8; x < L; x += 8) { const a = wS(x, row * 4), b = wS(x, Math.min(H, row * 4 + 4)); g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke(); }
+    g.restore();
+    for (const q of boxes) if (q.it.layer === "elec") wvDrawItem(q, wv.sel && wv.sel.item === q.it, true);
+  }
+  g.strokeStyle = INK; g.lineWidth = 2; g.strokeRect(W0.x, W0.y, W1.x - W0.x, W1.y - W0.y);
+  if (wv.show.openings) for (const q of wvOpenings()) {   // openings cut through everything
+    const x0 = fr.x(q.t) - q.w / 2, a = wS(x0, q.head), b = wS(x0 + q.w, q.sill), w = b.x - a.x, h = b.y - a.y;
+    const win = q.o.otype === "window";
+    g.fillStyle = win ? "#CFE3F0" : q.o.otype === "opening" ? "#F4F2EC" : "#EADFCB"; g.fillRect(a.x, a.y, w, h);
+    g.strokeStyle = INK; g.lineWidth = 1.5; g.strokeRect(a.x, a.y, w, h);
+    if (win) { g.lineWidth = 1; g.beginPath(); g.moveTo(a.x + w / 2, a.y); g.lineTo(a.x + w / 2, a.y + h); g.stroke(); }
+    else if (q.o.otype === "overhead") { g.lineWidth = 1; for (let i = 1; i < 4; i++) { g.beginPath(); g.moveTo(a.x, a.y + h * i / 4); g.lineTo(a.x + w, a.y + h * i / 4); g.stroke(); } }
+    else if (q.o.otype !== "opening") { g.beginPath(); g.arc(q.o.hinge ? a.x + 10 : a.x + w - 10, a.y + h * .52, 2.5, 0, Math.PI * 2); g.fillStyle = INK; g.fill(); }
+    g.fillStyle = INK; g.font = '600 12px "Barlow Condensed", sans-serif'; g.textAlign = "center"; g.textBaseline = "middle";
+    if (w > 40) g.fillText((OTYPES[q.o.otype] || "Opening") + " " + fl(q.w) + " × " + fl(q.head - q.sill), a.x + w / 2, a.y + Math.min(h / 2, 14));
+    if (wv.sel && wv.sel.open === q.o) { g.save(); g.strokeStyle = MARK; g.lineWidth = 2.5; g.setLineDash([5, 3]); g.strokeRect(a.x - 3, a.y - 3, w + 6, h + 6); g.restore(); }
+  }
+  for (const q of boxes) if (q.it.layer === "finish") wvDrawItem(q, wv.sel && wv.sel.item === q.it, dw);
+  if (wv.draft) wvDrawRun({ it: { type: wv.tool.run }, pts: [...wv.draft, wv.cursor].filter(Boolean) }, true);
+  // Overall size, and where the selected thing sits.
+  wvDim(0, H, L, H, fl(L), -18); wvDim(0, 0, 0, H, fl(H), -18);
+  const s = wvSelGeom();
+  if (s) { wvDim(0, s.y0, s.x0, s.y0, fl(s.x0), 14); wvDim(s.x0, 0, s.x0, s.y0, fl(s.y0), -14); }
+}
+function wvSelGeom() {   // left edge and bottom of the selection, view feet
+  const sel = wv.sel; if (!sel) return null; const fr = wvFrame();
+  if (sel.item && !sel.item.run) return { x0: fr.x(sel.item.t) - sel.item.w / 2, y0: sel.item.cy - sel.item.h / 2 };
+  if (sel.open) { const q = wvOpenings().find(q => q.o === sel.open); return q ? { x0: fr.x(q.t) - q.w / 2, y0: q.sill } : null; }
+  if (sel.stud != null) return { x0: fr.x(sel.stud), y0: 0 };
+  return null;
+}
+function wvSetLayer(l) {
+  wv.layer = l; wv.tool = null; wv.draft = null; wv.show[l] = true;
+  $("wv-layers").innerHTML = WV_LAYERS.map(([k, name, c]) => `<div class="wv-layer"><button data-l="${k}" aria-pressed="${k === l}"><span class="sw" style="background:${c}"></span>${esc(name)}</button><label><input type="checkbox" data-show="${k}"${wv.show[k] ? " checked" : ""}> Show</label></div>`).join("");
+  wvTools(); wvFields(); wvTitle(); wvDraw();
+}
+function wvTitle() {
+  const { S, nL, face } = wv, n = { x: nL.x * face, y: nL.y * face }, here = wvSideLabel(S, n), other = wvSideLabel(S, { x: -n.x, y: -n.y });
+  $("wv-title").textContent = `Wall view · ${here === "Inside" || here === "Outside" ? here : here + " side"}`;
+  $("wv-flip").textContent = "Look from " + (other === "Inside" || other === "Outside" ? other.toLowerCase() : other);
+  $("wv-h").value = fl(dz.wallH); $("wv-len").value = fl(wvFrame().L);
+}
+const WV_HINTS = {
+  framing: "Studs follow the spacing you pick and frame around doors and windows. Tap a stud to remove it, or use Add a stud.",
+  openings: "These are the doors and windows from the floor plan. Drag one to move it, or set its sizes on the left.",
+  elec: "Tap an item on the left to add it, then drag it into place. Draw wire connects them; tap to bend, tap the last point again to finish.",
+  plumb: "Add fixtures and stub-outs, or draw pipe runs: tap to bend, tap the last point again to finish.",
+  drywall: "Drywall covers this side of the wall. Pick a paint color on the left. Electrical items show as cover plates.",
+  finish: "Add shelves, art, a TV, cabinets and more, then drag them into place. Scroll or pinch to zoom; drag empty space to pan.",
+};
+function wvTools() {
+  const l = wv.layer, v = wv.v; let h = "";
+  if (l === "framing") h = `<h3>Studs</h3><div class="pair"><div class="field"><label for="wv-oc">Stud spacing</label><select id="wv-oc">${optList([[12, '12″ apart'], [16, '16″ apart'], [19.2, '19.2″ apart'], [24, '24″ apart']], v.oc || 16)}</select></div>
+    <div class="field"><label for="wv-from">Layout starts at</label><select id="wv-from">${optList([["lo", "Left end"], ["hi", "Right end"]], wvFrame().s > 0 ? v.layFrom || "lo" : (v.layFrom || "lo") === "lo" ? "hi" : "lo")}</select></div></div>
+    <div class="row"><button class="ghost small" id="wv-addstud" aria-pressed="${!!(wv.tool && wv.tool.stud)}">Add a stud</button><button class="ghost small" id="wv-resetstud">Reset studs</button></div>`;
+  else if (l === "openings") h = `<h3>Add a door or window</h3><div class="dz-presets">${Object.entries(OTYPES).map(([k, n]) => `<button data-addopen="${k}"><span>${esc(n)}</span><small>${esc(fl(OPEN_DEFAULT_W[k] / 12))} wide</small></button>`).join("")}</div>`;
+  else if (l === "drywall") h = `<h3>Drywall on this side</h3><div class="field"><label for="wv-paint">Paint color</label><input id="wv-paint" type="color" value="${esc((v.paint || {})[wvFrame().vf] || "#F1EEE6")}" style="height:40px;padding:2px"></div>
+    <div class="field"><label for="wv-dwth">Thickness</label><select id="wv-dwth">${optList([["0.5", "½″"], ["0.625", "⅝″ (fire-rated)"]], v.dwTh || "0.5")}</select></div>`;
+  else {
+    const cat = WV_ITEMS[l];
+    h = `<h3>Add to the wall</h3><div class="dz-presets">${Object.entries(cat).map(([k, d]) => `<button data-additem="${k}"><span>${esc(d[0])}</span><small>${esc(fl(WI(d[1])))} × ${esc(fl(WI(d[2])))}</small></button>`).join("")}</div>`;
+    const runs = l === "elec" ? ["wire"] : ["hot", "cold", "drain", "vent"];
+    h += `<div class="row">${runs.map(r => `<button class="ghost small" data-run="${r}" aria-pressed="${!!(wv.tool && wv.tool.run === r)}">Draw ${esc(WV_RUNS[r][0].toLowerCase())}</button>`).join("")}</div>`;
+  }
+  $("wv-tools").innerHTML = h;
+  $("wv-hint").textContent = wv.tool && wv.tool.run ? `Tap to start the ${WV_RUNS[wv.tool.run][0].toLowerCase()}, tap to bend it, and tap the last point again to finish.` : wv.tool && wv.tool.stud ? "Tap where the new stud goes." : WV_HINTS[l];
+}
+function wvField(id, label, val, type = "text") { return `<div class="field"><label for="${id}">${label}</label><input id="${id}" type="${type}" inputmode="decimal" value="${esc(val)}"></div>`; }
+function wvFields() {
+  const sel = wv.sel, box = $("wv-selbox"); box.hidden = !sel;
+  if (!sel) return;
+  const fr = wvFrame(); let h = "";
+  if (sel.stud != null) { $("wv-selname").textContent = "Selected stud"; h = `<p class="muted" style="font-size:13px;margin:0 0 8px">${fl(fr.x(sel.stud))} from the left end.</p>`; }
+  else if (sel.open) {
+    const q = wvOpenings().find(q => q.o === sel.open); if (!q) { wv.sel = null; box.hidden = true; return; }
+    $("wv-selname").textContent = OTYPES[q.o.otype] || "Opening";
+    h = `<div class="field"><label for="wv-otype">Type</label><select id="wv-otype">${optList(Object.entries(OTYPES), q.o.otype)}</select></div>
+      <div class="pair">${wvField("wv-ow", "Width", fl(q.w))}${wvField("wv-oh", "Height", fl(q.head - q.sill))}</div>
+      <div class="pair">${wvField("wv-osill", q.o.otype === "window" ? "Sill from floor" : "Bottom from floor", fl(q.sill))}${wvField("wv-ox", "From left end", fl(fr.x(q.t) - q.w / 2))}</div>`;
+  } else {
+    const it = sel.item;
+    if (it.run) { $("wv-selname").textContent = WV_RUNS[it.type][0]; h = `<div class="field"><label for="wv-rtype">Kind</label><select id="wv-rtype">${optList((it.layer === "elec" ? ["wire"] : ["hot", "cold", "drain", "vent"]).map(r => [r, WV_RUNS[r][0]]), it.type)}</select></div>`; }
+    else {
+      $("wv-selname").textContent = it.label || (WV_ITEMS[it.layer][it.type] || [])[0] || "Item";
+      const fin = it.layer === "finish";
+      h = `${wvField("wv-label", "Label", it.label || "")}<div class="pair">${wvField("wv-iw", "Width", fl(it.w))}${wvField("wv-ih", "Height", fl(it.h))}</div>
+        <div class="pair">${wvField("wv-iy", fin ? "Bottom from floor" : "Center from floor", fl(fin ? it.cy - it.h / 2 : it.cy))}${wvField("wv-ix", "From left end", fl(fr.x(it.t) - it.w / 2))}</div>`;
+      if (fin) h += `<div class="field"><label for="wv-icolor">Color</label><select id="wv-icolor">${optList(WV_COLORS.map(c => [c[0], c[1]]), it.color || "")}</select></div>`;
+    }
+  }
+  $("wv-selfields").innerHTML = h;
+  $("wv-del").textContent = sel.stud != null ? "Remove stud" : "Remove";
+}
+function wvLen(id) { const v = parseLen($(id).value); return isFinite(v) ? v : NaN; }
+$("wv-selfields").addEventListener("change", e => {
+  const sel = wv && wv.sel; if (!sel) return; const fr = wvFrame(), id = e.target.id;
+  if (sel.open) {
+    const o = sel.open, q = wvOpenings().find(q => q.o === o); if (!q) return;
+    if (id === "wv-otype") { o.otype = e.target.value; delete o.sill; delete o.head; }
+    if (id === "wv-ow") { const v = wvLen(id); if (v > 0.5) { o.w = v; wvMoveOpening(o, q.t); } }
+    if (id === "wv-oh") { const v = wvLen(id); if (v > 0.5) o.head = Math.min(dz.wallH - 0.25, q.sill + v); }
+    if (id === "wv-osill") { const v = wvLen(id); if (v >= 0) { const ht = q.head - q.sill; o.sill = Math.min(v, dz.wallH - 1); o.head = Math.min(dz.wallH - 0.25, o.sill + ht); } }
+    if (id === "wv-ox") { const v = wvLen(id); if (isFinite(v)) wvMoveOpening(o, fr.t(v + q.w / 2)); }
+  } else if (sel.item) {
+    const it = sel.item, fin = it.layer === "finish";
+    if (id === "wv-rtype") it.type = e.target.value;
+    if (id === "wv-label") it.label = e.target.value.trim();
+    if (id === "wv-icolor") it.color = e.target.value;
+    if (id === "wv-iw") { const v = wvLen(id); if (v > 0) it.w = v; }
+    if (id === "wv-ih") { const v = wvLen(id); if (v > 0) { if (fin) it.cy += (v - it.h) / 2; it.h = v; } }
+    if (id === "wv-iy") { const v = wvLen(id); if (isFinite(v)) it.cy = fin ? v + it.h / 2 : v; }
+    if (id === "wv-ix") { const v = wvLen(id); if (isFinite(v)) it.t = fr.t(v + it.w / 2); }
+  }
+  wvFields(); wvDraw();
+});
+$("wv-layers").addEventListener("click", e => {
+  const b = e.target.closest("[data-l]"); if (b) { wv.sel = null; wvSetLayer(b.dataset.l); }
+});
+$("wv-layers").addEventListener("change", e => { const c = e.target.closest("[data-show]"); if (c) { wv.show[c.dataset.show] = c.checked; wvDraw(); } });
+$("wv-tools").addEventListener("change", e => {
+  const v = wv.v, fr = wvFrame();
+  if (e.target.id === "wv-oc") v.oc = +e.target.value;
+  if (e.target.id === "wv-from") { const left = e.target.value === "lo"; v.layFrom = (fr.s > 0) === left ? "lo" : "hi"; }
+  if (e.target.id === "wv-paint") { v.paint = Object.assign({}, v.paint, { [fr.vf]: e.target.value }); }
+  if (e.target.id === "wv-dwth") v.dwTh = e.target.value;
+  wvDraw();
+});
+$("wv-tools").addEventListener("input", e => { if (e.target.id === "wv-paint") { wv.v.paint = Object.assign({}, wv.v.paint, { [wvFrame().vf]: e.target.value }); wvDraw(); } });
+$("wv-tools").addEventListener("click", e => {
+  const fr = wvFrame(), mid = fr.t(fr.L / 2), b = e.target.closest("button"); if (!b) return;
+  if (b.id === "wv-addstud") { wv.tool = wv.tool && wv.tool.stud ? null : { stud: true }; wvTools(); return; }
+  if (b.id === "wv-resetstud") { wv.v.studAdd = []; wv.v.studDel = []; wv.sel = null; wvFields(); wvDraw(); return; }
+  if (b.dataset.run) { wv.tool = wv.tool && wv.tool.run === b.dataset.run ? null : { run: b.dataset.run }; wv.draft = null; wvTools(); wvDraw(); return; }
+  if (b.dataset.addopen) {
+    const k = b.dataset.addopen, w = OPEN_DEFAULT_W[k] / 12, S = wv.S, o = { id: dz.nid++, otype: k, w, hinge: 0, side: 1, label: "" };
+    if (S.ref && S.ref.type !== "free") { o.ref = S.ref; o.along = 0; }
+    else { const u = unit({ x: S.x1, y: S.y1 }, { x: S.x2, y: S.y2 }), c = wvPt(wv.v, mid); Object.assign(o, { ref: { type: "free" }, cx: c.x, cy: c.y, ux: u.x, uy: u.y, th: S.th || 4.5 / 12 }); }
+    dz.opens.push(o); wvMoveOpening(o, mid); wv.sel = { open: o }; wvFields(); wvDraw(); return;
+  }
+  if (b.dataset.additem) {
+    const l = wv.layer, d = WV_ITEMS[l][b.dataset.additem], it = { id: Date.now() + Math.random(), layer: l, type: b.dataset.additem, t: mid, w: WI(d[1]), h: WI(d[2]), cy: WI(d[3]), face: l === "plumb" && ["sink", "toilet", "valve", "head", "spout", "washer", "bibb", "cleanout"].includes(b.dataset.additem) ? fr.vf : fr.vf };
+    wv.v.items.push(it); wv.sel = { item: it }; wvFields(); wvDraw();
+  }
+});
+$("wv-h").addEventListener("change", e => { const v = parseLen(e.target.value); if (v >= 4 && v <= 30) dz.wallH = v; wvTitle(); wvView(); wvDraw(); });
+function wvLocal(e) { const r = wvc.getBoundingClientRect(); return { x: (e.clientX - r.left - wox) / wk, y: (woy - (e.clientY - r.top)) / wk, sx: e.clientX - r.left, sy: e.clientY - r.top }; }
+const wvSnap = v => Math.round(v * 24) / 24;   // ½ inch
+function wvHit(p) {   // what's under the pointer: the layer you're on first, then anything showing
+  const tol = 6 / wk, fr = wvFrame(), items = wvVisibleItems().filter(q => !q.faded);
+  const hitBox = q => Math.abs(p.x - q.x) <= q.w / 2 + tol && Math.abs(p.y - q.y) <= q.h / 2 + tol;
+  const hitRun = q => q.pts.some((a, i) => i && segDist(p, a, q.pts[i - 1]) <= tol + WI(1));
+  const order = [wv.layer, ...["finish", "openings", "elec", "plumb", "framing"].filter(l => l !== wv.layer && wv.show[l])];
+  for (const l of order) {
+    if (l === "openings") { const q = wvOpenings().find(q => Math.abs(p.x - fr.x(q.t)) <= q.w / 2 && p.y >= q.sill && p.y <= q.head); if (q) return { open: q.o }; continue; }
+    if (l === "framing") { if (wv.show.drywall && l !== wv.layer) continue; const f = wvFraming().find(f => (f.kind === "stud" || f.kind === "added") && p.x >= f.x - tol && p.x <= f.x + f.w + tol && p.y >= f.y && p.y <= f.y + f.h); if (f) return { stud: f.t, added: f.kind === "added" }; continue; }
+    const q = [...items].reverse().find(q => q.it.layer === l && (q.pts ? hitRun(q) : hitBox(q))); if (q) return { item: q.it };
+  }
+  return null;
+}
+const wvPtrs = new Map(); let wvPinch = null, wvDrag = null;
+wvc.addEventListener("wheel", e => { if (!wv) return; e.preventDefault(); const p = wvLocal(e); wvZoomAt(Math.exp(-e.deltaY * 0.0015), p.sx, p.sy); }, { passive: false });
+wvc.addEventListener("pointerdown", e => {
+  if (!wv) return; wvc.setPointerCapture(e.pointerId);
+  const p = wvLocal(e); wvPtrs.set(e.pointerId, { x: p.sx, y: p.sy });
+  if (wvPtrs.size === 2) {
+    if (wvDrag && wvDrag.o) Object.assign(wvDrag.target, wvDrag.o);
+    wvDrag = null; wvView(); const [a, b] = [...wvPtrs.values()];
+    wvPinch = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, k: wk, x: wox, y: woy }; return;
+  }
+  if (wvPtrs.size > 2) return;
+  const fr = wvFrame();
+  if (wv.tool && wv.tool.stud) { const t = wvSnap(fr.t(p.x)); wv.v.studAdd = [...(wv.v.studAdd || []), t]; wv.v.studDel = (wv.v.studDel || []).filter(d => Math.abs(d - t) > WI(1)); wv.tool = null; wv.sel = { stud: t, added: true }; wvTools(); wvFields(); wvDraw(); return; }
+  if (wv.tool && wv.tool.run) {
+    const q = { t: fr.t(wvSnap(p.x)), y: wvSnap(Math.max(0, Math.min(dz.wallH, p.y))) }, last = wv.draft && wv.draft[wv.draft.length - 1];
+    if (last && Math.hypot((fr.x(last.t) - fr.x(q.t)) * wk, (last.y - q.y) * wk) < 12) {   // tap the last point again: done
+      if (wv.draft.length >= 2) { const it = { id: Date.now() + Math.random(), layer: wv.layer, run: true, type: wv.tool.run, pts: wv.draft, face: 0 }; wv.v.items.push(it); wv.sel = { item: it }; }
+      wv.draft = null; wv.cursor = null; wv.tool = null; wvTools(); wvFields(); wvDraw(); return;
+    }
+    wv.draft = [...(wv.draft || []), q]; wvDraw(); return;
+  }
+  const h = wvHit(p);
+  wv.sel = h;
+  if (h && h.item) { const it = h.item; if (it.layer !== wv.layer) { wv.layer = it.layer; wvSetLayer(it.layer); } wvDrag = { target: it, o: JSON.parse(JSON.stringify(it)), start: p }; }
+  else if (h && h.open) { if (wv.layer !== "openings") wvSetLayer("openings"); const q = wvOpenings().find(q => q.o === h.open); wvDrag = { open: h.open, t0: q.t, sill0: q.sill, head0: q.head, start: p, target: h.open, o: { ...h.open } }; }
+  else if (!h) wvDrag = { pan: true, last: { x: p.sx, y: p.sy } };
+  else wvDrag = null;
+  wvFields(); wvDraw();
+});
+wvc.addEventListener("pointermove", e => {
+  if (!wv) return; const p = wvLocal(e);
+  if (wvPtrs.has(e.pointerId)) wvPtrs.set(e.pointerId, { x: p.sx, y: p.sy });
+  if (wvPinch) {
+    if (wvPtrs.size < 2) return; const [a, b] = [...wvPtrs.values()], P = wvPinch, fit = wvFitK();
+    const k = Math.max(fit * .5, Math.min(fit * 30, P.k * Math.hypot(a.x - b.x, a.y - b.y) / P.d)), mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    const wx = (P.mid.x - P.x) / P.k, wy = (P.y - P.mid.y) / P.k; wv.view = { k, x: mid.x - wx * k, y: mid.y + wy * k }; wvDraw(); return;
+  }
+  if (wv.tool && wv.tool.run && wv.draft) { const fr = wvFrame(); wv.cursor = { x: wvSnap(p.x), y: wvSnap(p.y) }; wv.cursor.t = fr.t(wv.cursor.x); wvDrawDraftCursor(); return; }
+  if (!wvDrag) return;
+  if (wvDrag.pan) { wvView(); wv.view = { k: wk, x: wox + p.sx - wvDrag.last.x, y: woy + p.sy - wvDrag.last.y }; wvDrag.last = { x: p.sx, y: p.sy }; wvDraw(); return; }
+  const fr = wvFrame(), dx = p.x - wvDrag.start.x, dy = p.y - wvDrag.start.y;
+  if (wvDrag.open) {
+    const o = wvDrag.open; wvMoveOpening(o, fr.t(wvSnap(fr.x(wvDrag.t0) + dx)));
+    if (o.otype === "window") { const ht = wvDrag.head0 - wvDrag.sill0, s = Math.max(0.5, Math.min(dz.wallH - 0.25 - ht, wvSnap(wvDrag.sill0 + dy))); o.sill = s; o.head = s + ht; }
+  } else if (wvDrag.target && !wvDrag.target.run) {
+    const it = wvDrag.target, o = wvDrag.o; it.t = fr.t(wvSnap(fr.x(o.t) + dx)); it.cy = Math.max(it.h / 2, Math.min(dz.wallH - it.h / 2, wvSnap(o.cy + dy)));
+  } else if (wvDrag.target) {
+    const it = wvDrag.target, o = wvDrag.o; it.pts = o.pts.map(q => ({ t: fr.t(wvSnap(fr.x(q.t) + dx)), y: wvSnap(q.y + dy) }));
+  }
+  wvFields(); wvDraw();
+});
+function wvDrawDraftCursor() { const c = wv.cursor; wvDraw(); if (c) { const s = wS(c.x, c.y); wctx.beginPath(); wctx.arc(s.x, s.y, 4, 0, Math.PI * 2); wctx.fillStyle = MARK; wctx.fill(); } }
+wvc.addEventListener("pointerup", e => { wvPtrs.delete(e.pointerId); if (!wvPtrs.size) wvPinch = null; wvDrag = null; });
+wvc.addEventListener("pointercancel", e => { wvPtrs.delete(e.pointerId); if (!wvPtrs.size) wvPinch = null; wvDrag = null; });
+$("wv-zin").onclick = () => wvZoomAt(1.4, wW / 2, wH / 2);
+$("wv-zout").onclick = () => wvZoomAt(1 / 1.4, wW / 2, wH / 2);
+$("wv-zfit").onclick = () => { if (wv) { wv.view = null; wvDraw(); } };
+$("wv-flip").onclick = () => { wv.face = -wv.face; wv.sel = null; wv.view = null; wvSetLayer(wv.layer); };
+$("wv-del").onclick = () => {
+  const sel = wv.sel; if (!sel) return;
+  if (sel.stud != null) { if (sel.added) wv.v.studAdd = wv.v.studAdd.filter(t => Math.abs(t - sel.stud) > 1e-6); else wv.v.studDel = [...(wv.v.studDel || []), sel.stud]; }
+  else if (sel.open) dz.opens = dz.opens.filter(o => o !== sel.open);
+  else if (sel.item) wv.v.items = wv.v.items.filter(i => i !== sel.item);
+  wv.sel = null; wvFields(); wvDraw();
+};
+function wvEmpty(v) { return !v.items.length && !(v.studAdd || []).length && !(v.studDel || []).length && (v.oc || 16) === 16 && (v.layFrom || "lo") === "lo" && !Object.keys(v.paint || {}).length && !v.dwTh; }
+$("wv-done").onclick = () => {
+  const v = wv.v;
+  if (wv.isNew && !wvEmpty(v)) dz.views.push(v);
+  if (!wv.isNew && wvEmpty(v)) dz.views = dz.views.filter(x => x !== v);
+  $("wallview").close();
+};
+$("wv-cancel").onclick = () => {
+  const u = JSON.parse(wv.undo);
+  if (!wv.isNew) { const i = dz.views.indexOf(wv.v); if (i >= 0) dz.views[i] = u.v; }
+  dz.opens = u.opens; dz.wallH = u.wallH; wv.cancelled = true; $("wallview").close();
+};
+$("wallview").addEventListener("cancel", e => { e.preventDefault(); if (wv && wv.draft) { wv.draft = null; wv.tool = null; wvTools(); wvDraw(); } else $("wv-done").onclick(); });
+$("wallview").addEventListener("close", () => { wv = null; wvPtrs.clear(); wvPinch = null; if (dz) { dz.sel = null; dzSelFields(); dzDraw(); $("dz-status").textContent = "Wall view changes are kept here. Save to plan to keep them for good."; } });
+$("wallview").addEventListener("keydown", e => {
+  if (!wv || e.target.matches("input, select, textarea")) return;
+  if ((e.key === "Delete" || e.key === "Backspace") && wv.sel) { e.preventDefault(); $("wv-del").onclick(); }
+});
+new ResizeObserver(() => { if (wv) wvResize(); }).observe($("wv-stage"));
+// From the designer: the selected wall, a room's sides, or a double-click on any wall.
+function dzWallSeg(sel) {
+  if (!sel) return null;
+  if (sel.ext) return { x1: sel.x1, y1: sel.y1, x2: sel.x2, y2: sel.y2, th: sel.th, ref: { type: "ext", idx: sel.idx } };
+  if ("x1" in sel) return { x1: sel.x1, y1: sel.y1, x2: sel.x2, y2: sel.y2, th: sel.th, ref: { type: "wall", wid: sel.id } };
+  return null;
+}
+function dzRoomSide(r, i) {   // a room's side, or the real wall it lies along
+  const C = [[r.x, r.y], [r.x + r.w, r.y], [r.x + r.w, r.y + r.h], [r.x, r.y + r.h]], a = C[i], b = C[(i + 1) % 4];
+  const seg = { x1: a[0], y1: a[1], x2: b[0], y2: b[1], th: 4.5 / 12, ref: { type: "free" } }, u = unit({ x: a[0], y: a[1] }, { x: b[0], y: b[1] }), m = { x: (a[0] + b[0]) / 2, y: (a[1] + b[1]) / 2 };
+  for (const L of [...extSides(), ...dz.walls]) {
+    const lu = unit({ x: L.x1, y: L.y1 }, { x: L.x2, y: L.y2 }); if (Math.abs(lu.x * u.y - lu.y * u.x) > 0.01) continue;
+    if (segDist(m, { x: L.x1, y: L.y1 }, { x: L.x2, y: L.y2 }) <= L.th / 2 + 0.35) {   // that wall, but only the room's stretch of it
+      const len = Math.hypot(L.x2 - L.x1, L.y2 - L.y1), at = t => { t = Math.max(0, Math.min(len, t)); return { x: L.x1 + lu.x * t, y: L.y1 + lu.y * t }; };
+      const p = at(projAlong(L, { x: a[0], y: a[1] })), q = at(projAlong(L, { x: b[0], y: b[1] }));
+      return Object.assign(dzWallSeg(L), { x1: p.x, y1: p.y, x2: q.x, y2: q.y });
+    }
+  }
+  return seg;
+}
+$("dz-wview").onclick = () => { const s = dzWallSeg(dzSel()); if (s) openWallView(s); };
+$("dz-rviews").addEventListener("click", e => {
+  const b = e.target.closest("[data-side]"), r = dzSel(); if (!b || !r || !("h" in r)) return;
+  openWallView(dzRoomSide(r, +b.dataset.side), { x: r.x + r.w / 2, y: r.y + r.h / 2 });
+});
+dzc.addEventListener("dblclick", e => {
+  if (!dz || dz.tool !== "move") return; const p = dzLocal(e), tol = 8 / dk;
+  const w = [...dz.walls, ...extSides()].filter(w => wallDist(w, p) <= Math.max(tol, w.th / 2 + tol / 2)).sort((a, b) => wallDist(a, p) - wallDist(b, p))[0];
+  if (w) { openWallView(dzWallSeg(w), p); return; }
+  for (const r of dz.rooms.filter(r => r.type === "room")) for (let i = 0; i < 4; i++) {
+    const C = [[r.x, r.y], [r.x + r.w, r.y], [r.x + r.w, r.y + r.h], [r.x, r.y + r.h]], a = C[i], b = C[(i + 1) % 4];
+    if (segDist(p, { x: a[0], y: a[1] }, { x: b[0], y: b[1] }) <= tol) { openWallView(dzRoomSide(r, i), p); return; }
+  }
+});
 
 /* ---------- projects: library in this browser, save/open project files ---------- */
 let pid = "p1", projects = [];
