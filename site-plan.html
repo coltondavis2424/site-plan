@@ -231,6 +231,9 @@ dialog.dz{width:100vw;height:100vh;height:100dvh;max-width:none;max-height:none;
 .dz-head{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
 .dz-head h2{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:22px;margin:0;flex:1;min-width:180px}
 .dz-head select{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 10px}
+.dz-head .hstep{font-size:18px;line-height:1;min-width:40px;padding-left:8px;padding-right:8px}
+.dz-head .hstep:disabled{opacity:.35}
+.dz-head .hstep + .hstep{margin-left:-6px}
 .dz-body{flex:1;display:grid;grid-template-columns:300px 1fr;min-height:0}
 .dz-side{overflow:auto;border-right:1px solid var(--line);padding:4px 16px 16px}
 .dz-side h3{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:17px;margin:14px 0 8px}
@@ -315,7 +318,7 @@ dialog.dz{width:100vw;height:100vh;height:100dvh;max-width:none;max-height:none;
   <button class="hbtn" id="undo" title="Undo (Ctrl+Z)" aria-label="Undo" disabled>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>
   </button>
-  <button class="hbtn" id="redo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled>
+  <button class="hbtn" id="redo" title="Redo (Ctrl+X)" aria-label="Redo" disabled>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg>
   </button>
   <div class="spacer"></div>
@@ -527,6 +530,7 @@ dialog.dz{width:100vw;height:100vh;height:100dvh;max-width:none;max-height:none;
     <div class="dz-head">
       <h2 id="dz-title">Design floor plan</h2>
       <select id="dz-level" aria-label="Level to design"></select>
+      <button class="ghost hstep" id="dz-undo" title="Undo (Ctrl+Z)" aria-label="Undo" disabled>↶</button><button class="ghost hstep" id="dz-redo" title="Redo (Ctrl+X)" aria-label="Redo" disabled>↷</button>
       <button class="ghost" id="dz-cancel">Cancel</button>
       <button class="primary" id="dz-save">Save to plan</button>
     </div>
@@ -615,6 +619,7 @@ dialog.dz{width:100vw;height:100vh;height:100dvh;max-width:none;max-height:none;
   <div class="dz-wrap">
     <div class="dz-head">
       <h2 id="wv-title">Wall view</h2>
+      <button class="ghost hstep" id="wv-undo" title="Undo (Ctrl+Z)" aria-label="Undo" disabled>↶</button><button class="ghost hstep" id="wv-redo" title="Redo (Ctrl+X)" aria-label="Redo" disabled>↷</button>
       <button class="ghost" id="wv-flip">Other side</button>
       <button class="ghost" id="wv-cancel">Cancel</button>
       <button class="primary" id="wv-done">Done</button>
@@ -2326,7 +2331,9 @@ function openDesigner(b, keep) {
   $("dz-ext").value = String(Math.round(t * 12 * 2) / 2);
   dz.base = levelKey();
   dzFields(); dzSelFields(); dzSetTool("move"); dzLevelLabels();
+  if (!keep) dzHist = {};
   if (!$("designer").open) $("designer").showModal();
+  stepCommit();   // this floor's starting point for undo
   requestAnimationFrame(dzResize);
   $("dz-status").textContent = lvName ? `Editing the ${lvName}.` : "";
 }
@@ -2782,6 +2789,7 @@ function dzRotate(k) {
   if (!dz.rotC) dz.rotC = { x: d0.ox + d0.W / 2, y: d0.oy + d0.D / 2 };
   for (const sn of Object.values(dz.drafts)) for (let i = 0; i < k; i++) rotData(sn.data, dz.rotC);
   dz.rot = ((dz.rot || 0) + k) % 4;
+  dzHist = {};   // turning changes every floor; undo starts over from here
   const keepRot = dz.rot, keepC = dz.rotC;
   restoreSnap(dz.drafts[cur]); dz.rot = keepRot; dz.rotC = keepC;
   dzFields(); dzSelFields(); dzLevelLabels(); dzDraw();
@@ -2960,7 +2968,7 @@ function openWallView(S, from) {
   wv = { v, S, nL, face, isNew, layer: "framing", runPick: { elec: { type: "wire", size: "14/2" }, plumb: { type: "cold", size: 0.5 } }, show: { framing: true, openings: true, elec: true, plumb: true, drywall: false, finish: true }, sel: null, tool: null, view: null,
     undo: JSON.stringify({ v, opens: dz.opens, wallH: dz.wallH }) };
   wvSetLayer("framing");
-  $("wallview").showModal(); requestAnimationFrame(wvResize);
+  $("wallview").showModal(); wvHist = { u: [], r: [], last: wvKey() }; stepButtons(); requestAnimationFrame(wvResize);
 }
 function wvFrame() {   // view x runs left to right as seen from the chosen face
   const { S, v, nL, face } = wv, n = { x: nL.x * face, y: nL.y * face }, d = { x: -n.x, y: -n.y }, r = { x: -d.y, y: d.x }, u = wvU(v);
@@ -3195,7 +3203,7 @@ function wvSetLayer(l) {
 function wvTitle() {
   const { S, nL, face } = wv, n = { x: nL.x * face, y: nL.y * face }, here = wvSideLabel(S, n), other = wvSideLabel(S, { x: -n.x, y: -n.y });
   $("wv-title").textContent = `Wall view · ${here === "Inside" || here === "Outside" ? here : here + " side"}`;
-  $("wv-flip").textContent = "Look from " + (other === "Inside" || other === "Outside" ? other.toLowerCase() : other);
+  $("wv-flip").innerHTML = `<span class="hide-sm">Look from ${esc(other === "Inside" || other === "Outside" ? other.toLowerCase() : other)}</span><span class="show-sm">Flip</span>`;
   $("wv-h").value = fl(dz.wallH); $("wv-len").value = fl(wvFrame().L);
 }
 const WV_HINTS = {
@@ -3499,6 +3507,62 @@ dzc.addEventListener("dblclick", e => {
     if (segDist(p, { x: a[0], y: a[1] }, { x: b[0], y: b[1] }) <= tol) { openWallView(dzRoomSide(r, i), p); return; }
   }
 });
+
+/* ---------- undo in the designer and wall view; Ctrl+Z undo / Ctrl+X redo in every window ---------- */
+// Steps are found by comparing a snapshot after each tap, drag, change or key, so every edit is covered
+// without hooks in each handler. A drag is one step; typing in a box is one step when you leave the box.
+let dzHist = {}, wvHist = null;   // designer: per floor {u, r, last}; wall view: {u, r, last}
+function wvKey() { return JSON.stringify({ v: wv.v, opens: dz.opens, wallH: dz.wallH }); }
+function stepCommit() {
+  if (wv && wvHist && $("wallview").open) { const k = wvKey(); if (k !== wvHist.last) { wvHist.u.push(wvHist.last); wvHist.r = []; wvHist.last = k; } }
+  else if (dz && $("designer").open) {   // wall view changes land here as one step when it closes
+    const k = levelKey(), H = dzHist[dz.lv];
+    if (!H) dzHist[dz.lv] = { u: [], r: [], last: k };
+    else if (k !== H.last) { H.u.push(H.last); H.r = []; H.last = k; }
+  }
+  stepButtons();
+}
+function stepButtons() {
+  const H = dz && dzHist[dz.lv];
+  $("dz-undo").disabled = !(H && H.u.length); $("dz-redo").disabled = !(H && H.r.length);
+  $("wv-undo").disabled = !(wvHist && wvHist.u.length); $("wv-redo").disabled = !(wvHist && wvHist.r.length);
+}
+function dzStep(back) {
+  stepCommit(); const H = dzHist[dz.lv], from = back ? H.u : H.r, to = back ? H.r : H.u;
+  if (!from.length) { $("dz-status").textContent = back ? "Nothing to undo on this floor." : "Nothing to redo."; return; }
+  to.push(H.last); H.last = from.pop();
+  Object.assign(dz, JSON.parse(H.last)); dz.sel = null; dz.wdraft = null; dz.rdraft = null;
+  dzFields(); dzSelFields(); dzLevelLabels(); dzDraw(); stepButtons();
+  $("dz-status").textContent = back ? "Undid the last change. Ctrl+X (or ↷) puts it back." : "Redid the change.";
+}
+function wvStep(back) {
+  stepCommit(); const H = wvHist, from = back ? H.u : H.r, to = back ? H.r : H.u;
+  if (!from.length) { $("wv-hint").textContent = back ? "Nothing to undo in this wall view." : "Nothing to redo."; return; }
+  to.push(H.last); H.last = from.pop();
+  const s = JSON.parse(H.last); for (const k of Object.keys(wv.v)) delete wv.v[k]; Object.assign(wv.v, s.v);
+  dz.opens = s.opens; dz.wallH = s.wallH; wv.sel = null; wv.ghost = null; wv.draft = null;
+  wvSetLayer(wv.layer); stepButtons();
+  $("wv-hint").textContent = back ? "Undid the last change. Ctrl+X (or ↷) puts it back." : "Redid the change.";
+}
+for (const ev of ["pointerup", "change", "click", "keyup"]) document.addEventListener(ev, () => { if (dz) setTimeout(stepCommit, 0); });
+// Also close off the last step the moment a new action starts, however quick (keys typed into a box don't count).
+for (const ev of ["pointerdown", "focusin", "keydown"]) document.addEventListener(ev, e => { if (dz && !(ev === "keydown" && e.target.matches && e.target.matches("input, textarea"))) stepCommit(); }, true);
+$("dz-undo").onclick = () => dzStep(true); $("dz-redo").onclick = () => dzStep(false);
+$("wv-undo").onclick = () => wvStep(true); $("wv-redo").onclick = () => wvStep(false);
+$("wallview").addEventListener("close", () => { wvHist = null; });
+// Ctrl+Z undoes and Ctrl+X redoes (Ctrl+Y and Ctrl+Shift+Z redo too) in whichever window is in front.
+// While typing in a text box, the box keeps its own undo and cut.
+document.addEventListener("keydown", e => {
+  if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+  const k = e.key.toLowerCase(), back = k === "z" && !e.shiftKey, fwd = k === "x" || k === "y" || (k === "z" && e.shiftKey);
+  if (!back && !fwd) return;
+  if (e.target.matches && e.target.matches('textarea, [contenteditable], input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=range]):not([type=button]):not([type=submit])')) return;
+  e.preventDefault(); e.stopPropagation();
+  if ($("wallview").open && wv) wvStep(back);
+  else if ($("designer").open && dz) dzStep(back);
+  else if ($("projdlg").open) { if (back && !$("proj-undo").hidden) $("proj-undo").click(); }
+  else if (back) undo(); else redo();
+}, true);
 
 /* ---------- projects: library in this browser, save/open project files ---------- */
 let pid = "p1", projects = [];
@@ -4387,8 +4451,6 @@ $("panel-toggle").onclick = () => {
 document.addEventListener("keydown", e => {
   if (e.target.matches("input, textarea, select") || $("dlg").open || $("designer").open) return;
   const k = e.key.toLowerCase();
-  if ((e.ctrlKey || e.metaKey) && k === "z") { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
-  if ((e.ctrlKey || e.metaKey) && k === "y") { e.preventDefault(); redo(); return; }
   if (k === "escape") { if (draft.length) { draft = []; dimPhase = false; updateUI(); } else { measure = []; selected = null; renderPanel(); requestDraw(); } }
   else if (k === "enter" && (tool in MULTI || (tool === "rect" && state.bldShape === "poly") || (tool === "shape" && state.shapeType === "poly"))) finishWall(false);
   else if ((k === "delete" || k === "backspace") && selected) { e.preventDefault(); deleteSelected(); }
