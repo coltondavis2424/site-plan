@@ -238,6 +238,8 @@ dialog.dz{width:100vw;height:100vh;height:100dvh;max-width:none;max-height:none;
 .dz-zoom button{box-shadow:0 2px 10px rgba(0,0,0,.25)}
 .dz-wrap{display:flex;flex-direction:column;height:100%}
 .mat-body{display:flex;flex:1;min-height:0}
+.shoprow{flex-wrap:wrap;gap:6px}
+a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inherit}
 .mat-opts{width:300px;flex:none;overflow:auto;padding:4px 16px 16px;border-right:1px solid var(--line)}
 .mat-g{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:18px;margin:14px 0 8px}
 .mat-main{flex:1;overflow:auto;padding:12px 20px 20px;min-width:0}
@@ -245,7 +247,13 @@ dialog.dz{width:100vw;height:100vh;height:100dvh;max-width:none;max-height:none;
 .mat-msg{font-size:13px;color:var(--muted)}
 .mat-sec h3{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:19px;margin:18px 0 4px}
 .mat-sec table{width:100%;border-collapse:collapse;font-size:14px;table-layout:fixed}
-.mat-sec .mi{width:42%}
+.mat-sec .mi{width:34%}
+.mat-sec .mi a{color:inherit;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
+.mat-sec .mi a:hover{text-decoration-color:currentColor}
+.mat-sec th{font-size:12px;font-weight:600;color:var(--muted);text-align:left;padding:2px 8px}
+.mat-sec th.mq,.mat-sec td.mc,.mat-sec th.mc{text-align:right}
+.mat-sec .mp{width:88px}.mat-sec .mc{width:90px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.mat-sec .mp input{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:3px 6px;font:inherit;font-size:13px}
 .mat-sec td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
 .mat-sec .mq{text-align:right;font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums;width:72px}
 .mat-sec .mu{color:var(--muted);width:150px}
@@ -330,7 +338,9 @@ dialog.dz{width:100vw;height:100vh;height:100dvh;max-width:none;max-height:none;
   .mat-main{overflow:visible;padding:8px 12px 16px}
   .mat-sec .mn{display:none}
   .mat-sec .mi{width:auto}
-  .mat-sec .mu{width:104px}
+  .mat-sec .mu{width:78px;font-size:12px}
+  .mat-sec .mp{width:68px}.mat-sec .mc{width:66px;font-size:12px}
+  .mat-sec td,.mat-sec th{padding:5px 4px}
   .actions{bottom:12px}
   .zoom{bottom:12px}
   /* What's selected, with its main actions, so nothing needs the sheet. */
@@ -397,7 +407,7 @@ dialog.dz{width:100vw;height:100vh;height:100dvh;max-width:none;max-height:none;
     </div>
     <div class="cat" data-cat="obj">
       <button class="catbtn" data-cat="obj" aria-pressed="false" aria-expanded="false" aria-haspopup="menu" title="Objects"><span class="caticon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="10" r="6"/><rect x="12" y="13" width="9" height="8"/></svg></span><span class="catlabel">Objects</span><span class="catcaret" aria-hidden="true"></span></button>
-      <div class="fly" role="menu" aria-label="Objects" hidden><p class="flyhead">Objects</p><button class="tool flytool" data-tool="shape" aria-pressed="false" title="Circles and other basic shapes (H)" role="menuitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="10" r="6"/><rect x="12" y="13" width="9" height="8"/></svg><span class="fl">Shape (circle, rectangle)</span><kbd>H</kbd></button><button class="tool flytool" data-tool="vehicle" aria-pressed="false" title="Vehicles (C)" role="menuitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="7" width="18" height="10" rx="3"/><path d="M8 7v10M15 7v10" opacity=".7"/><path d="M5 5.5h3M16 5.5h3M5 18.5h3M16 18.5h3"/></svg><span class="fl">Vehicle</span><kbd>C</kbd></button></div>
+      <div class="fly" role="menu" aria-label="Objects" hidden><p class="flyhead">Objects</p><button class="tool flytool" data-tool="shape" aria-pressed="false" title="Circles and other basic shapes (H)" role="menuitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="10" r="6"/><rect x="12" y="13" width="9" height="8"/></svg><span class="fl">Shape (circle, rectangle)</span><kbd>H</kbd></button><button class="tool flytool" data-tool="vehicle" aria-pressed="false" title="Vehicles (C)" role="menuitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="7" width="18" height="10" rx="3"/><path d="M8 7v10M15 7v10" opacity=".7"/><path d="M5 5.5h3M16 5.5h3M5 18.5h3M16 18.5h3"/></svg><span class="fl">Vehicle</span><kbd>C</kbd></button><button class="tool flytool" data-tool="furn" aria-pressed="false" title="Furniture and fixtures (F)" role="menuitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 11V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"/><path d="M3 11h18v5H3zM5 16v3M19 16v3"/></svg><span class="fl">Furniture and fixtures</span><kbd>F</kbd></button></div>
     </div>
     <div class="cat" data-cat="ground">
       <button class="catbtn" data-cat="ground" aria-pressed="false" aria-expanded="false" aria-haspopup="menu" title="Ground"><span class="caticon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M2 19l6-9 4 5 3-4 7 8z"/><path d="M15 6c1.5-1.5 3.5-1.5 5 0" opacity=".7"/></svg></span><span class="catlabel">Ground</span><span class="catcaret" aria-hidden="true"></span></button>
@@ -457,6 +467,11 @@ dialog.dz{width:100vw;height:100vh;height:100dvh;max-width:none;max-height:none;
     <div class="roadpick" id="addonpick" hidden>
       <label for="addon-type">Add-on</label>
       <select id="addon-type"></select>
+    </div>
+    <div class="roadpick" id="furnpick" hidden>
+      <label for="furn-type">Item</label>
+      <select id="furn-type"></select>
+      <input type="file" id="f-furnpic" accept="image/*" hidden>
     </div>
     <div class="roadpick" id="vehpick" hidden>
       <label for="veh-model">Vehicle</label>
@@ -717,6 +732,7 @@ dialog.dz{width:100vw;height:100vh;height:100dvh;max-width:none;max-height:none;
       <label class="v3-opt">Heights <select id="v3-ex" aria-label="Stretch heights"><option value="1">true to life</option><option value="2">×2</option><option value="3">×3</option><option value="5">×5</option></select></label>
       <label class="v3-opt"><input type="checkbox" id="v3-photo" checked> Photo</label>
       <label class="v3-opt"><input type="checkbox" id="v3-water" checked> Water</label>
+      <label class="v3-opt"><input type="checkbox" id="v3-roof" checked> Roofs</label>
       <button class="ghost" id="v3-top">From above</button>
       <button class="ghost" id="v3-home">Reset view</button>
       <button class="primary" id="v3-close">Close</button>
@@ -726,7 +742,7 @@ dialog.dz{width:100vw;height:100vh;height:100dvh;max-width:none;max-height:none;
 </dialog>
 <dialog id="matdlg" class="dz" aria-labelledby="mat-title">
   <div class="dz-wrap">
-    <div class="dz-head"><h2 id="mat-title">Material list</h2><span class="mat-msg" id="mat-msg" role="status"></span><button class="ghost" id="mat-csv">Save as spreadsheet</button><button class="primary" id="mat-close">Close</button></div>
+    <div class="dz-head"><h2 id="mat-title">Material list</h2><span class="mat-msg" id="mat-msg" role="status"></span><label class="v3-opt">Shop at <select id="mat-store" aria-label="Store to look things up at"></select></label><button class="ghost" id="mat-csv">Save as spreadsheet</button><button class="primary" id="mat-close">Close</button></div>
     <div class="mat-body"><form class="mat-opts" id="mat-opts" onsubmit="return false"></form><div class="mat-main"><p class="mat-sum" id="mat-sum"></p><div id="mat-list"></div></div></div>
   </div>
 </dialog>
@@ -1167,6 +1183,17 @@ function draw() {
   if (tool === "vehicle" && cursor) {
     const key = state.vehModel || "durango21";
     ctx.save(); ctx.globalAlpha = .55; drawVehicle({ points: vehiclePoints(cursor, { x: 1, y: 0 }, VEHICLES[key]), model: key, name: "" }, false); ctx.restore();
+  }
+  if (tool === "furn" && fplace) {
+    const M = FURN[fplace.key], u = { x: Math.cos(fplace.ang), y: Math.sin(fplace.ang) }, c = toS(fplace.c);
+    ctx.save(); ctx.globalAlpha = .85; drawFurn({ points: furnPoints(fplace.c, u, M.W * IN, M.D * IN), ftype: fplace.key, name: "" }, true); ctx.restore();
+    const r = Math.max(M.W, M.D) * IN * view.s / 2 + 18, f = { x: -u.y, y: u.x };   // a ring to turn it by, and an arrow out the front
+    ctx.save(); ctx.strokeStyle = MARK; ctx.lineWidth = 2; ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+    const tip = { x: c.x + f.x * r, y: c.y + f.y * r }; ctx.beginPath(); ctx.moveTo(c.x + f.x * (r - 14), c.y + f.y * (r - 14)); ctx.lineTo(tip.x, tip.y); ctx.stroke();
+    ctx.beginPath(); ctx.arc(tip.x, tip.y, 6, 0, Math.PI * 2); ctx.fillStyle = MARK; ctx.fill(); ctx.restore();
+  } else if (tool === "furn" && cursor) {
+    const M = FURN[state.furnType] || FURN.sofa;
+    ctx.save(); ctx.globalAlpha = .55; drawFurn({ points: furnPoints(cursor, furnStartU(cursor), M.W * IN, M.D * IN), ftype: FURN[state.furnType] ? state.furnType : "sofa", name: "" }, false); ctx.restore();
   }
   if (tool === "door" && cursor) {
     const nw = nearestWall(cursor);
@@ -2179,10 +2206,31 @@ function renderMat() {
   $("mat-opts").innerHTML = MAT_OPTS.map(([g, L]) => `<p class="mat-g">${esc(g)}</p>` + L.map(([k, t, opts]) => `<div class="field"><label for="mo-${k}">${esc(t)}</label><select id="mo-${k}" data-mo="${k}">${optList(opts, o[k])}</select></div>`).join("")).join("")
     + `<p class="muted" style="font-size:13px;margin-top:12px">Your choices are saved with this building. Wall heights come from the floor plan designer (each floor can differ).</p>`;
   const fl = matGeom(b).floors;
-  $("mat-sum").innerHTML = `<b>${fl.length} floor${fl.length === 1 ? "" : "s"}</b> · ${Math.round(sum.floorArea * 1).toLocaleString()} sq ft of floor · walls ${fl.map(f => fmtLen(f.H * FT)).join(" / ")} · roof ${(sum.roofA / 100).toFixed(1)} squares (${sum.roofShape}) · ${sum.studs.toLocaleString()} studs`;
-  $("mat-list").innerHTML = S.filter(s => s.rows.length).map(s => `<section class="mat-sec"><h3>${esc(s.title)}</h3><table><tbody>${s.rows.map(r => `<tr><td class="mi">${esc(r[0])}</td><td class="mq">${esc(typeof r[1] === "number" ? r[1].toLocaleString() : r[1])}</td><td class="mu">${esc(r[2])}</td><td class="mn">${esc(r[3])}</td></tr>`).join("")}</tbody></table></section>`).join("")
-    + `<p class="muted" style="font-size:13px">These are estimates for planning and pricing. Check spans, headers and local code with your lumber yard or building inspector before ordering.</p>`;
+  const sumHTML = () => `<b>${fl.length} floor${fl.length === 1 ? "" : "s"}</b> · ${Math.round(sum.floorArea * 1).toLocaleString()} sq ft of floor · walls ${fl.map(f => fmtLen(f.H * FT)).join(" / ")} · roof ${(sum.roofA / 100).toFixed(1)} squares (${sum.roofShape}) · ${sum.studs.toLocaleString()} studs`;
+  const matPriced = () => nP ? ` · <b>priced so far ${esc(money(tot))}</b> (${nP} of ${nAll} items)` : "";
+  if (!$("mat-store").options.length) $("mat-store").innerHTML = optList(["homedepot", "lowes", "menards"].map(k => [k, STORES[k][0]]), "menards");
+  const st = STORES[state.shopStore] ? state.shopStore : "menards", pr = (b.build && b.build.prices) || {}; $("mat-store").value = st;
+  let tot = 0, nP = 0, nAll = 0;
+  const cell = r => { const k = matKey(r[0]), v = pr[k], c = typeof r[1] === "number" && v != null ? r[1] * v : null; if (typeof r[1] === "number") nAll++; if (c != null) { tot += c; nP++; }
+    return `<td class="mp">${typeof r[1] === "number" ? `<input type="text" inputmode="decimal" data-pk="${esc(k)}" value="${v != null ? esc(money(v)) : ""}" placeholder="$" aria-label="Price each for ${esc(r[0])}">` : ""}</td><td class="mc">${c != null ? esc(money(c)) : ""}</td>`; };
+  $("mat-list").innerHTML = `<p class="muted" style="font-size:13px;margin:0 0 4px">Click an item to look it up at ${esc(STORES[st][0])} (opens a new tab). Type the price you find in “Each” and the list adds it up. Pick another store at the top.</p>`
+    + S.filter(s => s.rows.length).map(s => `<section class="mat-sec"><h3>${esc(s.title)}</h3><table><thead><tr><th class="mi"></th><th class="mq">Qty</th><th class="mu"></th><th class="mp">Each</th><th class="mc">Cost</th><th class="mn"></th></tr></thead><tbody>${s.rows.map(r => `<tr><td class="mi">${typeof r[1] === "number" ? `<a href="${esc(STORES[st][1](matQuery(r[0])))}" target="_blank" rel="noopener noreferrer">${esc(r[0])}</a>` : esc(r[0])}</td><td class="mq">${esc(typeof r[1] === "number" ? r[1].toLocaleString() : r[1])}</td><td class="mu">${esc(r[2])}</td>${cell(r)}<td class="mn">${esc(r[3])}</td></tr>`).join("")}</tbody></table></section>`).join("")
+    + `<p class="muted" style="font-size:13px">These are estimates for planning and pricing. Store prices change and vary by location. Check spans, headers and local code with your lumber yard or building inspector before ordering.</p>`;
+  $("mat-sum").innerHTML = sumHTML() + matPriced();
 }
+function matKey(item) { return String(item).replace(/^(Ground|1st|2nd|3rd) floor: |^Basement: /, ""); }
+// Store search words for a list item: drop the floor, make × and fractions plain, drop notes in brackets.
+function matQuery(item) {
+  const fr = { "½": " 1/2", "¼": " 1/4", "¾": " 3/4", "⅛": " 1/8", "⅜": " 3/8", "⅝": " 5/8", "⅞": " 7/8" };
+  return matKey(item).replace(/\([^)]*\)/g, "").replace(/[½¼¾⅛⅜⅝⅞]/g, c => fr[c]).replace(/×/g, "x").replace(/["”]/g, " in").replace(/,/g, " ").replace(/\b(precut|on concrete)\b/g, m => m).replace(/\s+/g, " ").trim();
+}
+$("mat-list").addEventListener("change", e => {
+  const k = e.target.dataset && e.target.dataset.pk, b = state.shapes.find(s => s.id === matB); if (k == null || !b) return;
+  const n = parseFloat(String(e.target.value).replace(/[$,\s]/g, "")), prices = Object.assign({}, b.build && b.build.prices);
+  if (isFinite(n) && n >= 0) prices[k] = Math.round(n * 100) / 100; else delete prices[k];
+  pushUndo(); b.build = Object.assign({}, b.build, { prices }); afterChange(); renderMat();
+});
+$("mat-store").addEventListener("change", e => { state.shopStore = e.target.value; save(); renderMat(); });
 $("mat-opts").addEventListener("change", e => {
   const k = e.target.dataset.mo, b = state.shapes.find(s => s.id === matB); if (!k || !b) return;
   pushUndo(); b.build = Object.assign({}, b.build, { [k]: e.target.value }); afterChange(); renderMat();
@@ -2191,9 +2239,245 @@ $("mat-close").onclick = () => $("matdlg").close();
 $("mat-csv").onclick = async () => {
   const b = state.shapes.find(s => s.id === matB); if (!b) return;
   const { S } = matList(b), q = v => `"${String(v).replace(/"/g, '""')}"`;
-  const csv = "﻿" + [["Section", "Item", "Quantity", "Unit", "Notes"].map(q).join(",")].concat(S.flatMap(s => s.rows.map(r => [s.title, ...r].map(q).join(",")))).join("\r\n");
+  const pr = (b.build && b.build.prices) || {}, ea = r => pr[matKey(r[0])], cost = r => typeof r[1] === "number" && ea(r) != null ? (r[1] * ea(r)).toFixed(2) : "";
+  const csv = "\uFEFF" + [["Section", "Item", "Quantity", "Unit", "Price each", "Cost", "Notes"].map(q).join(",")].concat(S.flatMap(s => s.rows.map(r => [s.title, r[0], r[1], r[2], ea(r) != null ? ea(r).toFixed(2) : "", cost(r), r[3]].map(q).join(",")))).join("\r\n");
   $("mat-msg").textContent = await saveFileOut(new Blob([csv], { type: "text/csv" }), (b.name || "Building") + " materials.csv", "Saved. Open it in Excel or Google Sheets.");
 };
+
+/* ---------- furniture and fixtures ---------- */
+// Items you place inside a building (on the floor you're looking at) or outside. Sizes in inches: W side to side,
+// D front to back, H tall, z = height off the floor. st = how it's drawn (plan symbol and 3D shape), c = color, q = store search words.
+const FURN_ROWS = [
+  ["Living room", [
+    ["sofa", "Sofa", 84, 38, 34, "sofa", "#7D8B96", 0, "sofa"], ["loveseat", "Loveseat", 60, 36, 34, "sofa", "#7D8B96", 0, "loveseat"],
+    ["sectional", "Sectional (one side)", 110, 38, 34, "sofa", "#7D8B96", 0, "sectional sofa"],
+    ["armchair", "Armchair", 32, 34, 36, "chair", "#8E7F6E", 0, "accent armchair"], ["recliner", "Recliner", 36, 38, 40, "chair", "#6E5A48", 0, "recliner"],
+    ["coffee", "Coffee table", 48, 24, 18, "table", "#8A6A48", 0, "coffee table"], ["endtable", "End table", 22, 22, 24, "table", "#8A6A48", 0, "end table"],
+    ["tvstand", "TV stand", 60, 18, 24, "box", "#4A4038", 0, "tv stand"], ["tv", "TV, 65\"", 57, 3, 33, "box", "#1E2226", 30, "65 inch tv"],
+    ["bookcase", "Bookcase", 36, 12, 72, "box", "#8A6A48", 0, "bookcase"], ["woodstove", "Wood stove", 26, 28, 32, "stove", "#2B2B2B", 0, "wood stove"],
+  ]],
+  ["Dining", [
+    ["table4", "Dining table, 4 seats", 48, 36, 30, "table", "#9A7650", 0, "dining table"], ["table6", "Dining table, 6 seats", 72, 40, 30, "table", "#9A7650", 0, "dining table 6 person"],
+    ["tableround", "Round table, 42\"", 42, 42, 30, "round", "#9A7650", 0, "round dining table"], ["chair", "Dining chair", 18, 21, 36, "chair", "#7A5A3A", 0, "dining chair"],
+    ["hutch", "Hutch / buffet", 60, 18, 36, "box", "#6E5038", 0, "buffet sideboard"],
+  ]],
+  ["Bedroom", [
+    ["king", "King bed", 82, 88, 42, "bed", "#C8CCD0", 0, "king bed frame"], ["queen", "Queen bed", 64, 86, 42, "bed", "#C8CCD0", 0, "queen bed frame"],
+    ["full", "Full bed", 58, 80, 40, "bed", "#C8CCD0", 0, "full bed frame"], ["twin", "Twin bed", 42, 80, 38, "bed", "#C8CCD0", 0, "twin bed frame"],
+    ["bunk", "Bunk bed", 42, 80, 65, "bed", "#A88A68", 0, "bunk bed"], ["crib", "Crib", 30, 54, 36, "bed", "#E8E4DC", 0, "crib"],
+    ["dresser", "Dresser", 60, 20, 34, "box", "#8A6A48", 0, "dresser"], ["nightstand", "Nightstand", 22, 18, 26, "box", "#8A6A48", 0, "nightstand"],
+  ]],
+  ["Kitchen", [
+    ["fridge", "Refrigerator", 36, 34, 70, "fridge", "#D8DCDF", 0, "refrigerator"], ["range", "Range / stove", 30, 26, 36, "stove", "#D8DCDF", 0, "electric range"],
+    ["dishwasher", "Dishwasher", 24, 24, 34, "box", "#D8DCDF", 0, "dishwasher"], ["ksink", "Sink base cabinet", 36, 24, 36, "sink", "#B89A72", 0, "kitchen sink base cabinet"],
+    ["base", "Base cabinet, 36\"", 36, 24, 36, "box", "#B89A72", 0, "base cabinet 36"], ["upper", "Wall cabinet, 30\"", 30, 12, 30, "box", "#B89A72", 54, "wall cabinet 30"],
+    ["island", "Kitchen island", 72, 36, 36, "box", "#B89A72", 0, "kitchen island"], ["pantry", "Pantry cabinet", 24, 24, 84, "box", "#B89A72", 0, "pantry cabinet"],
+  ]],
+  ["Bathroom", [
+    ["toilet", "Toilet", 20, 28, 30, "toilet", "#F4F4F2", 0, "toilet"], ["tub", "Bathtub, 60\"", 60, 30, 20, "tub", "#F4F4F2", 0, "alcove bathtub 60"],
+    ["shower", "Shower, 36×36", 36, 36, 80, "shower", "#E8EEF0", 0, "shower stall 36"], ["vanity", "Vanity, 36\"", 36, 21, 34, "sink", "#9A8068", 0, "bathroom vanity 36"],
+    ["vanity2", "Double vanity, 60\"", 60, 22, 34, "sink", "#9A8068", 0, "double vanity 60"],
+  ]],
+  ["Laundry and utility", [
+    ["washer", "Washer", 27, 30, 38, "box", "#E4E6E8", 0, "washing machine"], ["dryer", "Dryer", 27, 30, 38, "box", "#E4E6E8", 0, "electric dryer"],
+    ["waterheater", "Water heater, 50 gal", 24, 24, 60, "round", "#C8CCC8", 0, "water heater 50 gallon"], ["furnace", "Furnace", 22, 30, 48, "box", "#9AA0A4", 0, "gas furnace"],
+    ["panel", "Electrical panel", 15, 4, 30, "box", "#8A9096", 48, "load center"], ["shelf", "Shelving unit", 48, 24, 72, "box", "#6E7478", 0, "garage shelving"],
+  ]],
+  ["Office and shop", [
+    ["desk", "Desk", 60, 30, 30, "table", "#7A6450", 0, "desk"], ["officechair", "Office chair", 26, 26, 40, "chair", "#2E3236", 0, "office chair"],
+    ["workbench", "Workbench", 72, 24, 36, "table", "#9A7A52", 0, "workbench"], ["toolchest", "Tool chest", 41, 18, 40, "box", "#B8282A", 0, "tool chest"],
+    ["safe", "Gun safe", 30, 24, 60, "box", "#2C2F32", 0, "gun safe"],
+  ]],
+  ["Outdoor", [
+    ["grill", "Grill", 60, 24, 46, "box", "#2C2F32", 0, "gas grill"], ["picnic", "Picnic table", 72, 60, 30, "table", "#9A7A52", 0, "picnic table"],
+    ["patiochair", "Patio chair", 26, 30, 34, "chair", "#5A6A5A", 0, "patio chair"], ["hottub", "Hot tub", 84, 84, 36, "tub", "#5A4A3A", 0, "hot tub"],
+    ["firepit", "Fire pit", 36, 36, 14, "round", "#6A5A4A", 0, "fire pit"], ["playset", "Swing set", 144, 72, 96, "box", "#9A7A52", 0, "swing set"],
+  ]],
+  ["Other", [["box", "Generic item (any shape)", 24, 24, 24, "box", "#A0A4A8", 0, ""]]],
+];
+const FURN = {};
+let fplace = null;   // the item being placed (see furnDown)
+for (const [g, L] of FURN_ROWS) for (const [k, name, W, D, H, st, c, z, q] of L) FURN[k] = { g, name, W, D, H, st, c, z, q: q || name.toLowerCase() };
+const STORES = {
+  homedepot: ["Home Depot", q => "https://www.homedepot.com/s/" + encodeURIComponent(q), /homedepot\.com/i],
+  lowes: ["Lowe’s", q => "https://www.lowes.com/search?searchTerm=" + encodeURIComponent(q), /lowes\.com/i],
+  menards: ["Menards", q => "https://www.menards.com/main/search.html?search=" + encodeURIComponent(q), /menards\.com/i],
+  walmart: ["Walmart", q => "https://www.walmart.com/search?q=" + encodeURIComponent(q), /walmart\.com/i],
+  wayfair: ["Wayfair", q => "https://www.wayfair.com/keyword.php?keyword=" + encodeURIComponent(q), /wayfair\.com/i],
+  ikea: ["IKEA", q => "https://www.ikea.com/us/en/search/?q=" + encodeURIComponent(q), /ikea\.com/i],
+  amazon: ["Amazon", q => "https://www.amazon.com/s?k=" + encodeURIComponent(q), /amazon\.com/i],
+};
+const storeOf = url => { for (const [k, v] of Object.entries(STORES)) if (v[2].test(url || "")) return k; return ""; };
+const furnOptions = cur => FURN_ROWS.map(([g, L]) => `<optgroup label="${esc(g)}">${optList(L.map(r => [r[0], r[1]]), cur)}</optgroup>`).join("");
+const money = v => "$" + (+v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function safeUrl(u) { try { const x = new URL(u); return x.protocol === "https:" || x.protocol === "http:" ? x.href : ""; } catch (e) { return ""; } }
+
+function furnPoints(c, u, W, D) {
+  const v = { x: -u.y, y: u.x }, at = (a, b) => ({ x: c.x + u.x * a + v.x * b, y: c.y + u.y * a + v.y * b });
+  return [at(-W / 2, -D / 2), at(W / 2, -D / 2), at(W / 2, D / 2), at(-W / 2, D / 2)];
+}
+function furnFrame(s) { const P = s.points; return { c: centroid(P), u: unit(P[0], P[1]), v: unit(P[0], P[3]), W: dist(P[0], P[1]), D: dist(P[0], P[3]) }; }
+function furnResize(s, W, D) { const F = furnFrame(s); s.points = furnPoints(F.c, F.u, W, D); }
+
+// ---- pictures: kept as the original file at PK("fi:"+pic); shown cut out of a white background unless fcut is false ----
+const furnPics = new Map();   // pic id + ":c" / ":o" -> canvas (null while loading, false if it failed)
+const picKey = s => s.pic + (s.fcut === false ? ":o" : ":c");
+function furnPic(s) {
+  if (!s.pic) return null;
+  const k = picKey(s); if (furnPics.has(k)) return furnPics.get(k) || null;
+  furnPics.set(k, null);
+  (async () => {
+    try {
+      const b = await kvGet(PK("fi:" + s.pic)); if (!b) { furnPics.set(k, false); return; }
+      const im = new Image(); im.src = URL.createObjectURL(b); await im.decode();
+      furnPics.set(k, picProcess(im, s.fcut !== false)); URL.revokeObjectURL(im.src);
+      requestDraw(); if (state.shapes.some(x => x.id === selected && x.pic === s.pic)) renderPanel();
+      if (v3 && $("v3d").open) { clearTimeout(furnPic.t); furnPic.t = setTimeout(v3Build, 200); }
+    } catch (e) { furnPics.set(k, false); }
+  })();
+  return null;
+}
+// Shrink to 512 px, make a white or near-white background see-through (flood from the edges), trim the empty border.
+function picProcess(im, cut) {
+  const sc = Math.min(1, 512 / Math.max(im.naturalWidth, im.naturalHeight)), w = Math.max(1, Math.round(im.naturalWidth * sc)), h = Math.max(1, Math.round(im.naturalHeight * sc));
+  const c = document.createElement("canvas"); c.width = w; c.height = h; const g = c.getContext("2d"); g.drawImage(im, 0, 0, w, h);
+  if (!cut) return c;
+  const d = g.getImageData(0, 0, w, h), a = d.data, bg = i => { const r = a[i], gg = a[i + 1], b = a[i + 2]; return a[i + 3] < 20 || (Math.min(r, gg, b) > 228 && Math.max(r, gg, b) - Math.min(r, gg, b) < 22); };
+  const seen = new Uint8Array(w * h), st = [];
+  for (let x = 0; x < w; x++) st.push(x, (h - 1) * w + x); for (let y = 0; y < h; y++) st.push(y * w, y * w + w - 1);
+  while (st.length) { const p = st.pop(); if (seen[p]) continue; seen[p] = 1; if (!bg(p * 4)) continue; a[p * 4 + 3] = 0; const x = p % w, y = (p - x) / w; if (x > 0) st.push(p - 1); if (x < w - 1) st.push(p + 1); if (y > 0) st.push(p - w); if (y < h - 1) st.push(p + w); }
+  let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (a[(y * w + x) * 4 + 3] > 20) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  g.putImageData(d, 0, 0);
+  if (x1 < 0) return c;
+  const o = document.createElement("canvas"); o.width = x1 - x0 + 1; o.height = y1 - y0 + 1; o.getContext("2d").drawImage(c, x0, y0, o.width, o.height, 0, 0, o.width, o.height);
+  return o;
+}
+async function setFurnPic(s, blob) {
+  if (!s || s.kind !== "furn") return;
+  if (!blob || !/^image\//.test(blob.type)) { $("hint").textContent = "That isn’t a picture. Copy the product picture itself (right-click it > Copy image)."; return; }
+  if (blob.size > 15e6) { $("hint").textContent = "That picture is too big (over 15 MB)."; return; }
+  const id = "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  await kvSet(PK("fi:" + id), blob);
+  pushUndo(); s.pic = id; afterChange();
+  $("hint").textContent = `Picture added to ${s.name}. It shows on the plan and in the 3D view.`;
+}
+async function pasteFurnPic(s) {
+  try {
+    if (!navigator.clipboard || !navigator.clipboard.read) throw 0;
+    for (const it of await navigator.clipboard.read()) { const t = it.types.find(x => x.startsWith("image/")); if (t) return setFurnPic(s, await it.getType(t)); }
+    $("hint").textContent = "No picture on the clipboard. On the product page right-click the picture > Copy image, then try again.";
+  } catch (e) { $("hint").textContent = "Press Ctrl+V now to paste the picture (this browser asks for it that way)."; }
+}
+
+// ---- 2D: a plan symbol, with the product picture over it when there is one ----
+function drawFurn(s, sel) {
+  const F = furnFrame(s), M = FURN[s.ftype] || FURN.box, W = F.W, D = F.D, c = toS(F.c), k = view.s;
+  if (W * k < 2) return;
+  ctx.save(); ctx.translate(c.x, c.y); ctx.rotate(Math.atan2(F.u.y, F.u.x)); ctx.scale(k, k);
+  const lw = 1.1 / k, ink = "rgba(20,26,24,.75)", col = M.c, dark = "rgba(0,0,0,.18)", pic = furnPic(s);
+  const R = (x0, y0, x1, y1, fill, r = 0) => { ctx.beginPath(); if (ctx.roundRect && r) ctx.roundRect(x0, y0, x1 - x0, y1 - y0, r); else ctx.rect(x0, y0, x1 - x0, y1 - y0); if (fill) { ctx.fillStyle = fill; ctx.fill(); } ctx.lineWidth = lw; ctx.strokeStyle = ink; ctx.stroke(); };
+  const E = (cx, cy, rx, ry, fill) => { ctx.beginPath(); ctx.ellipse(cx, cy, Math.max(rx, 1e-3), Math.max(ry, 1e-3), 0, 0, Math.PI * 2); if (fill) { ctx.fillStyle = fill; ctx.fill(); } ctx.lineWidth = lw; ctx.strokeStyle = ink; ctx.stroke(); };
+  const x0 = -W / 2, x1 = W / 2, y0 = -D / 2, y1 = D / 2;   // y0 = back, y1 = front
+  ctx.globalAlpha = pic ? .45 : 1;
+  switch (M.st) {
+    case "round": E(0, 0, W / 2, D / 2, col); break;
+    case "chair": R(x0, y0, x1, y1, col, Math.min(W, D) * .12); R(x0, y0, x1, y0 + D * .22, dark, Math.min(W, D) * .08); break;
+    case "sofa": R(x0, y0, x1, y1, col, D * .1); R(x0, y0, x1, y0 + D * .25, dark); R(x0, y0, x0 + D * .18, y1, dark); R(x1 - D * .18, y0, x1, y1, dark);
+      for (let i = 1; i < Math.round((W - D * .36) / (D * .7)); i++) { const x = x0 + D * .18 + i * (W - D * .36) / Math.round((W - D * .36) / (D * .7)); ctx.beginPath(); ctx.moveTo(x, y0 + D * .25); ctx.lineTo(x, y1); ctx.stroke(); } break;
+    case "bed": { R(x0, y0, x1, y1, "#F2F1EC"); R(x0, y0, x1, y0 + D * .05, "#8A6A48"); const n = W > 1.2 ? 2 : 1, pw = (W - .2) / n; for (let i = 0; i < n; i++) R(x0 + .1 + i * pw + .03, y0 + D * .08, x0 + .1 + (i + 1) * pw - .03, y0 + D * .2, "#FFFFFF", .05); R(x0, y0 + D * .3, x1, y1, col); break; }
+    case "table": R(x0, y0, x1, y1, col, Math.min(W, D) * .04); break;
+    case "fridge": R(x0, y0, x1, y1, col); ctx.beginPath(); ctx.moveTo(x0, y1 - D * .1); ctx.lineTo(x1, y1 - D * .1); ctx.stroke(); break;
+    case "stove": R(x0, y0, x1, y1, col); for (const [a, b] of [[-.25, -.22], [.25, -.22], [-.25, .2], [.25, .2]]) E(a * W, b * D, W * .14, W * .14, "rgba(0,0,0,.15)"); break;
+    case "sink": { R(x0, y0, x1, y1, col); const n = M.W >= 60 ? 2 : 1; for (let i = 0; i < n; i++) E(x0 + W * (i + .5) / n, -D * .02, W / n * .3, D * .28, "#F4F6F7"); break; }
+    case "toilet": R(x0 + W * .05, y0, x1 - W * .05, y0 + D * .3, col, .03); E(0, y0 + D * .62, W * .42, D * .36, col); break;
+    case "tub": R(x0, y0, x1, y1, col, .06); R(x0 + .08, y0 + .08, x1 - .08, y1 - .08, "#DDE8EC", Math.min(W, D) * .2); E(x0 + .25, 0, .03, .03, "#888"); break;
+    case "shower": R(x0, y0, x1, y1, col); ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.moveTo(x1, y0); ctx.lineTo(x0, y1); ctx.stroke(); break;
+    default: R(x0, y0, x1, y1, col); ctx.beginPath(); ctx.moveTo(x0 + W * .08, y1 - D * .1); ctx.lineTo(x1 - W * .08, y1 - D * .1); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  if (pic) { const sc = Math.min(W / pic.width, D / pic.height) * .96, pw = pic.width * sc, ph = pic.height * sc; ctx.drawImage(pic, -pw / 2, -ph / 2, pw, ph); ctx.lineWidth = lw; ctx.strokeStyle = ink; ctx.strokeRect(x0, y0, W, D); }
+  if (sel) { ctx.lineWidth = 3 / k; ctx.strokeStyle = "#FFD400"; ctx.strokeRect(x0, y0, W, D); }
+  ctx.restore();
+  const fs = Math.min(12, k * .3);
+  if (fs >= 8 && s.name) { ctx.font = `600 ${fs}px "Barlow Condensed", "Arial Narrow", sans-serif`; if (ctx.measureText(s.name).width < Math.max(W, D) * k * .95) { let a = Math.atan2(F.u.y, F.u.x); if (W < D) a += Math.PI / 2; while (a > Math.PI / 2) a -= Math.PI; while (a < -Math.PI / 2) a += Math.PI; label(s.name, c.x, c.y + (pic ? Math.min(W, D) * k / 2 + fs * .2 : 0), a, fs); } }
+}
+
+// ---- side panel ----
+function furnHTML(s, btn) {
+  const M = FURN[s.ftype] || FURN.box, F = furnFrame(s), q = (s.search || M.q || s.name || "").trim(), url = safeUrl(s.url || "");
+  const f = (id, label, v) => `<div class="field"><label>${label}</label><input type="text" data-prop="${id}" value="${esc(v)}"></div>`;
+  return `<div class="field"><label>Item</label><select data-prop="ftype">${furnOptions(s.ftype)}</select></div>
+    <div class="pair" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">${f("fw", "Width", fmtLen(F.W))}${f("fd", "Depth", fmtLen(F.D))}${f("fh", "Height", fmtLen(s.fh || M.H * IN))}</div>
+    ${f("felev", "Off the floor", fmtLen(s.felev || 0))}
+    <p class="sublabel" style="margin:4px 0 6px;font-size:13px;color:var(--muted);font-weight:500">Turn</p>
+    <div class="row" style="margin-bottom:12px">${btn("rot", "⟲ 90°", -90)}${btn("rot", "⟳ 90°", 90)}${btn("rot", "−15°", -15)}${btn("rot", "+15°", 15)}</div>
+    <div class="attach furn-shop"><p class="attach-title">Pick a real one</p>
+      <p class="muted" style="margin:0 0 6px;font-size:13px">1. Look for one at a store (opens in a new tab):</p>
+      ${f("fsearch", "Search words", q)}
+      <div class="row shoprow" style="margin-bottom:10px">${Object.entries(STORES).map(([k, v]) => `<a class="ghost small shopbtn" href="${esc(v[1](q))}" target="_blank" rel="noopener noreferrer" data-store="${k}">${esc(v[0])}</a>`).join("")}</div>
+      <p class="muted" style="margin:0 0 6px;font-size:13px">2. Copy the product’s web address (from the address bar) and paste it here, with the price. Type its size above from the product page.</p>
+      ${f("furl", "Product link", s.url || "")}
+      ${url ? `<p style="margin:-4px 0 10px;font-size:13px"><a href="${esc(url)}" target="_blank" rel="noopener noreferrer">Open the product page</a></p>` : ""}
+      <div class="pair" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="field"><label>Store</label><select data-prop="fstore">${optList([["", "Not picked"], ...Object.entries(STORES).map(([k, v]) => [k, v[0]]), ["other", "Somewhere else"]], s.store || "")}</select></div>
+        ${f("fprice", "Price each", s.price != null ? money(s.price) : "")}</div>
+      <p class="muted" style="margin:0 0 6px;font-size:13px">3. Add its picture: on the product page right-click the picture, choose <b>Copy image</b>, come back and press <b>Ctrl+V</b> (or save the picture and choose the file).</p>
+      <div class="row" style="margin-bottom:8px">${btn("fpaste", "Paste picture")}${btn("fpicfile", "Choose picture file")}${s.pic ? btn("fpicoff", "Use the plain look") : ""}</div>
+      ${s.pic ? `<div class="field"><label>Picture background</label><select data-prop="fcut">${optList([["1", "Cut out the white background"], ["0", "Keep it as it is"]], s.fcut === false ? "0" : "1")}</select></div>` : ""}
+    </div>`;
+}
+function furnStats(s) {
+  const F = furnFrame(s), M = FURN[s.ftype] || FURN.box, r = [["Size", `${fmtLen(F.W)} × ${fmtLen(F.D)}`], ["Height", fmtLen(s.fh || M.H * IN)]];
+  if (s.felev > 0) r.push(["Off the floor", fmtLen(s.felev)]);
+  if (s.store) r.push(["Store", (STORES[s.store] || ["Somewhere else"])[0]]);
+  if (s.price != null) r.push(["Price", money(s.price)]);
+  const all = state.shapes.filter(x => x.kind === "furn" && x.price != null && (s.bid ? x.bid === s.bid : !x.bid));
+  if (all.length > 1) r.push([s.bid ? "All priced items in this building" : "All priced items outside", money(all.reduce((a, x) => a + x.price, 0))]);
+  return r;
+}
+function furnProp(s, prop, v) {
+  const M = FURN[s.ftype] || FURN.box, F = furnFrame(s);
+  if (prop === "ftype") { const N = FURN[v]; if (!N) return; const was = M.name; s.ftype = v; furnResize(s, N.W * IN, N.D * IN); s.fh = N.H * IN; s.felev = N.z * IN; if (!s.name || s.name.startsWith(was)) s.name = N.name; delete s.search; return; }
+  if (prop === "fw" || prop === "fd") { const L = parseLen(v); if (!(L > 0)) return; furnResize(s, prop === "fw" ? L * FT : F.W, prop === "fd" ? L * FT : F.D); return; }
+  if (prop === "fh") { const L = parseLen(v); if (L > 0) s.fh = L * FT; return; }
+  if (prop === "felev") { const L = parseLen(v); if (L >= 0) s.felev = L * FT; return; }
+  if (prop === "fsearch") { s.search = String(v).trim(); if (!s.search) delete s.search; return; }
+  if (prop === "furl") { s.url = String(v).trim(); if (!s.url) delete s.url; else { const st = storeOf(s.url); if (st) s.store = st; } return; }
+  if (prop === "fstore") { if (v) s.store = v; else delete s.store; return; }
+  if (prop === "fprice") { const n = parseFloat(String(v).replace(/[$,\s]/g, "")); if (isFinite(n) && n >= 0) s.price = Math.round(n * 100) / 100; else delete s.price; return; }
+  if (prop === "fcut") { s.fcut = v !== "0"; return; }
+}
+
+// ---- 3D: simple shapes, or the product picture standing up (it always faces you) ----
+function v3Furn(grp, s, y0, M3) {
+  const T = v3.T, F = furnFrame(s), M = FURN[s.ftype] || FURN.box, Hm = s.fh || M.H * IN, ye = y0 + (s.felev || 0), pic = furnPic(s);
+  if (pic) {
+    const t = new T.CanvasTexture(pic), sp = new T.Sprite(new T.SpriteMaterial({ map: t, alphaTest: .4, transparent: true }));
+    const asp = pic.width / pic.height, h = Math.min(Hm, Math.max(F.W, F.D) / asp * 1.1), w = h * asp;
+    sp.scale.set(w, h, 1); sp.position.set(F.c.x, ye + h / 2, F.c.y); grp.add(sp); return;
+  }
+  const W = F.W, D = F.D, ang = -Math.atan2(F.u.y, F.u.x), col = new T.Color(M.c), darker = col.clone().multiplyScalar(.75);
+  const mat = M3(col), mat2 = M3(darker);
+  const part = (x0, x1, b0, b1, z0, z1, m, round) => {   // x across the width, b back(-) to front(+), z up; all in meters from the center
+    if (x1 - x0 < .005 || b1 - b0 < .005 || z1 - z0 < .005) return;
+    const geo = round ? new T.CylinderGeometry(.5, .5, 1, 24) : new T.BoxGeometry(1, 1, 1), me = new T.Mesh(geo, m);
+    me.scale.set(x1 - x0, z1 - z0, b1 - b0); me.rotation.y = ang;
+    const cx = (x0 + x1) / 2, cb = (b0 + b1) / 2;
+    me.position.set(F.c.x + F.u.x * cx + F.v.x * cb, ye + (z0 + z1) / 2, F.c.y + F.u.y * cx + F.v.y * cb); grp.add(me);
+  };
+  const H = Hm, X = W / 2, B = D / 2;
+  switch (M.st) {
+    case "round": part(-X, X, -B, B, 0, H, mat, true); break;
+    case "chair": part(-X, X, -B, B, 0, Math.min(H, .46), mat); part(-X, X, -B, -B + D * .2, .46, H, mat2); break;
+    case "sofa": part(-X, X, -B, B, 0, .45, mat); part(-X, X, -B, -B + D * .25, .45, H, mat2); part(-X, -X + D * .18, -B, B, .45, .65, mat2); part(X - D * .18, X, -B, B, .45, .65, mat2); break;
+    case "bed": part(-X, X, -B, B, 0, .55, M3(new T.Color("#F2F1EC"))); part(-X, X, -B, -B + .06, 0, H, M3(new T.Color("#8A6A48"))); part(-X, X, -B + D * .3, B, .55, .6, mat); break;
+    case "table": { const top = .04, lg = Math.min(.07, W / 6, D / 6); part(-X, X, -B, B, H - top, H, mat); for (const sx of [-1, 1]) for (const sb of [-1, 1]) part(sx * X - (sx > 0 ? lg : 0), sx * X + (sx < 0 ? lg : 0), sb * B - (sb > 0 ? lg : 0), sb * B + (sb < 0 ? lg : 0), 0, H - top, mat2); break; }
+    case "toilet": part(-X * .9, X * .9, -B, -B + D * .3, 0, H, mat); part(-X * .8, X * .8, -B + D * .3, B, 0, .4, mat, true); break;
+    case "shower": part(-X, X, -B, B, 0, .1, mat); part(-X, X, B - .02, B, .1, H, M3(new T.Color("#9CC0CC"), { transparent: true, opacity: .35 })); break;
+    default: part(-X, X, -B, B, 0, H, mat);
+  }
+}
 
 /* ---------- view ---------- */
 function resize() {
@@ -2566,7 +2850,7 @@ function drawAll() {
   const sel0 = state.shapes.find(x => x.id === selected);
   const vis = state.shapes.filter(visible), lvl = vis.filter(s => s.level);
   const planB = new Set(lvl.map(s => s.bid).filter(Boolean));
-  const rank = { pad: 0, road: 1, culvert: 1.3, deck: 1.5, building: 2, addon: 2.2, shape: 2.4, vehicle: 3 };
+  const rank = { pad: 0, road: 1, culvert: 1.3, deck: 1.5, building: 2, addon: 2.2, shape: 2.4, vehicle: 3, furn: 3.2 };
   const base = vis.filter(s => !s.level && !ANNO.has(s.kind)).sort((a, b) => (rank[a.kind] ?? 3) - (rank[b.kind] ?? 3));
   for (const s of base) {
     const sel = s.id === selected;
@@ -2574,6 +2858,7 @@ function drawAll() {
     else if (s.kind === "pad") drawPad(s.points, true, s.surface, sel);
     else if (s.kind === "deck") drawDeck(s, sel);
     else if (s.kind === "vehicle") drawVehicle(s, sel);
+    else if (s.kind === "furn") drawFurn(s, sel);
     else if (s.kind === "addon") drawAddon(s, sel);
     else if (s.kind === "shape") drawBaseShape(s, sel);
     else if (s.kind === "culvert") drawCulvert(s, sel);
@@ -2589,13 +2874,14 @@ function drawAll() {
   }
   for (const s of lvl) if (s.kind === "underlay") drawUnderlay(s, s.id === selected);
   if (state.ghost) for (const s of state.shapes) if (s.level && s.level < state.level && planB.has(s.bid) && s.kind === "wall") drawPlanWall(s, false, .2);
-  const ord = { room: 0, stair: 1, wall: 2, opening: 3 };
+  const ord = { room: 0, stair: 1, furn: 1.5, wall: 2, opening: 3 };
   for (const s of lvl.filter(s => !ANNO.has(s.kind) && s.kind !== "underlay").sort((a, b) => (ord[a.kind] ?? 4) - (ord[b.kind] ?? 4))) {
     const sel = s.id === selected;
     if (s.kind === "wall") drawPlanWall(s, sel);
     else if (s.kind === "room") drawRoom(s, sel);
     else if (s.kind === "stair") drawStair(s, sel);
     else if (s.kind === "opening") drawOpening(s, sel);
+    else if (s.kind === "furn") drawFurn(s, sel);
     else drawShape(s.points, s.closed, s.thickness, sel, false);
   }
   // Stairs arriving from the floor below (going up) or above (going down), faded, on top so they show even under this floor's stairs.
@@ -2621,7 +2907,7 @@ function drawAll() {
       ctx.beginPath(); ctx.rect(-9, -4, 18, 8); ctx.fill(); ctx.stroke(); ctx.restore();
     }
   }
-  if (sel && visible(sel) && !isFrozen(sel) && sel.kind !== "vehicle" && sel.kind !== "underlay") sel.points.forEach((p, i) => { const q = toS(p), on = selCorner && selCorner.id === sel.id && selCorner.i === i; ctx.beginPath(); ctx.arc(q.x, q.y, on ? 8 : 7, 0, Math.PI * 2); ctx.fillStyle = on ? MARK : "#FFFFFF"; ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = "#17231F"; ctx.stroke(); });
+  if (sel && visible(sel) && !isFrozen(sel) && sel.kind !== "vehicle" && sel.kind !== "furn" && sel.kind !== "underlay") sel.points.forEach((p, i) => { const q = toS(p), on = selCorner && selCorner.id === sel.id && selCorner.i === i; ctx.beginPath(); ctx.arc(q.x, q.y, on ? 8 : 7, 0, Math.PI * 2); ctx.fillStyle = on ? MARK : "#FFFFFF"; ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = "#17231F"; ctx.stroke(); });
 }
 
 /* hit testing */
@@ -2641,7 +2927,7 @@ function hitOne(s, w, sp) {
   }
 }
 function hitShape(w) {
-  const sp = toS(w), RANK = { underlay: 9, note: 0, dim: 1, vehicle: 1.5, opening: 2, stair: 3, wall: 4, road: 5, deck: 5.5, addon: 5.4, culvert: 4.9, shape: 5.3, pad: 6, room: 7, building: 8 };
+  const sp = toS(w), RANK = { underlay: 9, note: 0, dim: 1, vehicle: 1.5, furn: 1.8, opening: 2, stair: 3, wall: 4, road: 5, deck: 5.5, addon: 5.4, culvert: 4.9, shape: 5.3, pad: 6, room: 7, building: 8 };
   let best = null, br = 99;
   for (const s of state.shapes) { if (!visible(s) || (s.kind === "dim" && !state.showDims) || !hitOne(s, w, sp)) continue; const r = RANK[s.kind] ?? 5; if (r <= br) { best = s; br = r; } }
   return best;
@@ -2855,6 +3141,8 @@ function extraHTML(s) {
       <p class="sublabel" style="margin:4px 0 6px;font-size:13px;color:var(--muted);font-weight:500">Turn</p>
       <div class="row" style="margin-bottom:10px">${btn("rot", "⟲ 90°", -90)}${btn("rot", "⟳ 90°", 90)}${btn("rot", "−15°", -15)}${btn("rot", "+15°", 15)}${btn("rot", "−1°", -1)}${btn("rot", "+1°", 1)}</div>
       <p class="muted" style="margin:0 0 12px;font-size:13px">Body length, width and wheelbase are the manufacturer’s published specs. Wheel, glass and bed placement are drawn approximately.</p>`;
+  } else if (s.kind === "furn") {
+    h += furnHTML(s, btn);
   } else if (s.kind === "culvert") {
     h += culvertHTML(s, btn);
   } else if (s.kind === "deck") {
@@ -2894,6 +3182,7 @@ function extraHTML(s) {
 }
 function statsFor(s) {
   if (s.kind === "culvert") return culvertStats(s);
+  if (s.kind === "furn") return furnStats(s);
   if (s.kind === "opening") return [["Width", fmtLen(dist(s.points[0], s.points[1]))], ["Type", OTYPES[s.otype] || "Door"]];
   if (s.kind === "shape") {
     if (isCircle(s)) { const r = circR(s); return [["Diameter", fmtLen(r * 2)], ["Radius", fmtLen(r)], ["Area", fmtArea(Math.PI * r * r)], ["Around the edge", fmtLen(2 * Math.PI * r)]]; }
@@ -2928,6 +3217,7 @@ function touches(a, b) {
 }
 function applyProp(s, prop, v) {
   if (s.kind === "culvert" && ["size", "mat", "invIn", "invOut", "rain", "runoffC"].includes(prop)) { culvertProp(s, prop, v); return; }
+  if (s.kind === "furn" && /^f(type|w|d|h|elev|search|url|store|price|cut)$/.test(prop)) { furnProp(s, prop, v); return; }
   if (prop === "attach") { if (v === "") { delete s.bid; delete s.free; } else s.bid = +v; return; }
   if (prop === "attachOther") { const t = state.shapes.find(x => x.id === +v); if (t) t.bid = s.id; return; }
   if (prop === "opacity") { s.opacity = parseFloat(v); return; }
@@ -2973,6 +3263,7 @@ $("d-extra").addEventListener("change", e => {
   if (isFrozen(s) && s.bid) { $("hint").textContent = `${groupRoot(s).name || "This"} is locked. Unlock it to change this.`; $("d-extra").innerHTML = ""; renderPanel(); return; }
   pushUndo(); applyProp(s, el.dataset.prop, el.value);
   if (el.tagName === "SELECT") el.blur();
+  if (s.kind === "furn") $("d-extra").innerHTML = "";   // store links, store and picture rows follow what was typed
   afterChange();
 });
 $("d-extra").addEventListener("click", e => {
@@ -2998,6 +3289,9 @@ $("d-extra").addEventListener("click", e => {
   if (act === "regroupall") { pushUndo(); for (const k of childrenOf(s)) delete k.free; $("d-extra").innerHTML = ""; afterChange(); return; }
   if (act === "regroup1") { pushUndo(); delete s.free; const p = parentOf(s); if (p) selected = p.id; $("d-extra").innerHTML = ""; afterChange(); return; }
   if (act === "matlist") { openMat(s); return; }
+  if (act === "fpaste") { pasteFurnPic(s); return; }
+  if (act === "fpicfile") { $("f-furnpic").value = ""; $("f-furnpic").click(); return; }
+  if (act === "fpicoff") { pushUndo(); delete s.pic; $("d-extra").innerHTML = ""; afterChange(); return; }
   if ((act === "design" || act === "template" || act === "autodim") && s.grouped) { $("hint").textContent = `${s.name} is grouped. Ungroup all items to change its plan.`; return; }
   if (act === "design") { openDesigner(s); return; }
   if (act === "rot" && s.locked) { $("hint").textContent = `${s.name} is locked. Unlock it to rotate.`; return; }
@@ -4524,8 +4818,10 @@ async function buildProjectFile() {
   for (const k of ["image", "heightmap", "heightmap0", "water"]) { const b = await kvGet(PK(k)); if (b) files[k] = await blobToDataURL(b); }
   const bps = {};
   for (const s of state.shapes) if (s.kind === "underlay") { const b = await kvGet(PK("bp:" + s.id)); if (b) bps[s.id] = await blobToDataURL(b); }
+  const pics = {};
+  for (const id of new Set(state.shapes.filter(s => s.kind === "furn" && s.pic).map(s => s.pic))) { const b = await kvGet(PK("fi:" + id)); if (b) pics[id] = await blobToDataURL(b); }
   const p = curProject();
-  return new Blob([JSON.stringify({ format: "site-plan-project-v1", name: p ? p.name : "Project", saved: new Date().toISOString(), state, files, blueprints: bps })], { type: "application/json" });
+  return new Blob([JSON.stringify({ format: "site-plan-project-v1", name: p ? p.name : "Project", saved: new Date().toISOString(), state, files, blueprints: bps, pictures: pics })], { type: "application/json" });
 }
 function safeName(n) { return (n || "project").replace(/[\\/:*?"<>|]+/g, " ").trim() || "project"; }
 async function saveProjectToComputer() {
@@ -4556,6 +4852,7 @@ async function openProjectFile(file) {
     await kvSet(`p:${id}:plan`, JSON.stringify(d.state));
     for (const [k, u] of Object.entries(d.files || {})) await kvSet(`p:${id}:${k}`, await dataURLToBlob(u));
     for (const [sid, u] of Object.entries(d.blueprints || {})) await kvSet(`p:${id}:bp:${sid}`, await dataURLToBlob(u));
+    for (const [pic, u] of Object.entries(d.pictures || {})) if (/^p[a-z0-9]+$/.test(pic)) await kvSet(`p:${id}:fi:${pic}`, await dataURLToBlob(u));
     projects.push({ id, name, updated: Date.now() }); await kvSet("projects", projects);
     await switchProject(id);
   } catch (e) { st.textContent = e.message || "Couldn’t open that file."; }
@@ -4706,6 +5003,7 @@ const hints = {
   dimOff: "Move to where the dimension line should sit, then tap.",
   note0: "Tap what the note points to.", note1: "Tap where the text goes. Tap the same spot for text with no arrow.",
   wallIn: "Tap to add wall corners inside the building. Tap the last corner again, or tap Done.",
+  furn: "Press where it goes and drag to turn it, then let go. Or click once and it follows the pointer; click again to set it down. Inside a building it lands on the floor you’re looking at, lined up with the walls. Pick the item at the top.",
   vehicle: "Tap where the vehicle should go. Pick the model at the top. Rotate it from the side panel.",
   deck0: "Tap the first corner of the deck.", deck1: "Tap the second corner. This sets one side.", deck2: "Tap to set how far the deck extends.",
 };
@@ -4719,6 +5017,7 @@ function updateUI() {
   if (tool === "measure") h = hints.measure;
   if (tool === "door") h = hints.door;
   if (tool === "vehicle") h = hints.vehicle;
+  if (tool === "furn") h = hints.furn;
   if (tool === "bpscale") h = calib && calib.pts.length ? "Now tap the other end of that dimension." : "Tap one end of a dimension printed on the blueprint (zoom in for accuracy).";
   if (tool === "room" || tool === "stair" || tool === "deck") h = hints[tool + draft.length];
   if (tool === "shape" && state.shapeType === "poly") h = draft.length ? "Tap each corner. Tap the first corner again, or tap Done, to finish." : "Tap the first corner of the polygon.";
@@ -4738,6 +5037,8 @@ function updateUI() {
   $("bldpick").hidden = tool !== "rect"; $("bld-shape").value = state.bldShape || "rect";
   $("openpick").hidden = tool !== "door";
   $("vehpick").hidden = tool !== "vehicle";
+  $("furnpick").hidden = tool !== "furn";
+  if (tool === "furn" && !$("furn-type").options.length) $("furn-type").innerHTML = furnOptions(state.furnType || "sofa");
   $("addonpick").hidden = tool !== "addon";
   $("shapepick").hidden = tool !== "shape"; $("shape-type").value = state.shapeType || "circle";
   if (tool === "addon" && !$("addon-type").options.length) $("addon-type").innerHTML = optList(Object.entries(ADDONS).map(([k, a]) => [k, a.name]), state.addonType || "leanto");
@@ -4755,7 +5056,42 @@ function updateUI() {
   }
   requestDraw();
 }
+// Placing furniture: press where it goes. Drag while holding to turn it (its front faces the pointer; 15° steps, Shift
+// for any angle) and let go to set it down. Or click and let go: it rides on the pointer; click again to set it down,
+// or press, drag to turn and let go. Esc puts it back. Touch: tap places it, press and drag turns it.
+// fplace (declared with FURN): { key, c (map point), ang (radians, width direction), base, phase: "press" | "carry", turned }
+function furnStartU(w) { const b = buildingAt(w); return b ? unit({ x: 0, y: 0 }, buildingFrame(b).dir(1, 0)) : { x: 1, y: 0 }; }
+function furnDown(p, e) {
+  const w = toW(p.x, p.y);
+  if (fplace && fplace.phase === "carry") { fplace.c = w; fplace.turned = false; fplace.pressed = true; return; }
+  const key = FURN[state.furnType] ? state.furnType : "sofa", u = furnStartU(w), a = Math.atan2(u.y, u.x);
+  fplace = { key, c: w, ang: a, base: a, phase: "press", turned: false, pressed: true };
+  $("hint").textContent = "Keep holding and drag to turn it, then let go. Or let go now and it follows the pointer: click again to set it down.";
+  requestDraw();
+}
+function furnMove(p) {
+  if (!fplace) return;
+  if (!fplace.pressed) { if (fplace.phase === "carry") { fplace.c = toW(p.x, p.y); requestDraw(); } return; }
+  const c = toS(fplace.c); if (!fplace.turned && Math.hypot(p.x - c.x, p.y - c.y) < 12) return;
+  fplace.turned = true;
+  let a = Math.atan2(p.y - c.y, p.x - c.x) - Math.PI / 2;   // front (the depth direction) toward the pointer
+  if (!shiftHeld) { const st = Math.PI / 12; a = fplace.base + Math.round((a - fplace.base) / st) * st; }
+  fplace.ang = a;
+  let deg = Math.round(((a - fplace.base) * 180 / Math.PI) % 360); if (deg < 0) deg += 360;
+  $("hint").textContent = `Turned ${deg}°${shiftHeld ? "" : " (15° steps; hold Shift for any angle)"}. Let go to set it down.`;
+  requestDraw();
+}
+function furnUp(e) {
+  if (!fplace) return;
+  fplace.pressed = false;
+  if (!fplace.turned && fplace.phase === "press" && e.pointerType === "mouse") { fplace.phase = "carry"; $("hint").textContent = "It follows the pointer. Click to set it down, or press and drag to turn it first. Esc puts it back."; requestDraw(); return; }
+  const f = fplace, M = FURN[f.key], u = { x: Math.cos(f.ang), y: Math.sin(f.ang) }; fplace = null;
+  addShape(furnPoints(f.c, u, M.W * IN, M.D * IN), true, "furn", Object.assign({ ftype: f.key, fh: M.H * IN, felev: M.z * IN, thickness: 0 }, levelCtx(f.c)));
+  const s = state.shapes[state.shapes.length - 1]; s.name = M.name; renderPanel(); renderList();
+  $("hint").textContent = `${M.name} placed. Click again to place another, or press V and drag it to move it.`;
+}
 function setTool(t) {
+  fplace = null;
   tool = t; draft = []; measure = []; cursor = null; dimPhase = false;
   if (typeof updateCats === "function") updateCats();
   if (t !== "bpscale" && calib && calib.pts.length < 2) calib = null;
@@ -4763,7 +5099,7 @@ function setTool(t) {
   document.querySelectorAll(".tool").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.tool === t)));
   updateUI();
 }
-const KIND_NAMES = { culvert: "Culvert ", deck: "Deck ", building: "Building ", wall: "Wall ", road: "Road ", pad: "Paved area ", room: "Room ", stair: "Stairs ", opening: "Door ", dim: "Dimension ", note: "Note " };
+const KIND_NAMES = { furn: "Item ", culvert: "Culvert ", deck: "Deck ", building: "Building ", wall: "Wall ", road: "Road ", pad: "Paved area ", room: "Room ", stair: "Stairs ", opening: "Door ", dim: "Dimension ", note: "Note " };
 function addShape(points, closed, kind, extra) {
   pushUndo();
   const n = state.shapes.filter(s => s.kind === kind).length + 1;
@@ -4867,6 +5203,11 @@ function tap(sx, sy) {
     addShape([c, { x: c.x + u.x * r, y: c.y + u.y * r }], false, "shape", { shapeType: "circle", color: "gray", sub: "", thickness: 0 });
     const s = state.shapes[state.shapes.length - 1]; s.name = "Circle " + state.shapes.filter(x => isCircle(x)).length; renderPanel(); return;
   }
+  if (tool === "furn") {
+    const key = FURN[state.furnType] ? state.furnType : "sofa", M = FURN[key], b = buildingAt(w), u = b ? unit({ x: 0, y: 0 }, buildingFrame(b).dir(1, 0)) : { x: 1, y: 0 };
+    addShape(furnPoints(w, u, M.W * IN, M.D * IN), true, "furn", Object.assign({ ftype: key, fh: M.H * IN, felev: M.z * IN, thickness: 0 }, levelCtx(w)));
+    const s = state.shapes[state.shapes.length - 1]; s.name = M.name; renderPanel(); renderList(); return;
+  }
   if (tool === "vehicle") {
     const key = state.vehModel || "durango21", M = VEHICLES[key], n = state.shapes.filter(x => x.kind === "vehicle").length + 1;
     addShape(vehiclePoints(w, { x: 1, y: 0 }, M), true, "vehicle", { model: key, color: M.color, thickness: 0 });
@@ -4929,6 +5270,7 @@ cv.addEventListener("pointerdown", e => {
   down = { x: p.x, y: p.y, moved: false, button: e.button };
   drag = null;
   if (tool === "terrain" && e.button === 0) { if (tbStart(p.x, p.y)) drag = { type: "terrain" }; return; }   // right or middle drag still moves the map
+  if (tool === "furn" && e.button === 0) { furnDown(p, e); drag = { type: "furn" }; return; }
   if (tool === "select" && selected && e.button === 0) {
     const s = state.shapes.find(x => x.id === selected);
     if (s && isFrozen(s)) {
@@ -4943,9 +5285,9 @@ cv.addEventListener("pointerdown", e => {
       $("d-extra").innerHTML = ""; renderPanel(); requestDraw(); save();
       $("hint").textContent = "Corner added. Drag it where it goes. Remove corner in the side panel takes it out.";
     } else if (s) {
-      let i = s.kind === "vehicle" || s.kind === "underlay" ? -1 : s.points.findIndex(q => dist(toS(q), p) < 14);
+      let i = s.kind === "vehicle" || s.kind === "furn" || s.kind === "underlay" ? -1 : s.points.findIndex(q => dist(toS(q), p) < 14);
       if (isCircle(s) && i === 0) i = -1;
-      const ei = i >= 0 ? -1 : edgeAt(s, p);
+      const ei = i >= 0 || s.kind === "furn" ? -1 : edgeAt(s, p);
       if (i >= 0) { drag = { type: "vertex", s, i, undoPushed: false }; if (!selCorner || selCorner.id !== s.id || selCorner.i !== i) { selCorner = { id: s.id, i }; $("d-extra").innerHTML = ""; renderPanel(); requestDraw(); } }
       else if (ei >= 0) {
         const a = s.points[ei], b = s.points[(ei + 1) % s.points.length], u = unit(a, b);
@@ -4960,7 +5302,7 @@ cv.addEventListener("pointerdown", e => {
 });
 cv.addEventListener("pointermove", e => {
   const p = local(e);
-  if (!pointers.has(e.pointerId)) { if (e.pointerType === "mouse") { cursor = toW(p.x, p.y); updateReadout(cursor); if (tool !== "select") requestDraw(); } return; }
+  if (!pointers.has(e.pointerId)) { if (e.pointerType === "mouse") { cursor = toW(p.x, p.y); updateReadout(cursor); if (tool === "furn") furnMove(p); if (tool !== "select") requestDraw(); } return; }
   const prev = pointers.get(e.pointerId); pointers.set(e.pointerId, p);
   if (pinch && pointers.size >= 2) {
     const [a, b] = [...pointers.values()], mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
@@ -4968,6 +5310,7 @@ cv.addEventListener("pointermove", e => {
     view.x = mid.x - pinch.w.x * view.s; view.y = mid.y - pinch.w.y * view.s; requestDraw(); return;
   }
   if (drag && drag.type === "terrain") { if (tstroke) { tstroke.pos = cursor = toW(p.x, p.y); updateReadout(cursor); } return; }
+  if (drag && drag.type === "furn") { cursor = toW(p.x, p.y); furnMove(p); return; }
   if (!down) return;
   if (!down.moved && Math.hypot(p.x - down.x, p.y - down.y) > 6) down.moved = true;
   if (!down.moved) return;
@@ -5017,13 +5360,14 @@ function endPointer(e) {
   if (pinch) { if (pointers.size < 2) pinch = null; down = null; return; }
   cv.classList.remove("panning");
   if (drag && drag.type === "terrain") { tbEnd(); down = null; drag = null; return; }
+  if (drag && drag.type === "furn") { down = null; drag = null; furnUp(e); return; }
   if (down && !down.moved && p && down.button === 0) tap(p.x, p.y);
   if (drag && drag.undoPushed) { save(); renderPanel(); }
   if (snapMark) { snapMark = null; requestDraw(); }
   down = null; drag = null;
 }
 cv.addEventListener("pointerup", endPointer);
-cv.addEventListener("pointercancel", e => { tbEnd(); pointers.delete(e.pointerId); pinch = null; down = null; drag = null; cv.classList.remove("panning"); });
+cv.addEventListener("pointercancel", e => { if (fplace && fplace.phase === "press") fplace = null; tbEnd(); pointers.delete(e.pointerId); pinch = null; down = null; drag = null; cv.classList.remove("panning"); });
 cv.addEventListener("pointerleave", e => { if (e.pointerType === "mouse" && !pointers.size) { cursor = null; requestDraw(); } });
 cv.addEventListener("wheel", e => { e.preventDefault(); const p = local(e); zoomAt(Math.exp(-e.deltaY * 0.0015), p.x, p.y); }, { passive: false });
 cv.addEventListener("contextmenu", e => e.preventDefault());
@@ -5041,7 +5385,7 @@ function groupKeyOf(id) {
   const s = state.shapes.find(x => x.id === id); if (!s) return null;
   if (s.kind === "building") return "b" + s.id;
   if (s.bid) return "b" + s.bid;
-  return s.kind === "road" ? "roads" : s.kind === "culvert" ? "culverts" : s.kind === "deck" || s.kind === "addon" ? "decks" : s.kind === "vehicle" ? "vehicles" : s.kind === "shape" ? "shapes" : "site";
+  return s.kind === "road" ? "roads" : s.kind === "culvert" ? "culverts" : s.kind === "deck" || s.kind === "addon" ? "decks" : s.kind === "vehicle" ? "vehicles" : s.kind === "furn" ? "furn" : s.kind === "shape" ? "shapes" : "site";
 }
 function goTo(s) {
   if (!s || !s.points.length) return;
@@ -5092,13 +5436,13 @@ function renderList() {
   let shown = 0;
   // Site items, split into Roads, Decks, and everything else
   const site = state.shapes.filter(s => !s.bid && !s.level && s.kind !== "building" && !ANNO.has(s.kind) && s.kind !== "opening");
-  for (const [key, title, test] of [["roads", "Roads & driveways", x => x.kind === "road"], ["culverts", "Culverts", x => x.kind === "culvert"], ["decks", "Decks & add-ons (not attached)", x => x.kind === "deck" || x.kind === "addon"], ["vehicles", "Vehicles", x => x.kind === "vehicle"], ["shapes", "Shapes", x => x.kind === "shape"], ["site", "Paving & other site items", x => !["road", "deck", "addon", "vehicle", "shape", "culvert"].includes(x.kind)]]) {
+  for (const [key, title, test] of [["roads", "Roads & driveways", x => x.kind === "road"], ["culverts", "Culverts", x => x.kind === "culvert"], ["decks", "Decks & add-ons (not attached)", x => x.kind === "deck" || x.kind === "addon"], ["vehicles", "Vehicles", x => x.kind === "vehicle"], ["furn", "Outdoor furniture & items", x => x.kind === "furn"], ["shapes", "Shapes", x => x.kind === "shape"], ["site", "Paving & other site items", x => !["road", "deck", "addon", "vehicle", "shape", "culvert", "furn"].includes(x.kind)]]) {
     const list = site.filter(test).filter(match);
     if (list.length) { group(key, title, String(list.length), list.map(x => item(x))); shown += list.length; }
   }
   // Buildings with their rooms, grouped by level
   for (const b of state.shapes.filter(s => s.kind === "building")) {
-    const rooms = state.shapes.filter(s => s.bid === b.id && s.kind === "room");
+    const rooms = state.shapes.filter(s => s.bid === b.id && (s.kind === "room" || (s.kind === "furn" && s.level)));
     const att = state.shapes.filter(s => s.bid === b.id && !s.level && s.kind !== "room" && !ANNO.has(s.kind) && s.kind !== "opening");
     const rm = rooms.filter(match), am = att.filter(match), bMatch = match(b);
     if (!bMatch && !rm.length && !am.length) continue;
@@ -5108,13 +5452,13 @@ function renderList() {
       const here = roomsShown.filter(r => r.level === lv.id).sort((a, c) => (a.style === "fixture") - (c.style === "fixture"));
       if (!here.length) continue;
       const lh = document.createElement("li"); lh.className = "lvhead"; lh.textContent = lv.name; items.push(lh);
-      here.forEach(r => items.push(item(r, r.style === "fixture" ? "fix" : "")));
+      here.forEach(r => items.push(item(r, r.style === "fixture" || r.kind === "furn" ? "fix" : "")));
     }
     const bps = state.shapes.filter(u => u.kind === "underlay" && u.bid === b.id && match(u));
     if (bps.length) { const lh = document.createElement("li"); lh.className = "lvhead"; lh.textContent = "Blueprints"; items.push(lh); bps.forEach(u => items.push(item(u, "fix"))); }
     const attShown = q && !am.length ? [] : (q ? am : att);
     if (attShown.length) { const lh = document.createElement("li"); lh.className = "lvhead"; lh.textContent = "Attached"; items.push(lh); attShown.forEach(a => items.push(item(a))); }
-    const nRooms = rooms.filter(r => r.style !== "fixture").length;
+    const nRooms = rooms.filter(r => r.kind === "room" && r.style !== "fixture").length;
     group("b" + b.id, b.name, nRooms ? `${nRooms} room${nRooms === 1 ? "" : "s"}` : metaFor(b), items, b);
     shown += 1 + roomsShown.length + attShown.length;
   }
@@ -5164,7 +5508,7 @@ function renderPanel() {
   const isRoad = s.kind === "road", isPad = s.kind === "pad", isPlan = PLANKINDS.has(s.kind);
   $("f-name").hidden = s.kind === "note" || s.kind === "dim";
   if (!$("d-extra").contains(document.activeElement)) $("d-extra").innerHTML = extraHTML(s);
-  $("f-wall").hidden = isRoad || isPad || isPlan || ["deck", "vehicle", "underlay", "addon", "shape", "culvert"].includes(s.kind);
+  $("f-wall").hidden = isRoad || isPad || isPlan || ["deck", "vehicle", "underlay", "addon", "shape", "culvert", "furn"].includes(s.kind);
   $("f-road").hidden = !isRoad; $("f-width").hidden = !isRoad;
   $("f-surface").hidden = !(isRoad || isPad); $("f-depth").hidden = !(isRoad || isPad);
   if (isRoad || isPad) {
@@ -5180,7 +5524,7 @@ function renderPanel() {
     $("d-depth").value = String(Math.round(s.depth / IN));
   }
   let rows;
-  if (isPlan || ["deck", "vehicle", "underlay", "addon", "shape", "culvert"].includes(s.kind)) rows = statsFor(s);
+  if (isPlan || ["deck", "vehicle", "underlay", "addon", "shape", "culvert", "furn"].includes(s.kind)) rows = statsFor(s);
   else if (isRoad || isPad) {
     const L = perim(s.points, !isRoad), A = isRoad ? L * s.width : area(s.points);
     rows = isRoad ? [["Length", fmtLen(L)], ["Width", fmtLen(s.width)], ["Surface area", fmtArea(A)]]
@@ -5236,6 +5580,14 @@ $("shape-type").addEventListener("change", e => { state.shapeType = e.target.val
 $("addon-type").addEventListener("change", e => { state.addonType = e.target.value; save(); });
 $("bld-shape").addEventListener("change", e => { state.bldShape = e.target.value; draft = []; save(); updateUI(); });
 $("veh-model").addEventListener("change", e => { state.vehModel = e.target.value; save(); });
+$("furn-type").addEventListener("change", e => { state.furnType = e.target.value; save(); requestDraw(); });
+$("f-furnpic").addEventListener("change", e => { const f = e.target.files[0], s = state.shapes.find(x => x.id === selected); if (f) setFurnPic(s, f); });
+// Ctrl+V with a picture on the clipboard while an item is picked gives it that picture.
+document.addEventListener("paste", e => {
+  const s = state.shapes.find(x => x.id === selected); if (!s || s.kind !== "furn" || document.querySelector("dialog[open]")) return;
+  const f = [...(e.clipboardData ? e.clipboardData.items : [])].find(it => it.kind === "file" && it.type.startsWith("image/"));
+  if (!f) return; e.preventDefault(); setFurnPic(s, f.getAsFile());
+});
 $("open-type").addEventListener("change", e => { state.openType = e.target.value; state.openWidthIn = { door: 36, double: 60, window: 48, overhead: 120, patio: 72, opening: 36, slider: 72 }[state.openType] || 36; save(); updateUI(); });
 $("open-width").addEventListener("change", e => { state.openWidthIn = +e.target.value; save(); requestDraw(); });
 $("l-ghost").addEventListener("change", e => { state.ghost = e.target.checked; save(); requestDraw(); });
@@ -5414,6 +5766,7 @@ $("panel-toggle").onclick = () => {
 document.addEventListener("keydown", e => {
   if (e.target.matches("input, textarea, select") || $("dlg").open || $("designer").open || $("v3d").open || $("matdlg").open) return;
   const k = e.key.toLowerCase();
+  if (k === "escape" && fplace) { fplace = null; $("hint").textContent = "Put back. Click to place it again."; requestDraw(); return; }
   if (k === "escape") { if (draft.length) { draft = []; dimPhase = false; updateUI(); } else { measure = []; selected = null; renderPanel(); requestDraw(); } }
   else if (k === "enter" && (tool in MULTI || (tool === "rect" && state.bldShape === "poly") || (tool === "shape" && state.shapeType === "poly"))) finishWall(false);
   else if ((k === "delete" || k === "backspace") && selected) { e.preventDefault(); deleteSelected(); }
@@ -5421,7 +5774,7 @@ document.addEventListener("keydown", e => {
   else if (k === "w") setTool("wall"); else if (k === "m") setTool("measure");
   else if (k === "r") setTool("road"); else if (k === "p") setTool("pad");
   else if (k === "d") setTool("door"); else if (k === "o") setTool("room"); else if (k === "t") setTool("stair");
-  else if (k === "i") setTool("dim"); else if (k === "n") setTool("note"); else if (k === "k") setTool("deck"); else if (k === "c") setTool("vehicle"); else if (k === "l") setTool("addon"); else if (k === "h") setTool("shape");
+  else if (k === "i") setTool("dim"); else if (k === "n") setTool("note"); else if (k === "k") setTool("deck"); else if (k === "c") setTool("vehicle"); else if (k === "f") setTool("furn"); else if (k === "l") setTool("addon"); else if (k === "h") setTool("shape");
   else if (k === "g" && !isPhone()) setTool("terrain");
   else if (k === "u" && !isPhone()) setTool("culvert");
   else if ((k === "[" || k === "]") && tool === "terrain") { const b = tb(); b.d = Math.max(TB_DMIN, Math.min(TB_DMAX, b.d * (k === "]" ? 1.25 : 0.8))); renderTB(); save(); requestDraw(); }
@@ -5583,7 +5936,7 @@ function v3Build() {
   let nb = 0; const bmap = new Map();
   for (const b of site.filter(s => s.kind === "building" && s.closed && s.points.length >= 3)) {
     const m = v3Building(b, H); if (!m) continue; nb++; bmap.set(b.id, m);
-    grp.add(new T.Mesh(m.walls, wallM)); grp.add(new T.Mesh(m.roof, roofM));
+    grp.add(new T.Mesh(m.walls, wallM)); if ($("v3-roof").checked) grp.add(new T.Mesh(m.roof, roofM));
   }
   try { v3.extras = v3Extras(grp, site, H, bmap, base, ex); } catch (e) { v3.extras = null; console.warn("3D extras:", e); }
   $("v3c").dataset.parts = v3.extras ? Object.entries(v3.extras).map(([k, v]) => k + ":" + v).join(" ") : "";   // for tests
@@ -5770,7 +6123,15 @@ function v3Extras(grp, site, H, bmap, base, ex) {
     mesh.position.copy(A3).add(B3).multiplyScalar(0.5); mesh.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), dir.normalize());
     nCulv++;
   }
-  return { nOpen, nDeck, nAdd, nCulv };
+  let nFurn = 0;
+  for (const s of state.shapes.filter(x => x.kind === "furn" && x.points.length === 4)) {
+    let y0; const m = s.bid && s.level && bmap.get(s.bid);
+    if (m) { const wH = lv => (m.b.wallH && m.b.wallH[lv]) || 8; y0 = m.floor0; if (s.level === BASEMENT) y0 -= (wH(BASEMENT) + 1) * FT; else for (let lv = GROUND; lv < s.level; lv++) y0 += (wH(lv) + 1) * FT; }
+    else if (s.level) continue;   // on a floor of a building that isn't shown
+    else y0 = H(centroid(s.points));
+    v3Furn(grp, s, y0, M); nFurn++;
+  }
+  return { nOpen, nDeck, nAdd, nCulv, nFurn };
 }
 function v3Home() {
   const site = state.shapes.filter(s => s.kind === "building" && !s.level), o = v3.o, ext = v3.ext;
@@ -5821,7 +6182,7 @@ $("z3d").onclick = () => open3D();
 $("v3-close").onclick = () => $("v3d").close();
 $("v3-home").onclick = () => { if (v3) v3Home(); };
 $("v3-top").onclick = () => { if (v3) { v3.o.ph = 0.02; v3.o.th = 0; v3Render(); } };
-for (const id of ["v3-ex", "v3-photo", "v3-water"]) $(id).onchange = () => { if (v3) v3Build(); };
+for (const id of ["v3-ex", "v3-photo", "v3-water", "v3-roof"]) $(id).onchange = () => { if (v3) v3Build(); };
 
 /* ---------- start ---------- */
 new ResizeObserver(resize).observe(stage);
