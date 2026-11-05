@@ -244,6 +244,66 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
 .mat-g{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:18px;margin:14px 0 8px}
 .mat-main{flex:1;overflow:auto;padding:12px 20px 20px;min-width:0}
 .mat-sum{margin:4px 0 8px;font-size:14px}
+.mat-tabs{margin:2px 0 8px}
+.ps-pages{flex:1;min-height:0;overflow:auto;background:#7C8582;padding:16px}
+.ps-wrap{width:fit-content;margin:0 auto 18px;box-shadow:0 2px 10px rgba(0,0,0,.35)}
+.ps-page{position:relative;overflow:hidden;background:#FFFFFF;color:#17231F;font-family:Barlow,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.ps-page .ps-svg,.ps-page .ps-img,.ps-page .ps-html,.ps-page .ps-tb,.ps-page .ps-frame{position:absolute}
+.ps-page .ps-svg{left:0;top:0;pointer-events:none}
+.ps-frame{border:1.5px solid #17231F;box-sizing:border-box;pointer-events:none}
+.ps-tb{border-left:1.5px solid #17231F;box-sizing:border-box;padding:.12in;display:flex;flex-direction:column;gap:.05in;font-size:9pt}
+.ps-tb-proj{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:15pt;line-height:1.1}
+.ps-tb-b{font-size:11pt;font-weight:600}.ps-tb-sp{flex:1}
+.ps-tb-t{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:13pt;border-top:1px solid #17231F;padding-top:.06in}
+.ps-tb-s{color:#3E4A46}.ps-tb-n{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:30pt;line-height:1;border-top:1px solid #17231F;padding-top:.06in}
+.ps-tb-d{font-size:7pt;color:#3E4A46;border-top:1px solid #17231F;padding-top:.05in}
+.ps-html{overflow:hidden;font-size:9pt;line-height:1.3}
+.ps-html h3{font-family:"Barlow Condensed",sans-serif;font-size:13pt;margin:.08in 0 .04in}
+.ps-h1{font-family:"Barlow Condensed",sans-serif;font-size:32pt;margin:0}.ps-sub{margin:0 0 .15in;color:#3E4A46;font-size:11pt}
+.ps-cov{display:grid;grid-template-columns:1.6fr 1fr;gap:.3in}
+.ps-notes{padding-left:.2in;margin:0}.ps-notes li{margin:.03in 0}
+.ps-tbl{border-collapse:collapse;width:100%;font-size:8.5pt}
+.ps-tbl th,.ps-tbl td{border:1px solid #9AA39F;padding:.02in .05in;text-align:left;vertical-align:top}
+.ps-tbl thead th{background:#E6EAE8}.ps-tbl td.r{text-align:right;white-space:nowrap}.ps-tbl td.nt{color:#3E4A46;font-size:7.5pt}
+.ps-mat .ps-mh td{background:#E6EAE8;font-weight:700;font-family:"Barlow Condensed",sans-serif;font-size:10pt}
+.ps-note{font-size:8pt;color:#3E4A46}
+.ps-cols{column-count:2;column-gap:.3in}.ps-step{break-inside:avoid;border:1px solid #9AA39F;border-radius:4px;padding:.06in .1in;margin:0 0 .1in}
+.ps-step h3{margin:0 0 .03in;display:flex;justify-content:space-between;gap:.1in}.ps-step h3 span{font-family:Barlow,sans-serif;font-weight:500;font-size:8pt;color:#3E4A46}
+.ps-step ul{margin:.02in 0;padding-left:.18in}.ps-step p{margin:.03in 0}
+.ps-svg text{font-family:Barlow,sans-serif;font-size:.1px;fill:#17231F}
+.ps-svg .tc{text-anchor:middle}.ps-svg .tl{text-anchor:start}.ps-svg .ts{font-size:.09px}.ps-svg .tb{font-weight:700;font-size:.13px;font-family:"Barlow Condensed",sans-serif}
+.ps-svg .pl{fill:#E2C99A;stroke:#5B4A2E;stroke-width:.006}.ps-svg .st{fill:#F1DDB5;stroke:#5B4A2E;stroke-width:.006}.ps-svg .hd{fill:#C9A46A;stroke:#5B4A2E;stroke-width:.008}
+.ps-svg .op{fill:none;stroke:#2E6FA8;stroke-width:.008;stroke-dasharray:.04 .03}
+.ps-svg .dm{stroke:#17231F;stroke-width:.007;fill:none}.ps-svg .ld{stroke:#5F6B67;stroke-width:.005;fill:none}.ps-svg .ldd{fill:#17231F}
+.ps-svg .fd{fill:#E9ECEA;stroke:#7C8582;stroke-width:.006;stroke-dasharray:.05 .03}.ps-svg .wl{fill:#FFFFFF;stroke:#17231F;stroke-width:.012}.ps-svg .sd{stroke:#B7BFBB;stroke-width:.004}
+.ps-svg .ow{fill:#DCE9F4;stroke:#17231F;stroke-width:.01}.ps-svg .rf{fill:#C9CFCC;stroke:#17231F;stroke-width:.012}.ps-svg .gr{stroke:#17231F;stroke-width:.02}
+.ps-svg .cn{fill:#D5D8D6;stroke:#17231F;stroke-width:.008}.ps-svg .fm{fill:#F3C7D8;stroke:#17231F;stroke-width:.005}.ps-svg .jo{fill:#F1DDB5;stroke:#5B4A2E;stroke-width:.006}
+.ps-svg .in{fill:#F8E27A;stroke:none;opacity:.7}.ps-svg .sh{fill:#C79A5B;stroke:#5B4A2E;stroke-width:.004}.ps-svg .sg{fill:#8FA39A;stroke:#17231F;stroke-width:.004}.ps-svg .dw{fill:#FFFFFF;stroke:#17231F;stroke-width:.005}
+.ps-svg .at{fill:#F8E27A;opacity:.55}.ps-svg .rs{fill:#6B6F6D;stroke:#17231F;stroke-width:.005}.ps-svg .tr{stroke:#5B4A2E;stroke-width:.02}
+.ps-svg .fo{fill:none;stroke:#17231F;stroke-width:.02}.ps-svg .ftd{fill:none;stroke:#17231F;stroke-width:.008;stroke-dasharray:.06 .04}.ps-svg .ab{fill:#17231F}.ps-svg .ps-post{fill:#17231F}
+.ps-svg .bm{stroke:#17231F;stroke-width:.03;stroke-dasharray:.12 .04}.ps-svg .tl2{stroke:#7C8582;stroke-width:.005}.ps-svg .rg{stroke:#17231F;stroke-width:.018}.ps-svg .na{fill:#17231F}
+#printroot{display:none}
+@media print{
+  html.printing,html.printing body{height:auto!important;overflow:visible!important;background:#FFFFFF!important}
+  html.printing body>*:not(#printroot){display:none!important}
+  html.printing #printroot{display:block}
+  html.printing .ps-page{break-after:page;page-break-after:always;zoom:1!important}
+}
+.cost-main{max-width:980px;width:100%;margin:0 auto}
+.mat-sec td.cq{width:34%;white-space:nowrap;color:var(--muted);font-size:13px}
+.mat-sec .ctot td{font-weight:700;border-bottom:0}
+.mat-sec .cgrand td{font-size:18px;border-top:2px solid var(--ink)}
+.cin{width:96px;background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:3px 6px;font:inherit;font-size:13px}
+.cname{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:4px 6px;font:inherit}
+.linkbtn{background:none;border:0;padding:0;font:inherit;font-weight:600;color:inherit;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.dimtoggle.costbtn{color:var(--ink);text-decoration:none;margin-left:auto;margin-right:6px}
+.bo-step{border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin:10px 0}
+.bo-step h3{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:0 0 4px;font-family:"Barlow Condensed",sans-serif;font-size:19px}
+.bo-step h3 label{display:flex;gap:8px;align-items:center;cursor:pointer}
+.bo-step.done{opacity:.6}.bo-step.done h3 label{text-decoration:line-through}
+.bo-days{font-family:Barlow,sans-serif;font-size:13px;color:var(--muted);font-weight:500;white-space:nowrap}
+.bo-step ul{margin:4px 0 6px;padding-left:20px;font-size:14px}.bo-step li{margin:2px 0}
+.bo-insp,.bo-uses{margin:4px 0;font-size:13px}
 .mat-msg{font-size:13px;color:var(--muted)}
 .mat-sec h3{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:19px;margin:18px 0 4px}
 .mat-sec table{width:100%;border-collapse:collapse;font-size:14px;table-layout:fixed}
@@ -548,7 +608,7 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
 
   <aside class="panel" id="panel" aria-label="Structures">
     <section>
-      <div class="phead"><h2>Structures</h2><button class="dimtoggle" id="t-dims" aria-pressed="true" title="Show or hide all dimension strings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h18M3 8v8M21 8v8"/><path d="m1.5 14 3-4M19.5 14l3-4"/></svg><span id="t-dims-label">Dimensions</span></button><button class="sheet-close show-sm" id="panel-close" aria-label="Close">×</button></div>
+      <div class="phead"><h2>Structures</h2><button class="dimtoggle costbtn" id="t-costs" title="Whole-project costs">$ Costs</button><button class="dimtoggle" id="t-dims" aria-pressed="true" title="Show or hide all dimension strings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h18M3 8v8M21 8v8"/><path d="m1.5 14 3-4M19.5 14l3-4"/></svg><span id="t-dims-label">Dimensions</span></button><button class="sheet-close show-sm" id="panel-close" aria-label="Close">×</button></div>
       <input type="search" class="filter" id="filter" placeholder="Filter by name" aria-label="Filter structures" autocomplete="off">
       <div class="tree" id="list"></div>
       <p class="muted" id="list-empty">Nothing drawn yet. Pick <strong>Building</strong> to outline a house, shed, or garage, or <strong>Road</strong> for a driveway.</p>
@@ -740,10 +800,22 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
     <div class="v3-stage" id="v3-stage"><canvas id="v3c" aria-label="3D view of the property"></canvas><p class="v3-hint" id="v3-hint"></p><p class="v3-info" id="v3-info"></p></div>
   </div>
 </dialog>
+<dialog id="costdlg" class="dz" aria-labelledby="cost-title">
+  <div class="dz-wrap">
+    <div class="dz-head"><h2 id="cost-title">Whole-project costs</h2><span class="mat-msg" id="cost-msg" role="status"></span><button class="ghost" id="cost-csv">Save as spreadsheet</button><button class="primary" id="cost-close">Close</button></div>
+    <div class="mat-main cost-main"><p class="mat-sum" id="cost-sum"></p><div id="cost-list"></div></div>
+  </div>
+</dialog>
+<dialog id="plandlg" class="dz" aria-labelledby="ps-title">
+  <div class="dz-wrap">
+    <div class="dz-head"><h2 id="ps-title">Plan set</h2><span class="mat-msg" id="ps-msg" role="status"></span><label class="v3-opt">Paper <select id="ps-paper" aria-label="Paper size"><option value="tabloid">11 × 17</option><option value="letter">8½ × 11</option></select></label><button class="primary" id="ps-print">Print or save PDF</button><button class="ghost" id="ps-close">Close</button></div>
+    <div class="ps-pages" id="ps-pages"></div>
+  </div>
+</dialog>
 <dialog id="matdlg" class="dz" aria-labelledby="mat-title">
   <div class="dz-wrap">
     <div class="dz-head"><h2 id="mat-title">Material list</h2><span class="mat-msg" id="mat-msg" role="status"></span><label class="v3-opt">Shop at <select id="mat-store" aria-label="Store to look things up at"></select></label><button class="ghost" id="mat-csv">Save as spreadsheet</button><button class="primary" id="mat-close">Close</button></div>
-    <div class="mat-body"><form class="mat-opts" id="mat-opts" onsubmit="return false"></form><div class="mat-main"><p class="mat-sum" id="mat-sum"></p><div id="mat-list"></div></div></div>
+    <div class="mat-body"><form class="mat-opts" id="mat-opts" onsubmit="return false"></form><div class="mat-main" id="mat-main"><div class="mat-tabs chips" id="mat-tabs"><button data-mtab="list" aria-pressed="true">Materials</button><button data-mtab="order" aria-pressed="false">Build order</button></div><p class="mat-sum" id="mat-sum"></p><div id="mat-list"></div></div></div>
   </div>
 </dialog>
 <dialog id="projdlg" aria-labelledby="proj-title">
@@ -914,11 +986,11 @@ function fmtArea(m2) {
 
 /* ---------- history ---------- */
 // Each step keeps the floor it was made on, so Undo and Redo go to that floor to show the change.
-function snapshot(lv = state.level) { return JSON.stringify({ shapes: state.shapes, levels: state.levels, level: lv }); }
+function snapshot(lv = state.level) { return JSON.stringify({ shapes: state.shapes, levels: state.levels, level: lv, costs: state.costs || null }); }
 function pushUndo() { undoStack.push(snapshot()); if (undoStack.length > 200) undoStack.shift(); redoStack = []; updateHistory(); }
 function restoreHistory(snap, verb) {
   const d = JSON.parse(snap);
-  state.shapes = d.shapes; state.levels = d.levels;
+  state.shapes = d.shapes; state.levels = d.levels; if ("costs" in d) state.costs = d.costs || undefined;
   const moved = d.level !== state.level;
   if (moved) { state.level = d.level; draft = []; dimPhase = false; }
   renderLevels(); afterChange();
@@ -1861,10 +1933,318 @@ const MAT_OPTS = [
     ["waste", "Extra for waste", [["10", "10%"], ["5", "5%"], ["15", "15%"], ["0", "None"]]],
   ]],
 ];
-const MAT_DEF = {};
-for (const [, L] of MAT_OPTS) for (const [k, , o] of L) MAT_DEF[k] = o[0][0];
-MAT_DEF.pitch = "6";
-const matOpt = b => Object.assign({}, MAT_DEF, b.build || {});
+// ---- choices for each kind of structure ----
+const FRAME_OPT = ["frame", "Building type", [["stick", "Stick-framed (studs)"], ["post", "Post-frame (pole barn)"]]];
+MAT_OPTS.unshift(["Building", [FRAME_OPT]]);
+const WASTE_OPT = ["waste", "Extra for waste", [["10", "10%"], ["5", "5%"], ["15", "15%"], ["0", "None"]]];
+const FOOT_OPT = ["footing", "Footings", [["sono", "Concrete piers, 12\" tubes, 5 ft deep"], ["helical", "Helical piles"], ["blocks", "Deck blocks (low and not attached only)"]]];
+const POST_OPTS = [
+  ["Building", [FRAME_OPT, ["eave", "Wall height (to the eave)", [["10", "10 ft"], ["8", "8 ft"], ["12", "12 ft"], ["14", "14 ft"], ["16", "16 ft"]]]]],
+  ["Posts", [
+    ["post", "Posts", [["3ply", "3-ply 2×6 laminated columns"], ["6x6", "6×6 treated posts"], ["3ply8", "3-ply 2×8 laminated columns"]]],
+    ["poc", "Post spacing", [["8", "8 ft"], ["10", "10 ft"], ["12", "12 ft"]]],
+    ["pfoot", "Post footings", [["pad", "Poured pad and collar, 4½ ft deep"], ["precast", "Precast pier pads, 4½ ft deep"]]],
+    ["floor", "Floor", [["slab", "4\" concrete slab"], ["gravel", "Gravel floor"]]],
+  ]],
+  ["Roof and walls", [
+    ["roof", "Roof shape", [["gable", "Gable"], ["shed", "Shed (one slope)"]]],
+    ["pitch", "Roof pitch", [3, 4, 5, 6].map(n => [String(n), n + " in 12"])],
+    ["over", "Overhang", [["12", "12\""], ["18", "18\""], ["24", "24\""], ["0", "None"]]],
+    ["tsp", "Truss spacing", [["4", "Every 4 ft (2×4 purlins on edge)"], ["2", "Every 2 ft (2×4 purlins flat)"]]],
+    ["roofing", "Roofing", [["metal", "Steel panels, 3 ft wide"], ["seam", "Standing seam metal"]]],
+    ["drip", "Under the roof steel", [["drip", "Condensation control (drip stop)"], ["blanket", "Roof blanket insulation"], ["none", "Nothing"]]],
+    ["wsteel", "Wall steel", [["steel", "Steel ribbed panels"], ["wain", "Steel with a 3 ft wainscot band"]]],
+  ]],
+  ["Other", [["gutter", "Gutters", [["no", "No gutters"], ["yes", "Gutters and downspouts"]]], WASTE_OPT]],
+];
+const DECK_OPTS = [
+  ["Deck", [
+    ["h", "Height off the ground", [["3", "3 ft"], ["1.5", "1½ ft"], ["2", "2 ft"], ["4", "4 ft"], ["6", "6 ft"], ["8", "8 ft"], ["10", "10 ft"]]],
+    ["joist", "Joists", [["2x10", "2×10 @ 16\""], ["2x8", "2×8 @ 16\""], ["2x12", "2×12 @ 16\""], ["2x10-12", "2×10 @ 12\" (for composite)"]]],
+    FOOT_OPT,
+    ["decking", "Decking", [["pt", "Pressure-treated 5/4×6"], ["cedar", "Cedar 5/4×6"], ["comp", "Composite boards"]]],
+    ["fasten", "Board fasteners", [["screw", "Deck screws"], ["hidden", "Hidden clips"]]],
+  ]],
+  ["Railing and stairs", [
+    ["rail", "Railing", [["auto", "Where it's over 30\" up"], ["wood", "All open sides, wood"], ["cable", "All open sides, cable"], ["comp", "All open sides, composite kit"], ["none", "None"]]],
+    ["stairs", "Stairs", [["1", "1 set, 4 ft wide"], ["0", "None"], ["2", "2 sets"]]],
+  ]],
+  ["Other", [WASTE_OPT]],
+];
+const ADDON_OPTS = [
+  ["Structure", [
+    ["ah", "Height at the low edge", [["8", "8 ft"], ["7.5", "7½ ft"], ["9", "9 ft"], ["10", "10 ft"]]],
+    ["apost", "Posts", [["6x6", "6×6 treated"], ["4x6", "4×6 treated"], ["cedar", "6×6 cedar"]]],
+    FOOT_OPT,
+    ["rafter", "Rafters", [["2x8", "2×8"], ["2x6", "2×6"], ["2x10", "2×10"]]],
+    ["aroof", "Roofing", [["same", "As set on the map"], ["metal", "Steel panels"], ["shingle", "Shingles on OSB"], ["poly", "Clear polycarbonate"], ["none", "Open (no roof)"]]],
+    ["slab", "Floor", [["auto", "Concrete slab for porches"], ["slab", "Concrete slab"], ["none", "None (ground or gravel)"]]],
+  ]],
+  ["Other", [WASTE_OPT]],
+];
+function matOptsFor(s) { return s.kind === "deck" ? DECK_OPTS : s.kind === "addon" ? ADDON_OPTS : s.build && s.build.frame === "post" ? POST_OPTS : MAT_OPTS; }
+const defsOf = L => { const d = {}; for (const [, G] of L) for (const [k, , o] of G) d[k] = o[0][0]; return d; };
+function matOpt(s) {
+  const d = defsOf(matOptsFor(s));
+  if (matOptsFor(s) === MAT_OPTS) d.pitch = "6";
+  if (matOptsFor(s) === POST_OPTS) d.pitch = "4";
+  return Object.assign(d, s.build || {});
+}
+const MAT_DEF = defsOf(MAT_OPTS); MAT_DEF.pitch = "6";
+
+// Helpers every list uses: sections of rows [item, qty, unit, note]; numbers round up.
+function mkList(o) {
+  const S = [], waste = 1 + (+o.waste || 0) / 100; let sec = null;
+  return {
+    S, waste,
+    section: t => { sec = { title: t, rows: [] }; S.push(sec); },
+    row: (item, qty, unit, note) => { if (qty > 0 || typeof qty === "string") sec.rows.push([item, typeof qty === "number" ? Math.ceil(qty - 1e-9) : qty, unit, note || ""]); },
+    pcs: (LF, len = 16) => Math.ceil(LF * waste / len),
+  };
+}
+const sfT = v => Math.round(v).toLocaleString() + " sq ft", lfT = v => Math.round(v).toLocaleString() + " lin ft", cuT = v => String(Math.ceil(v * 4 - 1e-9) / 4);
+const PIER_YD = Math.PI * 0.25 * 5 / 27;   // one 12" tube, 5 ft deep
+
+function matList(s) {
+  if (s.kind === "deck") return deckList(s);
+  if (s.kind === "addon") return addonList(s);
+  if (matOpt(s).frame === "post") return postList(s);
+  return stickList(s);
+}
+
+// ---- post-frame (pole barn) building ----
+function postList(b) {
+  const o = matOpt(b), G = matGeom(b), f = G.floors[0], L = mkList(o), { section, row, pcs, waste } = L;
+  const P = f.P, n = P.length, eave = +o.eave, oc = +o.poc, pitch = +o.pitch / 12, k = Math.sqrt(1 + pitch * pitch), ov = +o.over / 12;
+  const rect = matRect(P), RW = rect ? Math.min(dist(P[0], P[1]), dist(P[1], P[2])) : f.W, RL = rect ? Math.max(dist(P[0], P[1]), dist(P[1], P[2])) : f.L;
+  const shed = o.roof === "shed", rise = shed ? RW * pitch : RW / 2 * pitch, Lo = RL + 2 * ov, Wo = RW + 2 * ov, slopeL = (shed ? Wo : Wo / 2) * k;
+  let nPost = 0; for (let i = 0; i < n; i++) nPost += Math.ceil(dist(P[i], P[(i + 1) % n]) / oc - 1e-6);
+  const big = f.opens.filter(q => q.out && q.w > oc - 0.5); nPost += big.length * 2;
+  const pLen = stockFor(eave + 4.5 + 1, [12, 14, 16, 18, 20, 22, 24]);
+  const pName = { "3ply": "3-ply 2×6 laminated column", "6x6": "6×6 treated post", "3ply8": "3-ply 2×8 laminated column" }[o.post];
+  section("Posts and footings");
+  row(`${pName}, ${pLen} ft`, nPost, "each", `Every ${oc} ft around ${lfT(f.perim)}, plus both sides of ${big.length} wide door${big.length === 1 ? "" : "s"}; 4½ ft in the ground (frost)`);
+  if (o.pfoot === "pad") row("Concrete for pads and collars", cuT(nPost * 0.16), "cu yd", "About 8 bags (80 lb) a hole; or order ready-mix");
+  else { row("Precast pier pads", nPost, "each"); row("Uplift anchors / post cleats", nPost, "each"); }
+  row("Splash plank, treated 2×8 (skirt board)", pcs(f.perim), "pcs 16 ft", lfT(f.perim));
+  if (o.floor === "slab") {
+    section("Floor");
+    row("Slab, 4\" thick", cuT(f.area * (4 / 12) / 27 * 1.05), "cu yd concrete", `${sfT(f.area)} + 5%`);
+    row("Gravel base, 6\"", Math.ceil(f.area * 0.5 / 27 * 1.4), "tons");
+    row("Vapor barrier, 10 mil", Math.ceil(f.area * 1.15 / 1000), "rolls 10×100 ft");
+    row("Foam board 2\" XPS, edge insulation", Math.ceil(f.perim * 2 / 32 * waste), "sheets", "Around the inside of the splash plank");
+  } else { section("Floor"); row("Gravel floor, 4\" (Class 5)", Math.ceil(f.area * (4 / 12) / 27 * 1.4), "tons", sfT(f.area)); }
+  section("Wall framing (girts)");
+  const rows = Math.ceil((eave - 0.7) / 2), gLen = oc * 2 <= 20 ? oc * 2 : oc;
+  row(`Wall girts, 2×4 flat, ${gLen} ft`, Math.ceil(f.perim * rows * waste / gLen), "pcs", `${rows} rows, 24" apart`);
+  const girderLF = rect ? 2 * RL : f.perim / 2;
+  row("Truss carrier (girder), 2-ply 2×12", pcs(girderLF * 2), "pcs 16 ft", `${lfT(girderLF)} on the eave walls`);
+  row("Carriage bolts ½\" × 8\" (girders to posts)", Math.ceil(nPost * 2), "each");
+  if (shed || rect) row("End wall girts and gable framing, 2×4 × 12 ft", Math.ceil((shed ? RW * rise / 2 * 2 + RL * rise : RW * rise) / 2 / 6 * waste + 4), "pcs");
+  section("Roof framing");
+  const ts = +o.tsp, nT = Math.floor(RL / ts + 1e-6) + 1;
+  row(`Post-frame trusses, ${fmtLen(RW * FT)} span, ${o.pitch}/12, every ${ts} ft`, nT, "each", shed ? "Mono (one-slope) trusses" : "Common trusses");
+  const pRows = Math.ceil(slopeL / 2) + 1, pLF = pRows * (shed ? 1 : 2) * Lo;
+  row(`Purlins, 2×4 ${ts === 4 ? "on edge" : "flat"}`, pcs(pLF), "pcs 16 ft", `${pRows} rows a side, 24" apart`);
+  row("Purlin hangers or nails (ring shank 3¼\")", ts === 4 ? Math.ceil(pLF / ts) : Math.ceil(pLF / 2 / 2500 * 10) + 1, ts === 4 ? "hangers" : "boxes (2,500)");
+  row("Truss bracing, 2×4 × 16 ft", Math.ceil(RL / 16 * 4 + 4), "pcs", "Diagonal and lateral bracing per the truss drawings");
+  row("Truss ties / hurricane clips", nT * 2, "each");
+  section("Roofing");
+  const cover = o.roofing === "seam" ? 16 / 12 : 3, nRP = Math.ceil(Lo / cover) * (shed ? 1 : 2), roofA = Lo * Wo * k;
+  row(`${o.roofing === "seam" ? "Standing seam panels, 16\"" : "Steel roof panels, 29 ga, 3 ft"} × ${fmtLen(Math.ceil(slopeL * 12) * IN)}`, Math.ceil(nRP * (1 + (+o.waste) / 200)), "panels", `${(roofA / 100).toFixed(1)} squares`);
+  if (o.drip === "drip") row("Drip stop / condensation control (factory on the panels)", Math.ceil(roofA), "sq ft");
+  if (o.drip === "blanket") row("Roof blanket insulation, 4 ft rolls", Math.ceil(roofA * 1.1 / 400), "rolls (about 400 sq ft)");
+  if (!shed) row("Ridge cap, 10 ft", Math.ceil(Lo / 9.5), "pcs");
+  else row("High-side trim, 10 ft", Math.ceil(Lo / 9.5), "pcs");
+  row("Eave trim, 10 ft", Math.ceil(Lo * (shed ? 1 : 2) / 9.5), "pcs");
+  row("Gable (rake) trim, 10 ft", Math.ceil(2 * slopeL * (shed ? 1 : 2) / 9.5), "pcs");
+  row("Closure strips", Math.ceil(Lo * (shed ? 1 : 2) / 3 + (shed ? 0 : Lo * 2 / 3)), "each");
+  row("Roofing screws #10 × 1½\"", Math.ceil(roofA / 100 * 80 / 250), "bags (250)");
+  section("Wall steel and trim");
+  const wallA = f.perim * eave + (shed ? RW * rise + RL * rise : RW * rise), opA = f.opens.filter(q => q.out).reduce((a, q) => a + q.w * q.h, 0);
+  row(`Steel wall panels, 3 ft cover, cut to ${fmtLen(eave * FT)}${o.wsteel === "wain" ? " (upper part)" : ""}`, Math.ceil(f.perim / 3 * waste), "panels", sfT(wallA - opA) + " of wall");
+  if (o.wsteel === "wain") { row("Wainscot panels, 3 ft tall", Math.ceil(f.perim / 3 * waste), "panels"); row("Wainscot trim, 10 ft", Math.ceil(f.perim / 9.5), "pcs"); }
+  row("Gable-end steel panels", Math.ceil(RW / 3 * 2 * waste), "panels", "Cut on the slope");
+  row("Base trim, 10 ft", Math.ceil(f.perim / 9.5), "pcs");
+  row("Outside corner trim, 10 ft", Math.ceil((f.convex + f.concave) * Math.ceil(eave / 10)), "pcs");
+  row("J-trim and door trim, 10 ft", Math.ceil(f.opens.filter(q => q.out).reduce((a, q) => a + 2 * q.h + q.w, 0) / 9.5 * waste), "pcs");
+  row("Siding screws #9 × 1\"", Math.ceil(wallA / 100 * 80 / 250), "bags (250)");
+  const od = new Map();
+  for (const q of f.opens) { const kk = `${OTYPES[q.s.otype] || "Door"} ${fmtLen(q.w * FT)} × ${fmtLen(q.h * FT)}`; od.set(kk, (od.get(kk) || 0) + 1); }
+  if (od.size) { section("Doors and windows"); for (const [kk, nn] of [...od].sort()) row(kk, nn, "each", "Header 2-ply 2×12 over doors wider than the post spacing"); }
+  if (o.gutter === "yes") { section("Gutters"); const gL = shed ? Lo : 2 * Lo, nD = Math.max(2, Math.ceil(gL / 35)); row("6\" K-style gutter, 10 ft", Math.ceil(gL / 10 * 1.1), "pcs"); row("Downspouts 3×4, 10 ft", nD * Math.ceil(eave / 10 + 0.1), "pcs", nD + " downspouts"); row("Gutter hangers", Math.ceil(gL / 2), "each"); }
+  section("Fasteners");
+  row("Framing nails 3¼\" ring shank, collated", Math.ceil((nT * 20 + f.perim * rows * 2 + pLF) / 2500) + 1, "boxes (2,500)");
+  const sum = { kind: "post", roofA, text: `<b>Post-frame</b> · ${sfT(f.area)} · ${fmtLen(RW * FT)} × ${fmtLen(RL * FT)}${rect ? "" : " (outline is not a rectangle: counts are approximate)"} · ${fmtLen(eave * FT)} walls · ${nPost} posts · ${nT} trusses` };
+  return { S: L.S, sum, o, G };
+}
+
+// ---- deck ----
+function deckList(d) {
+  const o = matOpt(d), L = mkList(o), { section, row, pcs, waste } = L, F = deckDirs(d), c0 = d.points[0];
+  const loc = p => ({ a: ((p.x - c0.x) * F.dir.x + (p.y - c0.y) * F.dir.y) / FT, b: ((p.x - c0.x) * F.n.x + (p.y - c0.y) * F.n.y) / FT });   // a along the boards, b along the joists
+  const Q = d.points.map(loc), a0 = Math.min(...Q.map(q => q.a)), a1 = Math.max(...Q.map(q => q.a)), b0 = Math.min(...Q.map(q => q.b)), b1 = Math.max(...Q.map(q => q.b));
+  const A = area(d.points) * SQFT, per = perim(d.points, true) / FT, lenA = a1 - a0, span = b1 - b0, fill = A / Math.max(1, lenA * span), h = +o.h;
+  const host = d.bid && state.shapes.find(x => x.id === d.bid && x.kind === "building");
+  const hostE = host ? d.points.map((p, i) => [p, d.points[(i + 1) % d.points.length]]).filter(([p, q]) => host.points.some((a, i) => segDist(p, a, host.points[(i + 1) % host.points.length]) < 0.4 && segDist(q, a, host.points[(i + 1) % host.points.length]) < 0.4)) : [];
+  const ledgerLF = hostE.reduce((a, [p, q]) => a + dist(p, q) / FT, 0), attached = ledgerLF > 0;
+  const jz = o.joist.slice(0, 4), jOC = o.joist === "2x10-12" ? 12 : 16, jMax = { "2x8": 11, "2x10": 14, "2x12": 16 }[jz] * (jOC === 12 ? 1.12 : 1);
+  const bays = Math.max(1, Math.ceil(span / jMax - 1e-6)), nBeam = bays + (attached ? 0 : 1), bayL = span / bays;
+  const postsPerBeam = Math.ceil(lenA / 8 - 1e-6) + 1, nPost = nBeam * postsPerBeam, pLen = stockFor(h + 1, [6, 8, 10, 12, 14, 16]);
+  const jz2 = jz.replace("x", "×");
+  section("Footings and posts");
+  if (o.footing === "sono") { row("Concrete tube forms, 12\" × 4 ft", nPost, "each", "Dug 5 ft deep below frost"); row("Concrete, 80 lb bags", Math.ceil(nPost * PIER_YD * 27 / 0.6), "bags", `${cuT(nPost * PIER_YD)} cu yd`); }
+  else if (o.footing === "helical") row("Helical piles with deck brackets", nPost, "each", "Installed by the supplier");
+  else row("Deck blocks", nPost, "each", h > 2 || attached ? "Only for low decks that are not attached; use piers instead" : "");
+  row(`Posts, 6×6 treated × ${pLen} ft`, nPost, "each", `${nBeam} beam${nBeam === 1 ? "" : "s"}, a post every 8 ft or less`);
+  row("Post bases (standoff)", nPost, "each"); row("Post-to-beam caps", nPost, "each");
+  section("Beams and joists");
+  row(`Beams, 3-ply ${jz === "2x8" ? "2×10" : jz2} treated`, pcs(lenA * 3 * nBeam), "pcs 16 ft", `${nBeam} × ${lfT(lenA)}`);
+  const nJ = Math.ceil((Math.ceil(lenA * 12 / jOC) + 1) * fill), jLen = stockFor(bayL + 0.5, [8, 10, 12, 14, 16, 18, 20]);
+  row(`Joists, ${jz2} treated × ${jLen} ft`, Math.ceil(nJ * bays * waste), "pcs", `${nJ} rows at ${jOC}" across ${fmtLen(span * FT)}`);
+  row(`Rim joists, ${jz2} treated`, pcs(per - ledgerLF), "pcs 16 ft", lfT(per - ledgerLF));
+  row("Blocking, same size", pcs(lenA * bays), "pcs 16 ft", "A row over each beam and mid-span");
+  row("Joist tape (butyl)", Math.ceil((nJ * span + lenA * nBeam) / 50), "rolls 50 ft");
+  if (attached) {
+    section("Ledger (attached to the house)");
+    row(`Ledger, ${jz2} treated`, pcs(ledgerLF), "pcs 16 ft", lfT(ledgerLF));
+    row("Ledger screws (LedgerLOK or ½\" lags), 2 every 16\"", Math.ceil(ledgerLF * 12 / 16 * 2), "each");
+    row("Ledger flashing, 10 ft", Math.ceil(ledgerLF / 9.5), "pcs");
+    row("Joist hangers", nJ, "each");
+  }
+  section("Decking");
+  const lf = A / ((BOARD_IN + BOARD_GAP_IN) / 12), dName = { pt: "Treated 5/4×6", cedar: "Cedar 5/4×6", comp: "Composite board" }[o.decking];
+  row(`${dName} × 16 ft`, Math.ceil(lf * waste / 16), "boards", `${sfT(A)}, ${lfT(lf)} of board`);
+  if (o.decking === "comp") row("Fascia board (composite), 12 ft", Math.ceil((per - ledgerLF) / 12 * waste), "pcs");
+  if (o.fasten === "hidden") row("Hidden deck clips", Math.ceil(A / 50), "boxes (about 50 sq ft)");
+  else row("Deck screws 2½\"", Math.ceil(A / 100), "boxes (about 100 sq ft)");
+  const nSt = +o.stairs, stairW = 4, railLF = Math.max(0, per - ledgerLF - nSt * stairW);
+  const railOn = o.rail === "none" ? false : o.rail === "auto" ? h > 2.5 : true;
+  if (railOn) {
+    section("Railing");
+    const rt = o.rail === "auto" ? "wood" : o.rail, nRP = Math.ceil(railLF / 6) + 4;
+    row("Railing posts 4×4 × 4 ft (or post kits)", nRP, "each", lfT(railLF) + " of railing, 36\" tall");
+    row("Post anchors (through-bolted)", nRP, "sets");
+    if (rt === "wood") { row("Top and bottom rails, 2×4 × 12 ft", Math.ceil(railLF * 2 / 12 * waste), "pcs"); row("Rail cap, 2×6 × 12 ft", Math.ceil(railLF / 12 * waste), "pcs"); row("Balusters 2×2 × 36\", 4\" gaps", Math.ceil(railLF * 12 / 5.5 * waste), "each"); }
+    else if (rt === "cable") { row("Cable railing kits, 6 ft sections", Math.ceil(railLF / 6), "each"); row("Rail cap, 2×6 × 12 ft", Math.ceil(railLF / 12 * waste), "pcs"); }
+    else row("Composite railing kits, 6 ft", Math.ceil(railLF / 6), "each");
+  }
+  if (nSt) {
+    section("Stairs");
+    const risers = Math.ceil(h * 12 / 7.5 - 1e-6), treads = Math.max(0, risers - 1), run = treads * 10.5 / 12, sLen = stockFor(Math.hypot(run, h) + 1, [8, 10, 12, 14, 16]);
+    row(`Stair stringers, 2×12 treated × ${sLen} ft`, 3 * nSt, "each", `${risers} risers of about ${fmtLen(h * FT / risers)}, ${treads} treads`);
+    row("Treads, 5/4×6 × 8 ft (2 boards a tread)", Math.ceil(treads * nSt), "boards");
+    if (h > 2.5) row("Stair railing, both sides", Math.ceil(run * 2 * nSt / 6), "6 ft sections");
+    row("Landing pad at the bottom, 4\" concrete", cuT(nSt * 4 * 3 * (4 / 12) / 27 * 1.1), "cu yd");
+  }
+  section("Hardware and fasteners");
+  row("Hurricane ties (joists to beams)", Math.ceil(nJ * nBeam), "each");
+  row("Carriage bolts ½\" × 8\"", nPost * 2, "each");
+  row("Structural screws for blocking and rim", Math.ceil(nJ / 25) + 1, "boxes (50)");
+  row("Joist hanger nails", attached ? Math.ceil(nJ * 10 / 500) : 0, "boxes (500)");
+  const sum = { kind: "deck", text: `<b>Deck</b> · ${sfT(A)} · ${fmtLen(h * FT)} up · ${attached ? "attached on " + lfT(ledgerLF) : "free-standing"} · ${nPost} posts · ${nJ * bays} joists` };
+  return { S: L.S, sum, o };
+}
+
+// ---- lean-to, porch, carport, pergola, firewood shelter ----
+function addonList(s) {
+  const o = matOpt(s), L = mkList(o), { section, row, pcs, waste } = L, A = ADDONS[s.addonType] || ADDONS.leanto, P = s.points;
+  const W = dist(P[0], P[1]) / FT, D = dist(P[0], P[3]) / FT, attached = !!s.bid, roofK = o.aroof === "same" ? s.roof || A.roof : o.aroof;
+  const pitch = roofK === "shingle" ? 4 / 12 : 2 / 12, k = Math.sqrt(1 + pitch * pitch), lowH = +o.ah, highH = lowH + D * pitch;
+  const nOut = Math.ceil(W / 10 - 1e-6) + 1, nPost = nOut * (attached ? 1 : 2);
+  section("Footings and posts");
+  if (o.footing === "sono") { row("Concrete tube forms, 12\" × 4 ft", nPost, "each", "Dug 5 ft deep below frost"); row("Concrete, 80 lb bags", Math.ceil(nPost * PIER_YD * 27 / 0.6), "bags"); }
+  else if (o.footing === "helical") row("Helical piles with post brackets", nPost, "each");
+  else row("Precast pier blocks", nPost, "each", "Light structures only");
+  row(`Posts, ${o.apost === "4x6" ? "4×6 treated" : o.apost === "cedar" ? "6×6 cedar" : "6×6 treated"} × ${stockFor(highH + 1, [8, 10, 12, 14, 16])} ft`, nPost, "each", `Every 10 ft or less along ${lfT(W)}`);
+  row("Post bases", nPost, "each"); row("Post-to-beam caps or knee braces", nPost, "each");
+  section("Beams and ledger");
+  row("Beam, 3-ply 2×10 treated (on the posts)", pcs(W * 3 * (attached ? 1 : 2)), "pcs 16 ft", lfT(W));
+  if (attached) { row("Ledger, 2×10 treated (on the building)", pcs(W), "pcs 16 ft", lfT(W)); row("Ledger screws, 2 every 16\"", Math.ceil(W * 12 / 16 * 2), "each"); row("Ledger flashing, 10 ft", Math.ceil(W / 9.5), "pcs"); }
+  section("Roof framing");
+  const oc = roofK === "metal" || roofK === "poly" ? 24 : 16, rLen = stockFor(D * k + 1, [8, 10, 12, 14, 16, 18, 20]), nR = Math.ceil(W * 12 / oc) + 1;
+  if (A.beams || roofK === "none") { row(`Rafters, 2×8 × ${rLen} ft, 16" apart`, Math.ceil((W * 12 / 16 + 1) * waste), "each"); row("Top slats 2×2 × 8 ft, 6\" apart", Math.ceil(D / 0.5 * W / 8 * waste), "pcs"); }
+  else {
+    row(`Rafters, ${o.rafter.replace("x", "×")} × ${rLen} ft, ${oc}" apart`, Math.ceil(nR * waste), "each", `${fmtLen(D * FT)} deep at ${roofK === "shingle" ? "4" : "2"}/12`);
+    if (attached) row("Rafter hangers", nR, "each");
+    row("Hurricane ties", nR * (attached ? 1 : 2), "each");
+    if (roofK === "metal" || roofK === "poly") row("Purlins, 2×4 flat, 24\" apart", pcs(W * (Math.ceil(D * k / 2) + 1)), "pcs 16 ft");
+  }
+  if (roofK !== "none" && !A.beams) {
+    section("Roofing");
+    const rA = W * D * k;
+    if (roofK === "metal") { row(`Steel roof panels, 3 ft × ${fmtLen(Math.ceil((D * k + 1) * 12) * IN)}`, Math.ceil(W / 3 * (1 + (+o.waste) / 200)), "panels"); row("Roofing screws", Math.ceil(rA / 100 * 80 / 250), "bags (250)"); row("Eave and rake trim, 10 ft", Math.ceil((W + 2 * D * k) / 9.5), "pcs"); if (attached) row("Wall flashing (where it meets the building), 10 ft", Math.ceil(W / 9.5), "pcs"); }
+    else if (roofK === "poly") { row(`Polycarbonate panels, 26" × ${fmtLen(Math.ceil((D * k + 1) * 12) * IN)}`, Math.ceil(W / (24 / 12) * (1 + (+o.waste) / 200)), "panels"); row("Polycarbonate screws with washers", Math.ceil(rA / 100), "bags (100)"); row("Closure strips", Math.ceil(W / 3 * 2), "each"); }
+    else { row("OSB 7/16\", 4×8", Math.ceil(rA * waste / 32), "sheets"); row("Ice and water shield", Math.ceil(W * 3 / 200), "rolls"); row("Synthetic underlayment", Math.ceil(rA / 1000), "rolls"); row("Shingles", Math.ceil(rA * waste / 100 * 3), "bundles"); row("Drip edge, 10 ft", Math.ceil((W + 2 * D * k) / 10), "pcs"); if (attached) row("Step flashing / wall flashing", Math.ceil(W / 9.5), "pcs 10 ft"); }
+    row("Fascia board 2×6 × 16 ft", pcs(W + 2 * D * k), "pcs");
+  }
+  const slab = o.slab === "slab" || (o.slab === "auto" && ["porch", "screened"].includes(s.addonType));
+  if (slab) { section("Slab"); row("Slab, 4\" thick", cuT(W * D * (4 / 12) / 27 * 1.05), "cu yd concrete", sfT(W * D)); row("Gravel base, 4\"", Math.ceil(W * D * (4 / 12) / 27 * 1.4), "tons"); row("Wire mesh or fiber", Math.ceil(W * D / 750), "rolls"); }
+  if (A.screen) { section("Screens"); const sa = (W + 2 * D) * lowH; row("Screen, 4×25 ft rolls", Math.ceil(sa * 1.15 / 100), "rolls", sfT(sa)); row("Screen frame 2×4 × 8 ft", Math.ceil((W + 2 * D) / 2 * 2), "pcs"); row("Screen door", 1, "each"); row("Spline and trim", Math.ceil((W + 2 * D) / 8), "pcs 8 ft"); }
+  const sum = { kind: "addon", text: `<b>${esc(A.name)}</b> · ${fmtLen(W * FT)} × ${fmtLen(D * FT)} · ${fmtLen(lowH * FT)} low edge · ${attached ? "attached" : "free-standing"} · ${nPost} posts` };
+  return { S: L.S, sum, o };
+}
+
+// ---- build order: the steps in the order they're done, with the parts of the list each step uses ----
+function buildSteps(s, S, o) {
+  const has = t => S.some(x => x.title === t && x.rows.length);
+  const fu = state.shapes.filter(x => x.kind === "furn" && x.bid === s.id);
+  const steps = [];
+  const add = (t, secs, how, insp, days) => steps.push({ t, secs: secs.filter(has), how: how.filter(Boolean), insp, days: Math.max(0.5, Math.round(days * 2) / 2) });
+  const permit = how => add("Permit, survey and layout", [], ["Get a building permit (take the printed plan set).", "Call 811 (Gopher State One Call) at least 2 business days before digging.", ...how], "Ask which inspections the county wants and when.", 1);
+  if (s.kind === "deck") {
+    const A = area(s.points) * SQFT;
+    permit(["Mark the deck outline with string lines; check the diagonals are equal so it's square."]);
+    add("Footings and posts", ["Footings and posts"], ["Dig each footing below the frost line (5 ft in northern Minnesota).", "Set tube forms, pour concrete, set post bases while it's wet.", "Stand the posts plumb and brace them."], "Footing inspection before pouring.", 1 + A / 200);
+    add("Ledger", ["Ledger (attached to the house)"], ["Remove siding where the ledger goes, flash it, and screw the ledger to the house rim joist."], "", 1);
+    add("Beams and joists", ["Beams and joists"], ["Cut posts to height, set the beams, then hang or set the joists at the spacing shown.", "Add blocking, tape the tops of the joists."], "Framing inspection before the decking goes on.", 1 + A / 150);
+    add("Decking", ["Decking"], ["Lay boards from the house out, with even gaps; stagger the joints over joists."], "", 1 + A / 200);
+    add("Stairs", ["Stairs"], ["Pour the landing pad, cut and set stringers, add treads."], "", 1);
+    add("Railing", ["Railing"], ["Bolt the posts through the rim, then rails and balusters (no gap over 4\")."], "Final inspection.", 1 + A / 300);
+    return steps;
+  }
+  if (s.kind === "addon") {
+    permit(["Mark the post spots with string lines."]);
+    add("Footings and posts", ["Footings and posts"], ["Dig below frost, pour, set post bases and posts."], "Footing inspection if a permit is needed.", 1);
+    add("Beam and ledger", ["Beams and ledger"], ["Fasten the ledger to the building with flashing; set the beam on the posts."], "", 1);
+    add("Roof framing", ["Roof framing"], ["Set the rafters at the spacing shown; add purlins or sheathing."], "", 1);
+    add("Roofing", ["Roofing"], ["Install the roofing and the flashing where it meets the building."], "", 1);
+    add("Slab", ["Slab"], ["Form, gravel, mesh and pour the slab; slope it ¼\" a foot away from the building."], "", 1);
+    add("Screens", ["Screens"], ["Frame the screen walls and roll on the screen."], "Final inspection.", 1);
+    return steps;
+  }
+  const G = matGeom(s), A = G.floors.reduce((a, f) => a + f.area, 0), A0 = G.floors[0].area;
+  if (o.frame === "post") {
+    permit(["Stake the corners, set batter boards, square it with diagonals.", "Level the pad and bring in fill if the floor will be a slab."]);
+    add("Set the posts", ["Posts and footings"], ["Auger holes 4½ ft deep at the post spacing.", "Pour the pads (or set precast pads), set posts plumb and in line, then pour or backfill the collars."], "Post hole / footing inspection.", 2 + A0 / 1000);
+    add("Splash plank, girts and truss carriers", ["Wall framing (girts)"], ["Run the treated splash plank around the bottom.", "Nail girts every 24\".", "Bolt the girders (truss carriers) on the eave walls."], "", 2 + A0 / 800);
+    add("Trusses and purlins", ["Roof framing"], ["Lift trusses onto the carriers at the spacing shown, brace them per the truss drawings, then nail purlins."], "Framing inspection.", 2 + A0 / 800);
+    add("Roof steel", ["Roofing"], ["Install the condensation control, then panels from one end; trim at the eaves, rakes and ridge."], "", 1 + A0 / 800);
+    add("Wall steel and doors", ["Wall steel and trim", "Doors and windows"], ["Base trim first, then wall panels; frame and hang the doors; corner and door trim."], "", 2 + A0 / 800);
+    add("Gutters", ["Gutters"], ["Hang gutters and downspouts; send water away from the building."], "", 1);
+    add("Floor", ["Floor"], ["Compact the base, lay the vapor barrier and edge foam, then pour the slab (or spread the gravel)."], "Final inspection.", 1 + A0 / 1500);
+    return steps;
+  }
+  permit(["Stake the corners and set batter boards; check the diagonals match."]);
+  add("Dig and pour the foundation", ["Foundation"], [o.found === "bsmt" ? "Dig the basement, pour footings, then walls; dampproof, drain tile and backfill." : o.found === "crawl" ? "Dig to frost depth, pour footings, lay the block walls." : o.found === "frost" ? "Dig to 5 ft, pour footings and frost walls, then backfill, insulate and pour the slab." : "Prepare the gravel base, form the thickened edge, lay foam and vapor barrier, pour the slab.", "Set anchor bolts in the wet concrete at the spacing shown."], "Footing inspection before pouring; foundation inspection before backfill.", 3 + A0 / 500);
+  add("Floor framing", ["Floor framing"], ["Sill plate and gasket on the foundation (if any), beam and posts, joists and rim, glue and screw the subfloor."], "", G.floors.length + A / 800);
+  add("Wall framing", ["Outside wall framing", "Inside wall framing"], ["Snap lines, lay out plates at the stud spacing, build walls flat with headers, stand and brace them.", "Second floor: repeat floor and walls on the floor below."], "", 2 + A / 300);
+  add("Roof framing", ["Roof framing"], ["Set and brace the trusses (or cut and set rafters, ridge and ceiling joists); add fascia."], "", 1 + A0 / 600);
+  add("Sheathing and dry-in", ["Wall sheathing and wrap", "Roof sheathing and roofing", "Windows and doors"], ["Sheath walls and roof, wrap the walls, ice and water shield and underlayment on the roof, then roofing.", "Set windows and doors with flashing tape (bottom, sides, then top)."], "Rough framing inspection.", 3 + A0 / 400);
+  add("Rough-ins", [], ["Plumbing, electrical, heating and ventilation run through the open walls.", "Well, septic or city hookups."], "Rough plumbing, electrical and mechanical inspections.", 5 + A / 500);
+  add("Siding, trim and gutters", ["Siding and trim", "Gutters"], ["Trim corners and openings, then siding from the bottom up; soffit and fascia cover; gutters."], "", 3 + A0 / 500);
+  add("Insulation and vapor barrier", ["Insulation and vapor barrier"], ["Batts or spray foam in the walls, seal gaps, poly on the warm side, blow in the attic last (after the ceiling drywall)."], "Insulation inspection (energy code).", 1 + A / 1000);
+  add("Drywall", ["Drywall"], ["Ceilings first, then walls; tape, three coats of mud, sand."], "", 4 + A / 300);
+  add("Finishes and move-in", ["Windows and doors"].filter(() => false), ["Prime and paint, flooring, interior doors and trim, cabinets and counters, plumbing and light fixtures.", fu.length ? `Bring in what you picked (${fu.length} item${fu.length === 1 ? "" : "s"}): ${fu.slice(0, 8).map(x => esc(x.name)).join(", ")}${fu.length > 8 ? "…" : ""}.` : ""], "Final inspection and certificate of occupancy.", 8 + A / 250);
+  return steps;
+}
+
+// ---- prices: what a structure's priced items add up to ----
+function structCost(s) {
+  const { S } = matList(s), pr = (s.build && s.build.prices) || {}; let tot = 0, nP = 0, nAll = 0;
+  for (const sec of S) for (const r of sec.rows) if (typeof r[1] === "number") { nAll++; const v = pr[matKey(r[0])]; if (v != null) { tot += r[1] * v; nP++; } }
+  return { tot, nP, nAll };
+}
 
 // What the building is made of, in feet: one entry per floor with its outline, wall height, openings and inside walls.
 function matGeom(b) {
@@ -1907,7 +2287,7 @@ function studName(H, size) {
 }
 const stockFor = (len, list = [8, 10, 12, 14, 16, 18, 20]) => list.find(L => L >= len - 1e-6) || Math.ceil(len / 2) * 2;
 
-function matList(b) {
+function stickList(b) {
   const o = matOpt(b), G = matGeom(b), fl = G.floors, g0 = fl[0], waste = 1 + (+o.waste) / 100, oc = +o.oc / 12;
   const S = []; let sec;
   const section = t => { sec = { title: t, rows: [] }; S.push(sec); };
@@ -2199,25 +2579,40 @@ function matList(b) {
 // ---- the material list window ----
 let matB = null;
 function openMat(b) { matB = b.id; renderMat(); if (!$("matdlg").open) $("matdlg").showModal(); }
+let matTab = "list";
 function renderMat() {
-  const b = state.shapes.find(s => s.id === matB && s.kind === "building"); if (!b) { if ($("matdlg").open) $("matdlg").close(); return; }
-  const { S, sum, o } = matList(b);
-  $("mat-title").textContent = "Material list · " + b.name;
-  $("mat-opts").innerHTML = MAT_OPTS.map(([g, L]) => `<p class="mat-g">${esc(g)}</p>` + L.map(([k, t, opts]) => `<div class="field"><label for="mo-${k}">${esc(t)}</label><select id="mo-${k}" data-mo="${k}">${optList(opts, o[k])}</select></div>`).join("")).join("")
-    + `<p class="muted" style="font-size:13px;margin-top:12px">Your choices are saved with this building. Wall heights come from the floor plan designer (each floor can differ).</p>`;
-  const fl = matGeom(b).floors;
-  const sumHTML = () => `<b>${fl.length} floor${fl.length === 1 ? "" : "s"}</b> · ${Math.round(sum.floorArea * 1).toLocaleString()} sq ft of floor · walls ${fl.map(f => fmtLen(f.H * FT)).join(" / ")} · roof ${(sum.roofA / 100).toFixed(1)} squares (${sum.roofShape}) · ${sum.studs.toLocaleString()} studs`;
-  const matPriced = () => nP ? ` · <b>priced so far ${esc(money(tot))}</b> (${nP} of ${nAll} items)` : "";
+  const b = state.shapes.find(s => s.id === matB && ["building", "deck", "addon"].includes(s.kind)); if (!b) { if ($("matdlg").open) $("matdlg").close(); return; }
+  const { S, sum, o } = matList(b), OPTS = matOptsFor(b);
+  $("mat-title").textContent = (matTab === "order" ? "Build order · " : "Material list · ") + b.name;
+  $("mat-opts").innerHTML = OPTS.map(([g, L]) => `<p class="mat-g">${esc(g)}</p>` + L.map(([k, t, opts]) => `<div class="field"><label for="mo-${k}">${esc(t)}</label><select id="mo-${k}" data-mo="${k}">${optList(opts, o[k])}</select></div>`).join("")).join("")
+    + `<p class="muted" style="font-size:13px;margin-top:12px">Your choices are saved with this ${b.kind === "building" ? "building" : b.kind === "deck" ? "deck" : "structure"}.${b.kind === "building" && o.frame !== "post" ? " Wall heights come from the floor plan designer (each floor can differ)." : ""}</p>`;
+  document.querySelectorAll("#mat-tabs button").forEach(t => t.setAttribute("aria-pressed", String(t.dataset.mtab === matTab)));
+  let text = sum.text;
+  if (!text) { const fl = matGeom(b).floors; text = `<b>${fl.length} floor${fl.length === 1 ? "" : "s"}</b> · ${Math.round(sum.floorArea).toLocaleString()} sq ft of floor · walls ${fl.map(f => fmtLen(f.H * FT)).join(" / ")} · roof ${(sum.roofA / 100).toFixed(1)} squares (${sum.roofShape}) · ${sum.studs.toLocaleString()} studs`; }
   if (!$("mat-store").options.length) $("mat-store").innerHTML = optList(["homedepot", "lowes", "menards"].map(k => [k, STORES[k][0]]), "menards");
   const st = STORES[state.shopStore] ? state.shopStore : "menards", pr = (b.build && b.build.prices) || {}; $("mat-store").value = st;
   let tot = 0, nP = 0, nAll = 0;
-  const cell = r => { const k = matKey(r[0]), v = pr[k], c = typeof r[1] === "number" && v != null ? r[1] * v : null; if (typeof r[1] === "number") nAll++; if (c != null) { tot += c; nP++; }
+  const secCost = new Map();
+  for (const sec of S) { let c = 0, n = 0; for (const r of sec.rows) if (typeof r[1] === "number") { nAll++; const v = pr[matKey(r[0])]; if (v != null) { c += r[1] * v; n++; nP++; } } tot += c; secCost.set(sec.title, { c, n, all: sec.rows.length }); }
+  const priced = nP ? ` · <b>priced so far ${esc(money(tot))}</b> (${nP} of ${nAll} items)` : "";
+  if (matTab === "order") {
+    const steps = buildSteps(b, S, o), done = (b.build && b.build.done) || {}, days = steps.reduce((a2, x) => a2 + x.days, 0);
+    $("mat-sum").innerHTML = text + ` · <b>${steps.length} steps, about ${Math.round(days)} crew days</b>` + priced;
+    $("mat-list").innerHTML = `<p class="muted" style="font-size:13px;margin:0 0 6px">The usual order to build it. Days are rough guesses for a crew of 2–3; tick a step off when it's done. Each step lists the parts of the material list it uses.</p>`
+      + steps.map((x, i) => `<section class="bo-step${done[i] ? " done" : ""}"><h3><label><input type="checkbox" data-done="${i}"${done[i] ? " checked" : ""}> ${i + 1}. ${esc(x.t)}</label><span class="bo-days">about ${x.days} day${x.days === 1 ? "" : "s"}</span></h3>
+        <ul>${x.how.map(h => `<li>${h}</li>`).join("")}</ul>
+        ${x.insp ? `<p class="bo-insp"><b>Inspection:</b> ${esc(x.insp)}</p>` : ""}
+        ${x.secs.length ? `<p class="bo-uses"><b>Uses:</b> ${x.secs.map(t => { const c = secCost.get(t); return `${esc(t)} (${c.all} item${c.all === 1 ? "" : "s"}${c.n ? ", " + esc(money(c.c)) + " priced" : ""})`; }).join(" · ")}</p>` : ""}</section>`).join("");
+    return;
+  }
+  const cell = r => { const k = matKey(r[0]), v = pr[k], c = typeof r[1] === "number" && v != null ? r[1] * v : null;
     return `<td class="mp">${typeof r[1] === "number" ? `<input type="text" inputmode="decimal" data-pk="${esc(k)}" value="${v != null ? esc(money(v)) : ""}" placeholder="$" aria-label="Price each for ${esc(r[0])}">` : ""}</td><td class="mc">${c != null ? esc(money(c)) : ""}</td>`; };
   $("mat-list").innerHTML = `<p class="muted" style="font-size:13px;margin:0 0 4px">Click an item to look it up at ${esc(STORES[st][0])} (opens a new tab). Type the price you find in “Each” and the list adds it up. Pick another store at the top.</p>`
     + S.filter(s => s.rows.length).map(s => `<section class="mat-sec"><h3>${esc(s.title)}</h3><table><thead><tr><th class="mi"></th><th class="mq">Qty</th><th class="mu"></th><th class="mp">Each</th><th class="mc">Cost</th><th class="mn"></th></tr></thead><tbody>${s.rows.map(r => `<tr><td class="mi">${typeof r[1] === "number" ? `<a href="${esc(STORES[st][1](matQuery(r[0])))}" target="_blank" rel="noopener noreferrer">${esc(r[0])}</a>` : esc(r[0])}</td><td class="mq">${esc(typeof r[1] === "number" ? r[1].toLocaleString() : r[1])}</td><td class="mu">${esc(r[2])}</td>${cell(r)}<td class="mn">${esc(r[3])}</td></tr>`).join("")}</tbody></table></section>`).join("")
     + `<p class="muted" style="font-size:13px">These are estimates for planning and pricing. Store prices change and vary by location. Check spans, headers and local code with your lumber yard or building inspector before ordering.</p>`;
-  $("mat-sum").innerHTML = sumHTML() + matPriced();
+  $("mat-sum").innerHTML = text + priced;
 }
+$("mat-tabs").addEventListener("click", e => { const t = e.target.closest("button[data-mtab]"); if (!t) return; matTab = t.dataset.mtab; renderMat(); $("mat-main").scrollTop = 0; });
 function matKey(item) { return String(item).replace(/^(Ground|1st|2nd|3rd) floor: |^Basement: /, ""); }
 // Store search words for a list item: drop the floor, make × and fractions plain, drop notes in brackets.
 function matQuery(item) {
@@ -2225,6 +2620,10 @@ function matQuery(item) {
   return matKey(item).replace(/\([^)]*\)/g, "").replace(/[½¼¾⅛⅜⅝⅞]/g, c => fr[c]).replace(/×/g, "x").replace(/["”]/g, " in").replace(/,/g, " ").replace(/\b(precut|on concrete)\b/g, m => m).replace(/\s+/g, " ").trim();
 }
 $("mat-list").addEventListener("change", e => {
+  if (e.target.dataset && e.target.dataset.done != null) {
+    const b = state.shapes.find(s => s.id === matB); if (!b) return;
+    pushUndo(); b.build = Object.assign({}, b.build, { done: Object.assign({}, b.build && b.build.done, { [e.target.dataset.done]: e.target.checked }) }); afterChange(); renderMat(); return;
+  }
   const k = e.target.dataset && e.target.dataset.pk, b = state.shapes.find(s => s.id === matB); if (k == null || !b) return;
   const n = parseFloat(String(e.target.value).replace(/[$,\s]/g, "")), prices = Object.assign({}, b.build && b.build.prices);
   if (isFinite(n) && n >= 0) prices[k] = Math.round(n * 100) / 100; else delete prices[k];
@@ -2478,6 +2877,493 @@ function v3Furn(grp, s, y0, M3) {
     default: part(-X, X, -B, B, 0, H, mat);
   }
 }
+
+/* ---------- whole-project costs ---------- */
+// Adds up every structure's priced material list, the furniture you've priced, site work (dirt, culverts, roads and
+// paving at unit prices you type) and your own extra lines, plus a contingency. Unit prices live in state.costs.
+const COST_DEF = { dig: 6, fill: 8, truck: 120, gravel: 22, concrete: 165, asphalt: 4.5, culv: { 12: 22, 15: 28, 18: 34, 24: 48, 30: 62, 36: 80, 48: 125 }, culvEnd: 150, cont: 10, extra: [] };
+const costs = () => { const c = Object.assign({}, COST_DEF, state.costs || {}); c.culv = Object.assign({}, COST_DEF.culv, (state.costs || {}).culv); c.extra = (state.costs || {}).extra || []; return c; };
+function siteWork() {
+  const c = costs(), rows = [];   // [label, qty, unit, price key, price, note]
+  if (dirt && (dirt.cut > 0.01 || dirt.fill > 0.01)) {
+    const cy = dirt.cut / CUYD, fy = dirt.fill / CUYD, net = Math.max(0, cy - fy) * 1.25 / 10;
+    if (cy > 0.05) rows.push(["Digging (dirt dug out)", cy, "cu yd", "dig", c.dig, `${dirt.regions.length} spot${dirt.regions.length === 1 ? "" : "s"} changed with the terrain brush`]);
+    if (fy > 0.05) rows.push(["Placing and compacting fill", fy, "cu yd", "fill", c.fill, ""]);
+    if (net > 0.05) rows.push(["Hauling extra dirt away", Math.ceil(net), "truck loads (10 yd)", "truck", c.truck, "Dug minus piled, ×1.25 for fluff"]);
+  }
+  for (const s of state.shapes.filter(x => x.kind === "culvert" && x.points.length === 2)) {
+    const L = Math.ceil(dist(s.points[0], s.points[1]) / FT);
+    rows.push([`${s.name}: ${s.size}" ${(CULV_MATS[s.mat] || CULV_MATS.cmp)[0]}`, L, "ft", "culv:" + s.size, c.culv[s.size] || 0, ""]);
+    rows.push([`${s.name}: end sections and rock`, 2, "ends", "culvEnd", c.culvEnd, ""]);
+  }
+  const surf = (s, areaFt2, depthFt, label) => {
+    if (s.surface === "concrete") rows.push([label + " (concrete)", Math.ceil(areaFt2 * depthFt / 27 * 1.05 * 4) / 4, "cu yd", "concrete", c.concrete, `${Math.round(areaFt2).toLocaleString()} sq ft`]);
+    else if (s.surface === "asphalt") rows.push([label + " (asphalt)", Math.round(areaFt2), "sq ft", "asphalt", c.asphalt, ""]);
+    else if (s.surface === "gravel" || s.surface === "crushed") rows.push([label + " (" + (s.surface === "gravel" ? "Class 5" : "crushed rock") + ")", Math.ceil(areaFt2 * depthFt / 27 * 1.4), "tons", "gravel", c.gravel, `${Math.round(areaFt2).toLocaleString()} sq ft, ${Math.round(depthFt * 12)}" deep`]);
+  };
+  for (const s of state.shapes.filter(x => x.kind === "road" && x.points.length >= 2 && !x.level)) surf(s, perim(s.points, false) / FT * (s.width / FT), (s.depth || 0) / FT, s.name);
+  for (const s of state.shapes.filter(x => x.kind === "pad" && x.closed && !x.level)) surf(s, area(s.points) * SQFT, (s.depth || 4 * IN) / FT, s.name);
+  return rows;
+}
+function renderCosts() {
+  const c = costs(), structs = state.shapes.filter(s => ["building", "deck", "addon"].includes(s.kind) && !s.level);
+  let total = 0, h = "";
+  const sec = (t, body) => `<section class="mat-sec"><h3>${esc(t)}</h3><table><tbody>${body}</tbody></table></section>`;
+  // structures
+  let sb = "", sTot = 0;
+  for (const s of structs) {
+    const k = structCost(s), type = s.kind === "deck" ? "Deck" : s.kind === "addon" ? (ADDONS[s.addonType] || ADDONS.leanto).name : matOpt(s).frame === "post" ? "Post-frame building" : "Building";
+    sTot += k.tot;
+    sb += `<tr><td class="mi"><button class="linkbtn" data-copen="${s.id}">${esc(s.name)}</button> <span class="muted">${esc(type)}</span></td><td class="cq">${k.nP} of ${k.nAll} items priced</td><td class="mc">${k.nP ? esc(money(k.tot)) : "—"}</td></tr>`;
+  }
+  if (!structs.length) sb = `<tr><td class="muted" colspan="3">No buildings, decks or add-ons drawn yet.</td></tr>`;
+  h += sec("Buildings and structures (from each material list)", sb + `<tr class="ctot"><td>Structures</td><td></td><td class="mc">${esc(money(sTot))}</td></tr>`); total += sTot;
+  // furniture
+  const fu = state.shapes.filter(x => x.kind === "furn");
+  if (fu.length) {
+    const groups = new Map();
+    for (const x of fu) { const b = x.bid && state.shapes.find(y => y.id === x.bid), key = b ? b.name : "Outside"; if (!groups.has(key)) groups.set(key, []); groups.get(key).push(x); }
+    let fb = "", fTot = 0;
+    for (const [g, L] of groups) { const pr = L.filter(x => x.price != null), t = pr.reduce((a, x) => a + x.price, 0); fTot += t; fb += `<tr><td class="mi">${esc(g)}: ${L.length} item${L.length === 1 ? "" : "s"}</td><td class="cq">${pr.length} priced</td><td class="mc">${pr.length ? esc(money(t)) : "—"}</td></tr>`; }
+    h += sec("Furniture and fixtures", fb + `<tr class="ctot"><td>Furniture</td><td></td><td class="mc">${esc(money(fTot))}</td></tr>`); total += fTot;
+  }
+  // site work
+  const sw = siteWork(); let wb = "", wTot = 0;
+  for (const [label, q, u, key, price, note] of sw) {
+    const cost = q * price; wTot += cost;
+    wb += `<tr><td class="mi">${esc(label)}${note ? `<br><span class="muted" style="font-size:12px">${esc(note)}</span>` : ""}</td><td class="cq">${(+q).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${esc(u)} × <input type="text" inputmode="decimal" class="cin" data-ck="${esc(key)}" value="${esc(money(price))}" aria-label="Price per ${esc(u)} for ${esc(label)}"></td><td class="mc">${esc(money(cost))}</td></tr>`;
+  }
+  if (!sw.length) wb = `<tr><td class="muted" colspan="3">No dirt work, culverts, roads or paving yet. Prices show here when you add them.</td></tr>`;
+  h += sec("Site work (typical northern Minnesota prices; type your own)", wb + `<tr class="ctot"><td>Site work</td><td></td><td class="mc">${esc(money(wTot))}</td></tr>`); total += wTot;
+  // your own lines
+  let eb = "", eTot = 0;
+  c.extra.forEach((x, i) => { eTot += +x.amount || 0; eb += `<tr><td class="mi"><input type="text" class="cname" data-ce="${i}" value="${esc(x.name)}" aria-label="What it is"></td><td class="cq"><button class="ghost small" data-cdel="${i}">Remove</button></td><td class="mc"><input type="text" inputmode="decimal" class="cin" data-ca="${i}" value="${esc(money(x.amount || 0))}" aria-label="Amount for ${esc(x.name)}"></td></tr>`; });
+  h += sec("Other costs (permits, well, septic, power, labor…)", eb + `<tr><td colspan="3"><button class="ghost small" id="c-add">＋ Add a line</button> <span class="muted" style="font-size:13px">Quick adds:</span> ${["Building permit", "Well", "Septic system", "Power hookup", "Labor"].map(n => `<button class="ghost small" data-cquick="${esc(n)}">${esc(n)}</button>`).join(" ")}</td></tr><tr class="ctot"><td>Other</td><td></td><td class="mc">${esc(money(eTot))}</td></tr>`); total += eTot;
+  const cont = total * (+c.cont || 0) / 100;
+  h += `<section class="mat-sec"><table><tbody><tr class="ctot"><td>Subtotal</td><td></td><td class="mc">${esc(money(total))}</td></tr>
+    <tr><td class="mi">Contingency (for surprises)</td><td class="cq"><select id="c-cont">${optList([0, 5, 10, 15, 20].map(n => [String(n), n + "%"]), String(c.cont))}</select></td><td class="mc">${esc(money(cont))}</td></tr>
+    <tr class="ctot cgrand"><td>Whole project</td><td></td><td class="mc">${esc(money(total + cont))}</td></tr></tbody></table></section>
+    <p class="muted" style="font-size:13px">Structures count only the items you've priced in their material lists (open one to price it). Site work uses the unit prices above; change any of them to match your quotes.</p>`;
+  $("cost-list").innerHTML = h;
+  $("cost-sum").innerHTML = `<b>${esc(money(total + cont))}</b> for the whole project · ${structs.length} structure${structs.length === 1 ? "" : "s"} · ${fu.length} furniture item${fu.length === 1 ? "" : "s"} · ${sw.length} site work line${sw.length === 1 ? "" : "s"}`;
+  return { total, cont };
+}
+function setCosts(fn) { pushUndo(); const c = JSON.parse(JSON.stringify(state.costs || {})); fn(c); state.costs = c; afterChange(); renderCosts(); }
+function openCosts() { if (hm && hm0raw && !dirt) dirtCompute(); renderCosts(); if (!$("costdlg").open) $("costdlg").showModal(); }
+$("cost-list").addEventListener("change", e => {
+  const t = e.target, n = parseFloat(String(t.value).replace(/[$,\s]/g, ""));
+  if (t.dataset.ck) { const k = t.dataset.ck; if (!(isFinite(n) && n >= 0)) { renderCosts(); return; } setCosts(c => { if (k.startsWith("culv:")) { c.culv = c.culv || {}; c.culv[k.slice(5)] = n; } else c[k] = n; }); }
+  else if (t.dataset.ca != null) setCosts(c => { c.extra = c.extra || []; c.extra[+t.dataset.ca].amount = isFinite(n) ? n : 0; });
+  else if (t.dataset.ce != null) setCosts(c => { c.extra = c.extra || []; c.extra[+t.dataset.ce].name = t.value; });
+  else if (t.id === "c-cont") setCosts(c => { c.cont = +t.value; });
+});
+$("cost-list").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.id === "c-add") setCosts(c => { c.extra = (c.extra || []).concat([{ name: "New line", amount: 0 }]); });
+  else if (b.dataset.cquick) setCosts(c => { c.extra = (c.extra || []).concat([{ name: b.dataset.cquick, amount: 0 }]); });
+  else if (b.dataset.cdel != null) setCosts(c => { c.extra.splice(+b.dataset.cdel, 1); });
+  else if (b.dataset.copen) { const s = state.shapes.find(x => x.id === +b.dataset.copen); if (s) { $("costdlg").close(); openMat(s); } }
+});
+$("cost-close").onclick = () => $("costdlg").close();
+$("t-costs").onclick = () => openCosts();
+$("cost-csv").onclick = async () => {
+  const q = v => `"${String(v).replace(/"/g, '""')}"`, lines = [["Part", "Item", "Quantity", "Unit", "Price", "Cost"].map(q).join(",")], c = costs();
+  for (const s of state.shapes.filter(s => ["building", "deck", "addon"].includes(s.kind) && !s.level)) { const k = structCost(s); lines.push(["Structures", s.name, k.nP + " of " + k.nAll + " priced", "", "", k.tot.toFixed(2)].map(q).join(",")); }
+  for (const x of state.shapes.filter(x => x.kind === "furn" && x.price != null)) lines.push(["Furniture", x.name, 1, "each", x.price.toFixed(2), x.price.toFixed(2)].map(q).join(","));
+  for (const [label, qq, u, , price] of siteWork()) lines.push(["Site work", label, qq, u, price.toFixed(2), (qq * price).toFixed(2)].map(q).join(","));
+  for (const x of c.extra) lines.push(["Other", x.name, 1, "", (+x.amount || 0).toFixed(2), (+x.amount || 0).toFixed(2)].map(q).join(","));
+  const r = renderCosts(); lines.push(["Contingency", c.cont + "%", "", "", "", r.cont.toFixed(2)].map(q).join(","), ["Total", "Whole project", "", "", "", (r.total + r.cont).toFixed(2)].map(q).join(","));
+  $("cost-msg").textContent = await saveFileOut(new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv" }), safeName((curProject() || {}).name) + " costs.csv", "Saved. Open it in Excel or Google Sheets.");
+};
+
+/* ---------- plan set: printable sheets for a builder ---------- */
+// Pages are fixed-size HTML sheets (inches) with a title block; drawings are SVG in inches (vector) except the floor plans
+// and site plan, which reuse the map's own drawing (drawAll) on a white canvas at a true scale. Print or Save as PDF.
+const PS_PAPER = { tabloid: [17, 11, "11 × 17 (tabloid)"], letter: [11, 8.5, "8½ × 11 (letter)"] };
+const PS_ARCH = [[1 / 2, "1/2\" = 1'-0\""], [3 / 8, "3/8\" = 1'-0\""], [1 / 4, "1/4\" = 1'-0\""], [3 / 16, "3/16\" = 1'-0\""], [1 / 8, "1/8\" = 1'-0\""], [3 / 32, "3/32\" = 1'-0\""], [1 / 16, "1/16\" = 1'-0\""], [1 / 32, "1/32\" = 1'-0\""]];
+const PS_ENG = [10, 20, 30, 40, 50, 60, 80, 100, 150, 200, 300, 400, 500, 1000].map(n => [1 / n, `1" = ${n}'`]);
+const psPick = (wFt, hFt, aw, ah, list) => list.find(([k]) => wFt * k <= aw && hFt * k <= ah) || list[list.length - 1];
+const psE = t => esc(t);
+const ps = { b: null, paper: "tabloid" };
+const n2 = v => +v.toFixed(3);
+
+// Every wall to frame on a floor: outside edges (E1, E2…) and inside wall runs (I1…), with the openings in each.
+function psWalls(b, lv) {
+  const F = buildingFrame(b), base = orientPoly(b.points.map(F.toL)), f = matFloor(b, F, lv, base), out = [];
+  const ext = state.shapes.find(s => s.bid === b.id && s.level === lv && s.kind === "wall" && s.closed);
+  const opens = state.shapes.filter(s => s.bid === b.id && s.level === lv && s.kind === "opening" && s.points && s.points.length >= 2 && s.otype !== "opening");
+  const take = (a, c, near) => {
+    const u = unit(a, c), L = dist(a, c), res = [];
+    for (const o of opens) { const p = F.toL(o.points[0]), q = F.toL(o.points[1]), m = { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 }; if (segDist(m, a, c) > near) continue; const w = dist(p, q), t = (m.x - a.x) * u.x + (m.y - a.y) * u.y; if (t < -0.5 || t > L + 0.5) continue; const vt = openVert(o, f.H); res.push({ o, t, w, sill: vt.sill, head: vt.head, win: o.otype === "window" }); }
+    return res.sort((x, y) => x.t - y.t);
+  };
+  const P = f.P;
+  for (let i = 0; i < P.length; i++) { const a = P[i], c = P[(i + 1) % P.length]; if (dist(a, c) < 0.5) continue; out.push({ tag: "E" + (out.length + 1), ext: true, a, c, L: dist(a, c), H: f.H, opens: take(a, c, 1.2), F }); }
+  let k = 0;
+  for (const w of state.shapes.filter(s => s.bid === b.id && s.level === lv && s.kind === "wall" && s !== ext && s.points.length >= 2)) {
+    const Lp = w.points.map(F.toL), m = w.closed ? Lp.length : Lp.length - 1;
+    for (let i = 0; i < m; i++) { const a = Lp[i], c = Lp[(i + 1) % Lp.length]; if (dist(a, c) < 0.75) continue; out.push({ tag: "I" + (++k), ext: false, a, c, L: dist(a, c), H: f.H, opens: take(a, c, 0.8), F, thin: (w.thickness || 0) < 5 * IN }); }
+  }
+  return { walls: out, f, F };
+}
+const hdrSize = w => w <= 3 ? ["2×6", 5.5] : w <= 4.5 ? ["2×8", 7.25] : w <= 6 ? ["2×10", 9.25] : w <= 8 ? ["2×12", 11.25] : ["LVL 1¾×11⅞", 11.875];
+
+// One wall's framing, drawn with its bottom-left at (x0, y0) page inches, s inches per foot.
+function psFrameSVG(w, oc, studIn, plies, s, x0, y0) {
+  const t = 1.5 / 12, L = w.L, H = w.H, X = v => n2(x0 + v * s), Y = v => n2(y0 - v * s), g = [];
+  const R = (xa, xb, ya, yb, cls) => { if (xb - xa > 1e-4 && yb - ya > 1e-4) g.push(`<rect x="${X(xa)}" y="${Y(yb)}" width="${n2((xb - xa) * s)}" height="${n2((yb - ya) * s)}" class="${cls}"/>`); };
+  const top = H - 2 * t, keep = [];
+  // openings: blocked zones for layout studs
+  const ops = w.opens.map(q => { const a = Math.max(0, q.t - q.w / 2), b = Math.min(L, q.t + q.w / 2), hd = w.ext || q.w > 3 ? hdrSize(q.w) : ["2×4 flat", 1.5]; return { ...q, a, b, hd, hdF: hd[1] / 12 }; });
+  const blocked = x => ops.some(q => x > q.a - 2 * t - 1e-6 && x < q.b + 2 * t + 1e-6);
+  for (let x = 0; x <= L + 1e-6; x += oc) { const c = Math.min(Math.max(x, t / 2), L - t / 2); if (!blocked(c)) keep.push(c); }
+  if (!keep.some(c => c > L - t)) keep.push(L - t / 2);
+  if (w.ext) { keep.push(t * 1.5, L - t * 1.5); }   // corner studs
+  R(0, L, 0, t, "pl"); R(0, L, top, top + t, "pl"); R(0, L, top + t, H, "pl");
+  for (const c of keep) R(c - t / 2, c + t / 2, t, top, "st");
+  for (const q of ops) {
+    const hb = q.head, ht = hb + q.hdF;
+    R(q.a - 2 * t, q.a - t, t, top, "st"); R(q.b + t, q.b + 2 * t, t, top, "st");       // kings
+    R(q.a - t, q.a, t, hb, "st"); R(q.b, q.b + t, t, hb, "st");                         // jacks
+    R(q.a - t, q.b + t, hb, Math.min(ht, top), "hd");                                    // header
+    if (q.win && q.sill > 0.2) { R(q.a, q.b, q.sill - t, q.sill, "pl"); for (let x = Math.ceil(q.a / oc) * oc; x < q.b; x += oc) R(x - t / 2, x + t / 2, t, q.sill - t, "st"); }
+    if (top - ht > 0.15) for (let x = Math.ceil(q.a / oc) * oc; x < q.b; x += oc) R(x - t / 2, x + t / 2, ht, top, "st");
+    g.push(`<rect x="${X(q.a)}" y="${Y(hb)}" width="${n2((q.b - q.a) * s)}" height="${n2((hb - (q.win ? q.sill : t)) * s)}" class="op"/>`);
+    g.push(`<text x="${X((q.a + q.b) / 2)}" y="${n2(Y((hb + (q.win ? q.sill : 0)) / 2))}" class="tc">${psE(q.win ? "Window" : OTYPES[q.o.otype] || "Door")} ${psE(fmtLen(q.w * FT))}×${psE(fmtLen((q.head - q.sill) * FT))}</text>`);
+    g.push(`<text x="${X((q.a + q.b) / 2)}" y="${n2(Y(hb) - 0.04)}" class="tc ts">Hdr ${psE((w.ext ? plies + "-" : "") + q.hd[0])}</text>`);
+    g.push(`<text x="${X(q.t)}" y="${n2(y0 + 0.32)}" class="tc ts">${psE(fmtLen(q.t * FT))} to center</text>`);
+  }
+  // length dimension and title
+  const dy = n2(y0 + 0.17);
+  g.push(`<line x1="${X(0)}" y1="${dy}" x2="${X(L)}" y2="${dy}" class="dm"/><line x1="${X(0)}" y1="${n2(dy - 0.06)}" x2="${X(0)}" y2="${n2(dy + 0.06)}" class="dm"/><line x1="${X(L)}" y1="${n2(dy - 0.06)}" x2="${X(L)}" y2="${n2(dy + 0.06)}" class="dm"/>`);
+  g.push(`<text x="${X(L / 2)}" y="${n2(dy - 0.03)}" class="tc">${psE(fmtLen(L * FT))}</text>`);
+  g.push(`<text x="${X(0)}" y="${n2(Y(H) - 0.1)}" class="tl tb">${w.lvName ? psE(w.lvName) + " · " : ""}${psE(w.tag)} · ${w.ext ? "Outside" : "Inside"} wall · ${psE(fmtLen(L * FT))} long × ${psE(fmtLen(H * FT))} · ${psE((w.ext ? studIn : "2×4"))} @ ${w.ext ? oc * 12 : 16}" o.c.</text>`);
+  return g.join("");
+}
+
+// Outside view of the building from one side. dir = outward normal in the building frame.
+function psElevSVG(b, n, s, x0, y0, o) {
+  const G = matGeom(b), fl = G.floors, F = G.F, r = { x: n.y, y: -n.x }, along = q => q.x * r.x + q.y * r.y, g = [];
+  const isPost = o.frame === "post", wHt = f => isPost ? +o.eave : f.H, jd = isPost ? 0 : 1;
+  let base = 0; const bases = fl.map(f => { const v = base; base += wHt(f) + jd; return v; }); const Ht = base - jd + (isPost ? 0 : 0.1);
+  const allA = fl.flatMap(f => f.P.map(along)), A0 = Math.min(...allA), A1 = Math.max(...allA);
+  const X = a => n2(x0 + (a - A0 + 3) * s), Y = v => n2(y0 - v * s);
+  const fd = isPost ? 4.5 : o.found === "bsmt" ? 8 : o.found === "crawl" ? 6 : o.found === "slab" ? 1.3 : o.found === "frost" ? 5 : 0;
+  if (fd) g.push(`<rect x="${X(A0)}" y="${Y(0)}" width="${n2((A1 - A0) * s)}" height="${n2(fd * s)}" class="fd"/>`);
+  const sidingV = ["bb", "steel"].includes(o.siding) || isPost;
+  fl.forEach((f, i) => {
+    const P = f.P, nP = P.length; let A2 = 0; for (let j = 0; j < nP; j++) A2 += P[j].x * P[(j + 1) % nP].y - P[(j + 1) % nP].x * P[j].y;
+    for (let j = 0; j < nP; j++) {
+      const a = P[j], c = P[(j + 1) % nP], u = unit(a, c), on = A2 > 0 ? { x: u.y, y: -u.x } : { x: -u.y, y: u.x };
+      if (on.x * n.x + on.y * n.y < 0.3) continue;
+      const xa = Math.min(along(a), along(c)), xb = Math.max(along(a), along(c)), y1 = bases[i], y2 = bases[i] + wHt(f) + (i < fl.length - 1 ? jd : 0.1);
+      g.push(`<rect x="${X(xa)}" y="${Y(y2)}" width="${n2((xb - xa) * s)}" height="${n2((y2 - y1) * s)}" class="wl"/>`);
+      if (sidingV) for (let x = xa + 1; x < xb; x += isPost ? 0.75 : 1) g.push(`<line x1="${X(x)}" y1="${Y(y1)}" x2="${X(x)}" y2="${Y(y2)}" class="sd"/>`);
+      else for (let y = y1 + 7 / 12; y < y2; y += 7 / 12) g.push(`<line x1="${X(xa)}" y1="${Y(y)}" x2="${X(xb)}" y2="${Y(y)}" class="sd"/>`);
+    }
+    const W = psWalls(b, f.lv).walls.filter(w => w.ext);
+    for (const w of W) {
+      const u = unit(w.a, w.c); let A2b = 0; for (let j = 0; j < nP; j++) A2b += P[j].x * P[(j + 1) % nP].y - P[(j + 1) % nP].x * P[j].y;
+      const on = A2b > 0 ? { x: u.y, y: -u.x } : { x: -u.y, y: u.x }; if (on.x * n.x + on.y * n.y < 0.3) continue;
+      for (const q of w.opens) {
+        const m = { x: w.a.x + u.x * q.t, y: w.a.y + u.y * q.t }, cA = along(m), y1 = bases[i] + q.sill, y2 = bases[i] + q.head;
+        g.push(`<rect x="${X(cA - q.w / 2)}" y="${Y(y2)}" width="${n2(q.w * s)}" height="${n2((y2 - y1) * s)}" class="ow"/>`);
+        if (q.win) g.push(`<line x1="${X(cA - q.w / 2)}" y1="${Y((y1 + y2) / 2)}" x2="${X(cA + q.w / 2)}" y2="${Y((y1 + y2) / 2)}" class="dm"/><line x1="${X(cA)}" y1="${Y(y1)}" x2="${X(cA)}" y2="${Y(y2)}" class="dm"/>`);
+        else if (q.o.otype === "overhead") for (let y = y1 + 1.75; y < y2; y += 1.75) g.push(`<line x1="${X(cA - q.w / 2)}" y1="${Y(y)}" x2="${X(cA + q.w / 2)}" y2="${Y(y)}" class="dm"/>`);
+        else g.push(`<rect x="${X(cA - q.w / 2 + 0.35)}" y="${Y(y2 - 0.4)}" width="${n2(Math.max(0.1, q.w - 0.7) * s)}" height="${n2((y2 - y1 - 0.8) * s)}" class="dm" fill="none"/>`);
+      }
+    }
+  });
+  // roof
+  const topF = fl.reduce((a, f) => f.area > a.area + 1 ? f : a, fl[0]), P = topF.P, rect = matRect(P), ov = +o.over / 12, pitch = +o.pitch / 12;
+  let shape = o.roof; if (!rect && shape !== "flat") shape = "hip";
+  const e1 = rect ? unit(P[0], P[1]) : { x: 1, y: 0 }, long = rect ? (dist(P[0], P[1]) >= dist(P[1], P[2]) ? e1 : unit(P[1], P[2])) : (topF.L >= topF.W ? { x: 1, y: 0 } : { x: 0, y: 1 });
+  const RW = rect ? Math.min(dist(P[0], P[1]), dist(P[1], P[2])) : Math.min(topF.L, topF.W), Pa = P.map(along), a0 = Math.min(...Pa) - ov, a1 = Math.max(...Pa) + ov, sideView = Math.abs(long.x * r.x + long.y * r.y) > 0.7;
+  const eave = Ht, rise = shape === "shed" ? RW * pitch : RW / 2 * pitch, ridge = eave + rise, pts = [];
+  if (shape === "flat") pts.push([a0, eave], [a1, eave], [a1, eave + 0.8], [a0, eave + 0.8]);
+  else if (shape === "gable") { if (sideView) pts.push([a0, eave], [a1, eave], [a1, ridge], [a0, ridge]); else pts.push([a0, eave], [a1, eave], [(a0 + a1) / 2, ridge]); }
+  else if (shape === "hip") { const inset = RW / 2 + ov; if (sideView && a1 - a0 > 2 * inset) pts.push([a0, eave], [a1, eave], [a1 - inset, ridge], [a0 + inset, ridge]); else pts.push([a0, eave], [a1, eave], [(a0 + a1) / 2, ridge]); }
+  else { // shed: high side is the P[2]-P[3] side (as in 3D, A-B low eave)
+    if (sideView) pts.push([a0, eave], [a1, eave], [a1, eave + 0.6], [a0, eave + 0.6]);
+    else { const hiRight = (() => { const lo = P.slice(0, 2), mlo = { x: (lo[0].x + lo[1].x) / 2, y: (lo[0].y + lo[1].y) / 2 }, mc = { x: (P[2].x + P[3].x) / 2, y: (P[2].y + P[3].y) / 2 }; return along(mc) > along(mlo); })(); pts.push([a0, eave], [a1, eave], hiRight ? [a1, ridge] : [a0, ridge]); }
+  }
+  g.push(`<polygon points="${pts.map(([a, y]) => X(a) + "," + Y(y)).join(" ")}" class="rf"/>`);
+  g.push(`<line x1="${X(A0 - 3)}" y1="${Y(0)}" x2="${X(A1 + 3)}" y2="${Y(0)}" class="gr"/>`);
+  const mark = (y, t) => g.push(`<line x1="${X(A1 + 0.6)}" y1="${Y(y)}" x2="${X(A1 + 2.6)}" y2="${Y(y)}" class="dm"/><text x="${X(A1 + 2.7)}" y="${n2(Y(y) + 0.04)}" class="tl ts">${psE(t)} ${psE(fmtLen(y * FT))}</text>`);
+  mark(0, "Floor / grade"); fl.forEach((f, i) => { if (i) mark(bases[i], levelName(f.lv)); }); mark(eave, "Top of wall"); if (shape !== "flat") mark(ridge, "Ridge");
+  if (shape !== "flat") g.push(`<text x="${X((a0 + a1) / 2)}" y="${n2(Y(eave + rise * 0.45))}" class="tc">${psE(o.pitch)}/12</text>`);
+  const nw = F.dir(n.x, n.y), ang = Math.atan2(-nw.y, nw.x) * 180 / Math.PI, names = ["East", "Northeast", "North", "Northwest", "West", "Southwest", "South", "Southeast"], name = names[((Math.round(ang / 45) % 8) + 8) % 8];
+  return { svg: g.join(""), w: (A1 - A0 + 9) * s, h: (ridge + fd + 1.5) * s, name, top: ridge };
+}
+
+// Typical wall section through the outside wall: foundation to roof, every layer labeled.
+function psSectionSVG(b, x0, y0, aw, ah) {
+  const o = matOpt(b), G = matGeom(b), f0 = G.floors[0], post = o.frame === "post";
+  const fd = post ? 4.5 : o.found === "bsmt" ? 8.5 : o.found === "crawl" ? 5.5 : o.found === "slab" ? 1.4 : 5.5;
+  const fh = post ? 0.33 : ["crawl"].includes(o.found) ? 2 : o.found === "bsmt" ? 1 : 0.67;
+  let Ht = fh; for (const f of G.floors) Ht += (post ? +o.eave : f.H) + 0.9; Ht -= 0.9;
+  const pitch = +o.pitch / 12, ov = +o.over / 12, span = 6, totH = fd + Ht + span * pitch + 1, s = Math.min(ah / totH, (aw * 0.42) / (span + ov + 1));
+  const X = v => n2(x0 + (v + ov + 0.6) * s), Y = v => n2(y0 + ah - (v + fd + 0.3) * s), g = [], labels = [];
+  const R = (xa, xb, ya, yb, cls) => g.push(`<rect x="${X(Math.min(xa, xb))}" y="${Y(Math.max(ya, yb))}" width="${n2(Math.abs(xb - xa) * s)}" height="${n2(Math.abs(yb - ya) * s)}" class="${cls}"/>`);
+  const lab = (x, y, t) => labels.push([x, y, t]);
+  const sd = o.stud === "2x4" ? 3.5 / 12 : 5.5 / 12;
+  g.push(`<line x1="${X(-ov - 0.5)}" y1="${Y(0)}" x2="${X(0)}" y2="${Y(0)}" class="gr"/>`); lab(-ov - 0.3, 0, "Finished grade, slope away 6\" in 10 ft");
+  if (post) {
+    R(0, 0.5, -fd, Ht, "st"); lab(0.25, -fd * 0.5, `${{ "3ply": "3-ply 2×6 laminated column", "6x6": "6×6 treated post", "3ply8": "3-ply 2×8 laminated column" }[o.post]} @ ${o.poc}' o.c.`);
+    R(-0.2, 1.2, -fd - 0.67, -fd, "cn"); lab(0.5, -fd - 0.33, o.pfoot === "pad" ? "Poured pad and collar, 4½ ft deep" : "Precast pier pad, 4½ ft deep");
+    R(-0.12, 0, 0, 0.6, "pl"); lab(-0.06, 0.3, "Treated 2×8 splash plank");
+    for (let y = 2; y < Ht - 0.5; y += 2) R(-0.12, 0, y, y + 0.29, "pl"); lab(-0.06, 3, "2×4 girts @ 24\" o.c.");
+    R(-0.16, -0.12, 0.5, Ht, "sh"); lab(-0.14, Ht * 0.6, "Steel wall panels");
+    if (o.floor === "slab") { R(0.5, span, -0.33, 0, "cn"); lab(3, -0.16, "4\" slab on 10 mil vapor barrier over 6\" gravel"); }
+    R(0.5, 1.5, Ht - 0.95, Ht, "hd"); lab(1, Ht - 0.5, "2-ply 2×12 truss carrier, ½\" carriage bolts");
+  } else {
+    // foundation
+    if (o.found === "slab") { g.push(`<polygon points="${[[0, fh], [span, fh], [span, fh - 0.33], [1.5, fh - 0.33], [1, -0.7], [0, -0.7]].map(([a, y]) => X(a) + "," + Y(y)).join(" ")}" class="cn"/>`); lab(0.5, -0.4, "Thickened edge 12\" wide, 2 #4 bars"); lab(3, fh - 0.16, "4\" slab on 10 mil vapor barrier over 6\" gravel"); R(-0.17, 0, -1.3, fh, "fm"); lab(-0.08, -0.9, "2\" XPS foam edge and wing insulation"); }
+    else {
+      const fw = o.found === "crawl" ? "Concrete block 8×8×16" : o.found === "bsmt" ? "8\" poured basement wall" : "8\" poured frost wall";
+      R(0, 0.67, -fd + 0.67, fh, "cn"); lab(0.33, -fd * 0.5, fw);
+      R(-0.5, 1.17, -fd, -fd + 0.67, "cn"); lab(0.33, -fd + 0.33, o.found === "bsmt" ? "24\"×10\" footing, #4 bars" : "20\"×8\" footing, 2 #4 bars, below 60\" frost");
+      R(0.67, 0.84, -fd + 0.67, fh - (o.found === "frost" ? 0.33 : 0), "fm"); lab(0.75, -fd * 0.3, "2\" XPS foam on the inside");
+      if (o.found === "frost") { R(0.84, span, fh - 0.33, fh, "cn"); lab(3, fh - 0.16, "4\" slab on vapor barrier over 6\" gravel"); }
+      if (o.found === "bsmt") { R(0.84, span, -fd + 0.67, -fd + 1, "cn"); lab(3, -fd + 0.85, "4\" basement slab, drain tile at the footing"); }
+      if (["crawl", "bsmt"].includes(o.found)) { R(0, 0.46, fh, fh + 0.125, "pl"); lab(0.2, fh + 0.06, "Treated 2×6 sill on gasket, ½\" anchor bolts @ 6'"); const jd = { "2x10": 9.25, "2x12": 11.25, ij: 11.875 }[o.joist] / 12; R(0, span, fh + 0.125, fh + 0.125 + jd, "jo"); lab(3, fh + 0.125 + jd / 2, `${{ "2x10": "2×10", "2x12": "2×12", ij: "11⅞\" I-joist" }[o.joist]} floor joists @ 16" with ¾" T&G subfloor`); }
+    }
+    // walls, floor by floor
+    let y = ["crawl", "bsmt"].includes(o.found) ? fh + 0.125 + ({ "2x10": 9.25, "2x12": 11.25, ij: 11.875 }[o.joist] / 12) + 0.0625 : fh;
+    G.floors.forEach((f, i) => {
+      const H = f.H, yb = y, yt = y + H;
+      R(0.04, 0.04 + sd, yb, yb + 0.125, "pl"); if (!i) lab(0.04 + sd / 2, yb + 0.06, (o.found === "slab" || o.found === "frost") ? `Treated ${o.stud.replace("x", "×")} bottom plate, ½" anchor bolts @ 6'` : `${o.stud.replace("x", "×")} bottom plate`);
+      R(0.04, 0.04 + sd, yb + 0.125, yt - 0.25, "st"); R(0.04, 0.04 + sd, yt - 0.25, yt, "pl");
+      if (!i) { lab(0.04 + sd / 2, yb + H * 0.72, `${o.stud.replace("x", "×")} studs @ ${o.oc}" o.c.`); lab(0.04 + sd / 2, yt - 0.12, "Double top plate"); }
+      R(0.04, 0.04 + sd, yb + 0.3, yt - 0.35, "in"); if (!i) lab(0.04 + sd / 2, yb + H * 0.45, o.insul === "spray" ? "Closed-cell spray foam" : `${o.insul === "mw" ? "Mineral wool" : "Fiberglass"} batts ${o.stud === "2x6" ? "R-21" : "R-15"}${o.insul === "spray" ? "" : ", 6 mil poly on the warm side"}`);
+      R(0, 0.04, yb, yt, "sh"); if (!i) lab(0.02, yb + H * 0.3, o.wsheath === "zip" ? "ZIP System 7/16\" sheathing, taped seams" : `${o.wsheath === "ply" ? "½\" plywood" : "7/16\" OSB"} sheathing + house wrap`);
+      R(-0.06, 0, yb - 0.3, yt, "sg"); if (!i) lab(-0.03, yb + H * 0.15, { lp: "LP SmartSide lap siding", vinyl: "Vinyl lap siding", fc: "Fiber cement lap siding", bb: "Board and batten", steel: "Steel siding", cedar: "Cedar shingles" }[o.siding]);
+      R(0.04 + sd, 0.04 + sd + 0.042, yb + 0.125, yt, "dw"); if (!i) lab(0.04 + sd + 0.02, yb + H * 0.85, "½\" drywall");
+      y = yt;
+      if (i < G.floors.length - 1) { const jd = { "2x10": 9.25, "2x12": 11.25, ij: 11.875 }[o.joist] / 12; R(0.04, span, y, y + jd, "jo"); if (!i) lab(3, y + jd / 2, `Floor: ${{ "2x10": "2×10", "2x12": "2×12", ij: "11⅞\" I-joist" }[o.joist]} @ 16", rim board, ¾" subfloor`); y += jd + 0.0625; }
+    });
+    Ht = y;
+    R(0.04 + sd, span, Ht - 0.05, Ht, "dw"); lab(3, Ht - 0.02, "⅝\" ceiling drywall");
+    if (o.attic !== "none" && o.roof !== "flat") { R(0.6, span, Ht, Ht + (o.attic === "r60" ? 1.7 : 1.4), "at"); lab(3.5, Ht + 0.7, `Blown-in insulation ${o.attic === "r60" ? "R-60" : "R-49"}, baffle at the eave`); }
+  }
+  // roof
+  const yr = Ht + 0.1, rl = x => yr + (x + 0.3) * pitch;
+  g.push(`<polygon points="${[[-ov, rl(-ov)], [span, rl(span)], [span, rl(span) + 0.12], [-ov, rl(-ov) + 0.12]].map(([a, yy]) => X(a) + "," + Y(yy)).join(" ")}" class="rs"/>`);
+  g.push(`<line x1="${X(-0.3)}" y1="${Y(yr)}" x2="${X(span)}" y2="${Y(yr)}" class="tr"/><line x1="${X(-0.3)}" y1="${Y(yr)}" x2="${X(span)}" y2="${Y(rl(span) - 0.1)}" class="tr"/>`);
+  lab(span * 0.6, rl(span * 0.6) + 0.06, post ? `Steel roof panels on 2×4 purlins, trusses @ ${o.tsp}' o.c., ${o.pitch}/12` : `${{ arch: "Architectural shingles", "3tab": "3-tab shingles", metal: "Steel panels", seam: "Standing seam" }[o.roofing] || "Roofing"} on synthetic underlayment, ice and water shield at the eave`);
+  if (!post) lab(span * 0.35, (yr + rl(span * 0.35)) / 2, `${o.rframe === "truss" ? "Trusses @ 24\" o.c." : "2×10 rafters @ 16\" o.c."}, ${o.pitch}/12, hurricane ties at each`);
+  if (ov > 0) { R(-ov, 0, rl(-ov) - 0.05, rl(-ov), "sh"); g.push(`<line x1="${X(-ov)}" y1="${Y(rl(-ov))}" x2="${X(-ov)}" y2="${Y(rl(-ov) - 0.5)}" class="tr"/>`); lab(-ov, rl(-ov) - 0.25, `Fascia and vented soffit, ${o.over}" overhang`); }
+  // labels in a column to the right
+  const lx = Math.max(X(span) + 0.5, x0 + aw * 0.42), ls = labels.sort((a, b2) => b2[1] - a[1]), gap = 0.17, ys = [];
+  ls.forEach(([, yy], i) => ys.push(Math.max(Y(yy) + 0.03, i ? ys[i - 1] + gap : y0 + 0.1)));
+  const over = ys.length ? ys[ys.length - 1] - (y0 + ah - 0.05) : 0; if (over > 0) for (let i = ys.length - 1; i >= 0; i--) { ys[i] -= over; if (i && ys[i - 1] > ys[i] - gap) ys[i - 1] = ys[i] - gap; else if (i) break; }
+  ls.forEach(([x, yy, t], i) => { const ty = n2(ys[i]); g.push(`<line x1="${X(x)}" y1="${Y(yy)}" x2="${n2(lx - 0.05)}" y2="${ty - 0.035}" class="ld"/><circle cx="${X(x)}" cy="${Y(yy)}" r="0.022" class="ldd"/><text x="${n2(lx)}" y="${ty}" class="tl">${psE(t)}</text>`); });
+  return g.join("");
+}
+
+// The map's own drawing of one floor (or the site), on white, at a true scale.
+function psRaster(b, lv, ext, sIn, ppi, tags) {
+  const wIn = (ext.x1 - ext.x0) / FT * sIn, hIn = (ext.y1 - ext.y0) / FT * sIn, k = 2, cw = Math.max(2, Math.round(wIn * ppi * k)), ch = Math.max(2, Math.round(hIn * ppi * k));
+  const c = document.createElement("canvas"); c.width = cw; c.height = ch; const g = c.getContext("2d");
+  g.fillStyle = "#FFFFFF"; g.fillRect(0, 0, cw, ch); g.setTransform(k, 0, 0, k, 0, 0);
+  const save = { ctx, view: { ...view }, level: state.level, shapes: state.shapes, sel: selected, dims: state.showDims, ghost: state.ghost, nextId: state.nextId, layers: state.layers };
+  try {
+    ctx = g; view.s = ppi * sIn / FT; view.x = -ext.x0 * view.s; view.y = -ext.y0 * view.s; selected = null; state.showDims = true; state.ghost = false;
+    if (b) {
+      state.shapes = JSON.parse(JSON.stringify([b, ...state.shapes.filter(s => s.bid === b.id && s.kind !== "wallview" && s.kind !== "underlay")]));
+      state.level = lv; autoDimension(state.shapes[0], lv);
+    } else { state.shapes = state.shapes.filter(s => !s.level && s.kind !== "underlay"); state.level = 99; }
+    drawAll();
+    if (tags) for (const t of tags) {
+      const p = toS(t.p); g.beginPath(); g.arc(p.x, p.y, 9, 0, Math.PI * 2); g.fillStyle = "#FFFFFF"; g.fill(); g.lineWidth = 1.2; g.strokeStyle = "#17231F"; g.stroke();
+      g.fillStyle = "#17231F"; g.font = '700 9px "Barlow Condensed", sans-serif'; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(t.tag, p.x, p.y + 0.5);
+    }
+  } catch (e) { console.warn("plan drawing:", e); }
+  finally { ctx = save.ctx; Object.assign(view, save.view); state.level = save.level; state.shapes = save.shapes; selected = save.sel; state.showDims = save.dims; state.ghost = save.ghost; state.nextId = save.nextId; }
+  return { url: c.toDataURL("image/png"), wIn, hIn };
+}
+
+function psBuild(b) {
+  const [PW, PH] = PS_PAPER[ps.paper], TB = PW > 12 ? 2.1 : 1.7, M = 0.4, aw = PW - 2 * M - TB - 0.2, ah = PH - 2 * M, ax = M, ay = M;
+  const o = matOpt(b), G = matGeom(b), post = o.frame === "post", F = G.F, pages = [], proj = (curProject() || {}).name || "My property", date = new Date().toLocaleDateString();
+  const page = (no, title, scale, body) => pages.push({ no, title, scale, body });
+  const svg = (inner, cls = "") => `<svg class="ps-svg ${cls}" viewBox="0 0 ${PW} ${PH}" width="${PW}in" height="${PH}in">${inner}</svg>`;
+  const floors = G.floors.concat(G.bsmt && state.shapes.some(s => s.bid === b.id && s.level === BASEMENT) ? [G.bsmt] : []);
+  const ord = [...floors].sort((p, q) => p.lv - q.lv);
+  // ---- floor plans (raster, true scale, wall tags) ----
+  const fpPages = [];
+  for (const f of ord) {
+    const WL = psWalls(b, f.lv), pts = state.shapes.filter(s => s.bid === b.id && (s.level === f.lv || s.kind === "building")).flatMap(s => s.points).concat(b.points);
+    const B = bbox(pts), pad = 6 * FT, ext = { x0: B.x0 - pad, y0: B.y0 - pad, x1: B.x1 + pad, y1: B.y1 + pad };
+    const [sIn, sTxt] = psPick((ext.x1 - ext.x0) / FT, (ext.y1 - ext.y0) / FT, aw, ah - 0.5, PS_ARCH);
+    const tags = WL.walls.map(w => { const m = { x: (w.a.x + w.c.x) / 2, y: (w.a.y + w.c.y) / 2 }, u = unit(w.a, w.c), nn = { x: -u.y, y: u.x }, off = w.ext ? 2.2 : 1.1; let q = { x: m.x + nn.x * off, y: m.y + nn.y * off }; if (w.ext && inPoly(q, WL.f.P)) q = { x: m.x - nn.x * off, y: m.y - nn.y * off }; return { tag: w.tag, p: F.toW(q) }; });
+    const R = psRaster(b, f.lv, ext, sIn, 100, tags);
+    fpPages.push([f, R, sTxt, WL]);
+  }
+  // ---- cover ----
+  const sheetList = [];   // filled at the end
+  page("G-0", "Cover sheet and notes", "", "");
+  // ---- site plan ----
+  {
+    const site = state.shapes.filter(s => !s.level && s.points && s.points.length && s.kind !== "underlay" && s.kind !== "note");
+    const B = bbox(site.flatMap(s => s.points)), pad = 30 * FT, ext = { x0: B.x0 - pad, y0: B.y0 - pad, x1: B.x1 + pad, y1: B.y1 + pad };
+    const [sIn, sTxt] = psPick((ext.x1 - ext.x0) / FT, (ext.y1 - ext.y0) / FT, aw, ah - 0.4, PS_ENG);
+    const R = psRaster(null, 99, ext, sIn, 100);
+    const na = `<g transform="translate(${n2(ax + aw - 0.6)},${n2(ay + 0.7)})"><polygon points="0,-0.45 0.16,0.2 0,0.08 -0.16,0.2" class="na"/><text x="0" y="0.45" class="tc tb">N</text></g>`;
+    page("C-1", "Site plan", sTxt, `<img class="ps-img" src="${R.url}" style="left:${ax}in;top:${ay}in;width:${n2(R.wIn)}in;height:${n2(R.hIn)}in">` + svg(na + `<text x="${ax}" y="${n2(PH - M - 0.05)}" class="tl">Site plan, ${psE(sTxt)}. North is up. Distances on the map are from the background picture's scale; check property lines with a survey.</text>`));
+  }
+  // ---- foundation plan ----
+  {
+    const P = G.floors[0].P, B = bbox(P), wF = B.x1 - B.x0 + 12, hF = B.y1 - B.y0 + 12, [s, sTxt] = psPick(wF, hF, aw * 0.68, ah - 0.4, PS_ARCH);
+    const X = v => n2(ax + 0.3 + (v - B.x0 + 6) * s), Y = v => n2(ay + 0.3 + (v - B.y0 + 6) * s), pl = Q => Q.map(q => X(q.x) + "," + Y(q.y)).join(" "), g = [];
+    if (post) {
+      g.push(`<polygon points="${pl(P)}" class="fo"/>`);
+      for (let i = 0; i < P.length; i++) { const a = P[i], c = P[(i + 1) % P.length], L = dist(a, c), n = Math.ceil(L / +o.poc - 1e-6); for (let j = 0; j < n; j++) { const t = j / n, q = { x: a.x + (c.x - a.x) * t, y: a.y + (c.y - a.y) * t }; g.push(`<rect x="${n2(X(q.x) - 0.25 * s)}" y="${n2(Y(q.y) - 0.25 * s)}" width="${n2(0.5 * s)}" height="${n2(0.5 * s)}" class="ps-post"/><circle cx="${X(q.x)}" cy="${Y(q.y)}" r="${n2(0.75 * s)}" class="ftd"/>`); } }
+    } else if (o.found !== "none") {
+      const ft = o.found === "slab" ? [0, 1] : [-0.5, 1.17];
+      g.push(`<polygon points="${pl(offsetPoly(P, ft[0]))}" class="ftd"/><polygon points="${pl(offsetPoly(P, ft[1]))}" class="ftd"/>`);
+      g.push(`<polygon points="${pl(P)}" class="fo"/><polygon points="${pl(offsetPoly(P, o.found === "slab" ? 1 : 0.67))}" class="fo"/>`);
+      const C = offsetPoly(P, 0.3);
+      for (let i = 0; i < C.length; i++) { const a = C[i], c = C[(i + 1) % C.length], L = dist(a, c), n = Math.max(1, Math.ceil(L / 6)); for (let j = 0; j <= n; j++) { const t = Math.min(1, (j + (j === 0 ? 1 / L : 0)) / n), q = { x: a.x + (c.x - a.x) * t, y: a.y + (c.y - a.y) * t }; g.push(`<circle cx="${X(q.x)}" cy="${Y(q.y)}" r="0.03" class="ab"/>`); } }
+      if (["crawl", "bsmt"].includes(o.found) && G.floors[0].L > 16 && G.floors[0].W > 16) { const f0 = G.floors[0], hor = f0.L >= f0.W, mid = hor ? (B.y0 + B.y1) / 2 : (B.x0 + B.x1) / 2; g.push(hor ? `<line x1="${X(B.x0 + 0.67)}" y1="${Y(mid)}" x2="${X(B.x1 - 0.67)}" y2="${Y(mid)}" class="bm"/>` : `<line x1="${X(mid)}" y1="${Y(B.y0 + 0.67)}" x2="${X(mid)}" y2="${Y(B.y1 - 0.67)}" class="bm"/>`); const Lb = hor ? B.x1 - B.x0 : B.y1 - B.y0, np = Math.ceil(Lb / 8); for (let j = 1; j < np; j++) { const v = (hor ? B.x0 : B.y0) + Lb * j / np; g.push(`<rect x="${n2((hor ? X(v) : X(mid)) - 0.05)}" y="${n2((hor ? Y(mid) : Y(v)) - 0.05)}" width="0.1" height="0.1" class="ps-post"/>`); } }
+    }
+    // edge lengths
+    for (let i = 0; i < P.length; i++) { const a = P[i], c = P[(i + 1) % P.length], u = unit(a, c), nn = { x: u.y, y: -u.x }; let m = { x: (a.x + c.x) / 2 + nn.x * 2.5, y: (a.y + c.y) / 2 + nn.y * 2.5 }; if (inPoly(m, P)) m = { x: (a.x + c.x) / 2 - nn.x * 2.5, y: (a.y + c.y) / 2 - nn.y * 2.5 }; g.push(`<text x="${X(m.x)}" y="${Y(m.y)}" class="tc tb">${psE(fmtLen(dist(a, c) * FT))}</text>`); }
+    const { S } = matList(b), fsec = S.find(x => x.title === (post ? "Posts and footings" : "Foundation"));
+    const notes = (fsec ? fsec.rows : []).map(r => `${r[0]}${r[3] ? " — " + r[3] : ""}`);
+    const nx = ax + aw * 0.7;
+    page("A-1", post ? "Post and footing plan" : "Foundation plan", sTxt, svg(g.join("") + `<text x="${n2(nx)}" y="${n2(ay + 0.3)}" class="tl tb">${post ? "Posts and footings" : "Foundation"}</text>` + notes.slice(0, 16).map((t, i) => `<text x="${n2(nx)}" y="${n2(ay + 0.6 + i * 0.27)}" class="tl">• ${psE(t.length > Math.floor(aw * 0.29 / 0.05) ? t.slice(0, Math.floor(aw * 0.29 / 0.05) - 1) + "…" : t)}</text>`).join("") + (post ? "" : `<text x="${n2(nx)}" y="${n2(ay + 0.6 + Math.min(16, notes.length) * 0.27 + 0.2)}" class="tl">Dots: ½" anchor bolts about 6 ft apart and near each corner. Dashed: footing edges.</text>`)));
+  }
+  // ---- floor plans ----
+  fpPages.forEach(([f, R, sTxt, WL], i) => page("A-" + (2 + i), levelName(f.lv) + " plan", sTxt, `<img class="ps-img" src="${R.url}" style="left:${ax}in;top:${ay}in;width:${n2(R.wIn)}in;height:${n2(R.hIn)}in">` + svg(`<text x="${ax}" y="${n2(PH - M - 0.05)}" class="tl">${psE(levelName(f.lv))}: ${Math.round(f.area).toLocaleString()} sq ft. Circled tags (E1, I1…) match the wall framing sheets. Wall height ${psE(fmtLen(f.H * FT))}.</text>`)));
+  let an = 2 + fpPages.length;
+  // ---- roof plan ----
+  {
+    const topF = G.floors.reduce((a, f) => f.area > a.area + 1 ? f : a, G.floors[0]), P = topF.P, ov = +o.over / 12, RP = offsetPoly(P, -ov), B = bbox(RP), [s, sTxt] = psPick(B.x1 - B.x0 + 8, B.y1 - B.y0 + 8, aw * 0.7, ah - 0.4, PS_ARCH);
+    const X = v => n2(ax + 0.3 + (v - B.x0 + 4) * s), Y = v => n2(ay + 0.3 + (v - B.y0 + 4) * s), pl = Q => Q.map(q => X(q.x) + "," + Y(q.y)).join(" "), g = [];
+    g.push(`<polygon points="${pl(RP)}" class="fo"/><polygon points="${pl(P)}" class="ftd"/>`);
+    const rect = matRect(P), shape = !rect && o.roof !== "flat" ? "hip" : o.roof;
+    if (rect) {
+      let [A, Bp, C, D] = RP; if (dist(A, Bp) < dist(Bp, C)) [A, Bp, C, D] = [Bp, C, D, A];
+      const mid = (p, q) => ({ x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 }), Ra = mid(D, A), Rb = mid(Bp, C), Lr = dist(A, Bp), Wr = dist(Bp, C), u = unit(A, Bp);
+      const ts = post ? +o.tsp : o.rframe === "truss" ? 2 : 16 / 12, n = Math.floor((Lr - 2 * ov) / ts + 1e-6);
+      for (let j = 0; j <= n; j++) { const t = ov + j * ts; const p = { x: A.x + u.x * t, y: A.y + u.y * t }, q = { x: D.x + u.x * t, y: D.y + u.y * t }; g.push(`<line x1="${X(p.x)}" y1="${Y(p.y)}" x2="${X(q.x)}" y2="${Y(q.y)}" class="tl2"/>`); }
+      if (shape === "gable") g.push(`<line x1="${X(Ra.x)}" y1="${Y(Ra.y)}" x2="${X(Rb.x)}" y2="${Y(Rb.y)}" class="rg"/>`);
+      if (shape === "hip") { const r1 = { x: Ra.x + u.x * Wr / 2, y: Ra.y + u.y * Wr / 2 }, r2 = { x: Rb.x - u.x * Wr / 2, y: Rb.y - u.y * Wr / 2 }; g.push(`<line x1="${X(r1.x)}" y1="${Y(r1.y)}" x2="${X(r2.x)}" y2="${Y(r2.y)}" class="rg"/>`); for (const [c1, rr] of [[A, r1], [D, r1], [Bp, r2], [C, r2]]) g.push(`<line x1="${X(c1.x)}" y1="${Y(c1.y)}" x2="${X(rr.x)}" y2="${Y(rr.y)}" class="rg"/>`); }
+      g.push(`<text x="${X((A.x + Ra.x) / 2 + (Rb.x - Ra.x) / 2)}" y="${Y((A.y + Ra.y) / 2 + (Rb.y - Ra.y) / 2)}" class="tc tb">${shape === "flat" ? "Low slope" : o.pitch + "/12 ↓"}</text>`);
+    } else g.push(`<text x="${X((B.x0 + B.x1) / 2)}" y="${Y((B.y0 + B.y1) / 2)}" class="tc tb">Hip roof, ${psE(o.pitch)}/12, follows the outline (truss package by the supplier)</text>`);
+    const { S } = matList(b), rs = S.find(x => x.title === "Roof framing"), rn = S.find(x => x.title === (post ? "Roofing" : "Roof sheathing and roofing")), nx = ax + aw * 0.72;
+    const notes = [...(rs ? rs.rows : []), ...(rn ? rn.rows : [])].map(r => `${r[0]}: ${typeof r[1] === "number" ? r[1].toLocaleString() : r[1]} ${r[2]}`);
+    page("A-" + an++, "Roof plan", sTxt, svg(g.join("") + `<text x="${n2(nx)}" y="${n2(ay + 0.3)}" class="tl tb">Roof</text>` + notes.slice(0, 22).map((t, i) => `<text x="${n2(nx)}" y="${n2(ay + 0.6 + i * 0.25)}" class="tl">• ${psE(t.length > Math.floor(aw * 0.27 / 0.05) ? t.slice(0, Math.floor(aw * 0.27 / 0.05) - 1) + "…" : t)}</text>`).join("") + `<text x="${n2(nx)}" y="${n2(ay + 0.6 + Math.min(22, notes.length) * 0.25 + 0.2)}" class="tl">Dashed line: outside of the walls. Thin lines: ${post ? "trusses" : o.rframe === "truss" ? "trusses @ 24\"" : "rafters @ 16\""}.</text>`));
+  }
+  // ---- elevations, two to a sheet ----
+  {
+    const dirs = [{ x: 0, y: 1 }, { x: 0, y: -1 }, { x: 1, y: 0 }, { x: -1, y: 0 }];
+    const E0 = dirs.map(n => psElevSVG(b, n, 1, 0, 0, o)), wMax = Math.max(...E0.map(e => e.w)), hMax = Math.max(...E0.map(e => e.h));
+    const [s, sTxt] = psPick(wMax, hMax, aw, ah / 2 - 0.45, PS_ARCH);
+    for (let i = 0; i < 4; i += 2) {
+      let body = "";
+      for (let j = 0; j < 2; j++) {
+        const n = dirs[i + j], yb = ay + (j + 1) * ah / 2 - 0.35 - (G.bsmt || o.found !== "slab" ? (o.found === "bsmt" ? 8 : 5) * s : 0), e = psElevSVG(b, n, s, ax + 0.2, yb, o);
+        body += e.svg + `<text x="${n2(ax + 0.2)}" y="${n2(ay + j * ah / 2 + 0.25)}" class="tl tb">${psE(e.name)} elevation</text>`;
+      }
+      page("A-" + an++, "Elevations", sTxt, svg(body));
+    }
+  }
+  // ---- wall sections ----
+  page("A-" + an++, "Typical wall section", "Not to scale", svg(psSectionSVG(b, ax + 0.1, ay + 0.4, aw - 0.1, ah - 0.45) + `<text x="${n2(ax + 0.1)}" y="${n2(ay + 0.25)}" class="tl tb">Typical outside wall section</text>` + (post ? "" : `<g>${(() => { const x = ax + aw * 0.5, y = ay + ah - 1.4; return `<text x="${n2(x)}" y="${n2(y - 0.15)}" class="tl tb">Typical inside wall</text><rect x="${n2(x)}" y="${n2(y)}" width="0.9" height="0.04" class="dw"/><rect x="${n2(x)}" y="${n2(y + 0.04)}" width="0.9" height="0.29" class="st"/><rect x="${n2(x)}" y="${n2(y + 0.33)}" width="0.9" height="0.04" class="dw"/><text x="${n2(x + 1.05)}" y="${n2(y + 0.22)}" class="tl ts">2×4 studs @ 16" o.c., single bottom plate, double top plate, ½" drywall both sides (plan view)</text>`; })()}</g>`)));
+  // ---- schedules ----
+  {
+    const od = new Map(); let wn = 0, dn = 0;
+    for (const f of ord) for (const w of psWalls(b, f.lv).walls) for (const q of w.opens) {
+      const key = `${q.o.otype}|${q.w.toFixed(2)}|${(q.head - q.sill).toFixed(2)}|${w.ext}`;
+      if (!od.has(key)) od.set(key, { mark: q.win ? "W" + (++wn) : "D" + (++dn), q, ext: w.ext, n: 0, floors: new Set(), walls: [] });
+      const r = od.get(key); r.n++; r.floors.add(levelName(f.lv)); r.walls.push(w.tag);
+    }
+    const rows = [...od.values()].sort((a, c) => a.mark.localeCompare(c.mark, undefined, { numeric: true }));
+    const tbl = `<table class="ps-tbl"><thead><tr><th>Mark</th><th>Type</th><th>Size (W × H)</th><th>Rough opening</th><th>Header</th><th>Sill</th><th>Qty</th><th>Where</th></tr></thead><tbody>${rows.map(r => { const q = r.q, hh = q.head - q.sill; return `<tr><td>${r.mark}</td><td>${psE(OTYPES[q.o.otype] || "Door")}${r.ext ? "" : " (inside)"}</td><td>${psE(fmtLen(q.w * FT))} × ${psE(fmtLen(hh * FT))}</td><td>${psE(fmtLen((q.w + 2 / 12) * FT))} × ${psE(fmtLen((hh + (q.win ? 2 : 2.5) / 12) * FT))}</td><td>${psE(r.ext || q.w > 3 ? (r.ext ? (o.stud === "2x6" ? 3 : 2) + "-" : "") + hdrSize(q.w)[0] : "2×4 flat")}</td><td>${q.win ? psE(fmtLen(q.sill * FT)) : "—"}</td><td>${r.n}</td><td>${psE([...r.floors].join(", "))}: ${psE(r.walls.slice(0, 8).join(", "))}${r.walls.length > 8 ? "…" : ""}</td></tr>`; }).join("") || `<tr><td colspan="8">No doors or windows drawn yet.</td></tr>`}</tbody></table>`;
+    const rooms = state.shapes.filter(s => s.bid === b.id && s.kind === "room" && s.level).sort((a, c) => a.level - c.level);
+    const rt = `<table class="ps-tbl"><thead><tr><th>Room</th><th>Floor</th><th>Size</th><th>Area</th></tr></thead><tbody>${rooms.map(r => `<tr><td>${psE(r.name)}</td><td>${psE(levelName(r.level))}</td><td>${r.points.length === 4 ? psE(fmtLen(dist(r.points[0], r.points[1]))) + " × " + psE(fmtLen(dist(r.points[1], r.points[2]))) : ""}</td><td>${psE(fmtArea(area(r.points)))}</td></tr>`).join("") || `<tr><td colspan="4">No rooms drawn yet.</td></tr>`}</tbody></table>`;
+    page("A-" + an++, "Door, window and room schedules", "", `<div class="ps-html" style="left:${ax}in;top:${ay}in;width:${n2(aw)}in;height:${n2(ah)}in"><h3>Door and window schedule</h3>${tbl}<p class="ps-note">Rough openings are the usual allowance (½" each side for windows); use the size the window or door maker lists.</p><h3>Rooms</h3>${rt}</div>`);
+  }
+  // ---- wall framing elevations ----
+  {
+    const items = []; for (const f of ord) for (const w of psWalls(b, f.lv).walls) items.push([f, w]);
+    if (!post && items.length) {
+      const studIn = o.stud.replace("x", "×"), oc = +o.oc / 12, plies = o.stud === "2x6" ? 3 : 2;
+      const maxL = Math.max(...items.map(([, w]) => w.L)), [s, sTxt] = psPick(maxL + 1, 1, aw - 0.3, ah, PS_ARCH.slice(2));
+      let pg = null, x = 0, y = 0, rowH = 0, sn = 1, lastLv = null;
+      const flush = () => { if (pg) page("S-" + sn++, "Wall framing", sTxt, svg(pg)); pg = ""; x = 0; y = 0; rowH = 0; };
+      flush(); pg = "";
+      for (const [f, w] of items) {
+        const wi = Math.max(w.L * s + 0.5, (ord.length > 1 ? 66 : 52) * 0.058 + 0.3), hi = w.H * s + 0.85;
+        if (x > 0 && x + wi > aw) { x = 0; y += rowH; rowH = 0; }
+        if (y + hi > ah) { flush(); }
+                pg += psFrameSVG({ ...w, lvName: ord.length > 1 ? levelName(f.lv) : "" }, w.ext ? oc : 16 / 12, studIn, plies, s, ax + x + 0.15, ay + y + 0.4 + w.H * s);
+        x += wi; rowH = Math.max(rowH, hi);
+      }
+      flush();
+    }
+  }
+  // ---- material list ----
+  {
+    const { S } = matList(b), pr = (b.build && b.build.prices) || {}, rowsPer = PH > 10 ? 30 : 22; let cur = [], n = 1, tot = 0;
+    const lines = []; for (const sec of S) { if (!sec.rows.length) continue; lines.push({ h: sec.title }); for (const r of sec.rows) { const v = pr[matKey(r[0])], c = typeof r[1] === "number" && v != null ? r[1] * v : null; if (c != null) tot += c; lines.push({ r, c }); } }
+    const emit = () => { page("M-" + n++, "Material list", "", `<div class="ps-html" style="left:${ax}in;top:${ay}in;width:${n2(aw)}in;height:${n2(ah)}in"><table class="ps-tbl ps-mat"><tbody>${cur.map(l => l.h ? `<tr class="ps-mh"><td colspan="5">${psE(l.h)}</td></tr>` : `<tr><td>${psE(l.r[0])}</td><td class="r">${psE(typeof l.r[1] === "number" ? l.r[1].toLocaleString() : l.r[1])}</td><td>${psE(l.r[2])}</td><td class="r">${l.c != null ? psE(money(l.c)) : ""}</td><td class="nt">${psE(l.r[3])}</td></tr>`).join("")}</tbody></table>${n === 1 && false ? "" : ""}</div>`); cur = []; };
+    for (const l of lines) { cur.push(l); if (cur.length >= rowsPer) emit(); }
+    if (cur.length) emit();
+    if (tot) pages[pages.length - 1].body = pages[pages.length - 1].body.replace("</table>", `</table><p class="ps-note"><b>Priced so far: ${psE(money(tot))}</b></p>`);
+  }
+  // ---- build order ----
+  {
+    const { S } = matList(b), steps = buildSteps(b, S, o), per = PH > 10 ? 6 : 4;
+    for (let i = 0; i < steps.length; i += per) page("B-" + (i / per + 1), "Build order", "", `<div class="ps-html ps-cols" style="left:${ax}in;top:${ay}in;width:${n2(aw)}in;height:${n2(ah)}in">${steps.slice(i, i + per).map((x, j) => `<div class="ps-step"><h3>${i + j + 1}. ${psE(x.t)} <span>about ${x.days} day${x.days === 1 ? "" : "s"}</span></h3><ul>${x.how.map(h => `<li>${h}</li>`).join("")}</ul>${x.insp ? `<p><b>Inspection:</b> ${psE(x.insp)}</p>` : ""}${x.secs.length ? `<p><b>Materials:</b> ${psE(x.secs.join(", "))} (sheet M)</p>` : ""}</div>`).join("")}</div>`);
+  }
+  // ---- cover (now that every sheet is known) ----
+  {
+    const area0 = G.floors.reduce((a, f) => a + f.area, 0);
+    const info = [["Project", proj], ["Structure", b.name], ["Type", post ? "Post-frame (pole barn)" : "Stick-framed"], ["Floors", G.floors.map(f => `${levelName(f.lv)} ${Math.round(f.area).toLocaleString()} sq ft`).join(" · ")], ["Total floor area", Math.round(area0).toLocaleString() + " sq ft"], ["Walls", post ? `${o.eave} ft posts @ ${o.poc} ft` : `${o.stud.replace("x", "×")} @ ${o.oc}" o.c., ${G.floors.map(f => fmtLen(f.H * FT)).join(" / ")}`], ["Foundation", post ? (o.pfoot === "pad" ? "Poured pads and collars" : "Precast pier pads") + ", 4½ ft deep" : ((MAT_OPTS.flatMap(g2 => g2[1]).find(x => x[0] === "found") || [0, 0, []])[2].find(x => x[0] === o.found) || ["", ""])[1]], ["Roof", `${o.roof}, ${o.pitch}/12, ${o.over}" overhang`]];
+    const notes = ["Build to the current Minnesota Residential Code (IRC) and energy code, and any county rules. These drawings don't replace an engineer or the building official.", "Check every dimension on site before cutting or ordering. Written dimensions beat scaled ones.", "Frost depth: footings at least 60\" below grade in northern Minnesota (check your county).", "Truss drawings come from the truss supplier; follow their bracing details.", "Headers shown are typical for one-story bearing walls; check them for snow load (about 60 psf ground snow in Carlton County) and anything above.", "All lumber touching concrete or the ground is pressure-treated; use hot-dip or stainless fasteners in treated wood.", "Windows: flash with tape, bottom then sides then top. Bedrooms need an egress window."];
+    pages[0].body = `<div class="ps-html" style="left:${ax}in;top:${ay}in;width:${n2(aw)}in;height:${n2(ah)}in"><h1 class="ps-h1">${psE(b.name)}</h1><p class="ps-sub">${psE(proj)} · plan set printed ${psE(date)}</p>
+      <div class="ps-cov"><div><h3>About this building</h3><table class="ps-tbl">${info.map(([k2, v]) => `<tr><th>${psE(k2)}</th><td>${psE(v)}</td></tr>`).join("")}</table><h3>General notes</h3><ol class="ps-notes">${notes.map(t => `<li>${psE(t)}</li>`).join("")}</ol></div>
+      <div><h3>Sheets</h3><table class="ps-tbl">${pages.map(p => `<tr><td>${psE(p.no)}</td><td>${psE(p.title)}</td></tr>`).join("")}</table></div></div></div>`;
+  }
+  // ---- wrap each sheet with its title block ----
+  const tbX = PW - M - TB;
+  return pages.map((p, i) => `<div class="ps-page" style="width:${PW}in;height:${PH}in">${p.body}<div class="ps-tb" style="left:${n2(tbX)}in;top:${M}in;width:${TB}in;height:${n2(PH - 2 * M)}in">
+    <div class="ps-tb-proj">${psE(proj)}</div><div class="ps-tb-b">${psE(b.name)}</div><div class="ps-tb-sp"></div>
+    <div class="ps-tb-t">${psE(p.title)}</div>${p.scale ? `<div class="ps-tb-s">Scale: ${psE(p.scale)}</div>` : ""}<div class="ps-tb-s">${psE(date)}</div>
+    <div class="ps-tb-n">${psE(p.no)}</div><div class="ps-tb-s">Sheet ${i + 1} of ${pages.length}</div>
+    <div class="ps-tb-d">Drawn with Site Plan. Check with your building official before building.</div></div>
+    <div class="ps-frame" style="left:${M}in;top:${M}in;width:${n2(PW - 2 * M)}in;height:${n2(PH - 2 * M)}in"></div></div>`);
+}
+
+function openPlans(b) { ps.b = b.id; ps.paper = state.psPaper || "tabloid"; $("ps-paper").value = ps.paper; $("ps-title").textContent = "Plan set · " + b.name; if (!$("plandlg").open) $("plandlg").showModal(); renderPlans(); }
+function renderPlans() {
+  const b = state.shapes.find(s => s.id === ps.b && s.kind === "building"); if (!b) return;
+  $("ps-msg").textContent = "Drawing the sheets…";
+  setTimeout(() => {
+    let html; try { html = psBuild(b); } catch (e) { console.warn(e); $("ps-msg").textContent = "Couldn't draw the plan set: " + (e.message || e); return; }
+    ps.html = html; $("ps-pages").innerHTML = html.map(h => `<div class="ps-wrap">${h}</div>`).join("");
+    $("ps-pages").dataset.n = String(html.length); psZoom();
+    $("ps-msg").textContent = `${html.length} sheets on ${PS_PAPER[ps.paper][2]} paper. Print them, or choose “Save as PDF” in the print window.`;
+  }, 20);
+}
+function psZoom() { const box = $("ps-pages"), [PW] = PS_PAPER[ps.paper], z = Math.min(1, (box.clientWidth - 32) / (PW * 96)); box.querySelectorAll(".ps-page").forEach(p => p.style.zoom = z); }
+function printPlans() {
+  if (!ps.html) return;
+  const [PW, PH] = PS_PAPER[ps.paper]; let root = $("printroot"); if (!root) { root = document.createElement("div"); root.id = "printroot"; document.body.append(root); }
+  root.innerHTML = ps.html.join(""); let st = $("ps-pagesize"); if (!st) { st = document.createElement("style"); st.id = "ps-pagesize"; document.head.append(st); }
+  st.textContent = `@page { size: ${PW}in ${PH}in; margin: 0 }`;
+  document.documentElement.classList.add("printing");
+  const done = () => { document.documentElement.classList.remove("printing"); root.innerHTML = ""; window.removeEventListener("afterprint", done); };
+  window.addEventListener("afterprint", done);
+  try { window.print(); } catch (e) { $("ps-msg").textContent = "Printing isn't available here. Open Site Plan in its own browser tab and try again."; done(); }
+}
+$("ps-paper").addEventListener("change", e => { ps.paper = e.target.value; state.psPaper = ps.paper; save(); renderPlans(); });
+$("ps-print").onclick = () => printPlans();
+$("ps-close").onclick = () => $("plandlg").close();
+window.addEventListener("resize", () => { if ($("plandlg").open) psZoom(); });
 
 /* ---------- view ---------- */
 function resize() {
@@ -3174,10 +4060,11 @@ function extraHTML(s) {
       <div class="row" style="margin-bottom:10px">${btn("design", "Design floor plan")}${btn("autodim", "Auto-dimension " + esc(levelName(state.level)))}</div>
       </div>
       <p class="sublabel" style="margin:4px 0 6px;font-size:13px;color:var(--muted);font-weight:500">Materials</p>
-      <div class="row" style="margin-bottom:10px">${btn("matlist", "Material list")}</div>
+      <div class="row" style="margin-bottom:10px">${btn("matlist", "Material list and build order")}${btn("plans", "Print plan set")}</div>
       <p class="sublabel" style="margin:4px 0 6px;font-size:13px;color:var(--muted);font-weight:500">Rotate building and plan</p>
       <div class="row" style="margin-bottom:14px${s.locked ? ";opacity:.45;pointer-events:none" : ""}">${btn("rot", "⟲ 90°", -90)}${btn("rot", "⟳ 90°", 90)}${btn("rot", "−1°", -1)}${btn("rot", "+1°", 1)}${btn("rot", "180°", 180)}</div>`;
   }
+  if (s.kind === "deck" || s.kind === "addon") h += `<div class="row" style="margin-bottom:12px">${btn("matlist", "Material list and build order")}</div>`;
   return h;
 }
 function statsFor(s) {
@@ -3289,6 +4176,7 @@ $("d-extra").addEventListener("click", e => {
   if (act === "regroupall") { pushUndo(); for (const k of childrenOf(s)) delete k.free; $("d-extra").innerHTML = ""; afterChange(); return; }
   if (act === "regroup1") { pushUndo(); delete s.free; const p = parentOf(s); if (p) selected = p.id; $("d-extra").innerHTML = ""; afterChange(); return; }
   if (act === "matlist") { openMat(s); return; }
+  if (act === "plans") { openPlans(s); return; }
   if (act === "fpaste") { pasteFurnPic(s); return; }
   if (act === "fpicfile") { $("f-furnpic").value = ""; $("f-furnpic").click(); return; }
   if (act === "fpicoff") { pushUndo(); delete s.pic; $("d-extra").innerHTML = ""; afterChange(); return; }
@@ -4786,6 +5674,8 @@ document.addEventListener("keydown", e => {
   else if ($("projdlg").open) { if (back && !$("proj-undo").hidden) $("proj-undo").click(); }
   else if ($("v3d").open) { /* nothing to undo in the 3D view */ }
   else if ($("matdlg").open) { if (back) undo(); else redo(); renderMat(); }
+  else if ($("costdlg").open) { if (back) undo(); else redo(); renderCosts(); }
+  else if ($("plandlg").open) { /* the plan set is a printout; nothing to undo here */ }
   else if (back) undo(); else redo();
 }, true);
 
@@ -5764,7 +6654,7 @@ $("panel-toggle").onclick = () => {
   if (o) { $("layers").hidden = true; $("open-layers").setAttribute("aria-expanded", "false"); }
 };
 document.addEventListener("keydown", e => {
-  if (e.target.matches("input, textarea, select") || $("dlg").open || $("designer").open || $("v3d").open || $("matdlg").open) return;
+  if (e.target.matches("input, textarea, select") || $("dlg").open || $("designer").open || $("v3d").open || $("matdlg").open || $("costdlg").open || $("plandlg").open) return;
   const k = e.key.toLowerCase();
   if (k === "escape" && fplace) { fplace = null; $("hint").textContent = "Put back. Click to place it again."; requestDraw(); return; }
   if (k === "escape") { if (draft.length) { draft = []; dimPhase = false; updateUI(); } else { measure = []; selected = null; renderPanel(); requestDraw(); } }
@@ -5976,6 +6866,7 @@ function v3Building(b, H) {
   const T = v3.T, P = b.points, gs = P.map(H), g0 = Math.min(...gs), g1 = Math.max(...gs);
   let top = GROUND; for (const x of state.shapes) if (x.bid === b.id && x.level > top && x.level <= 4 && ["wall", "room", "opening", "stair"].includes(x.kind)) top = x.level;
   let hFt = 0; for (let lv = GROUND; lv <= top; lv++) hFt += ((b.wallH && b.wallH[lv]) || 8) + (lv > GROUND ? 1 : 0);
+  if (b.build && b.build.frame === "post") hFt = +matOpt(b).eave;
   const y0 = g0 - 0.3, y1 = g1 + 0.45 + hFt * FT, wp = [];
   const quad = (a, b2, c2, d) => wp.push(...a, ...b2, ...c2, ...a, ...c2, ...d);
   for (let i = 0; i < P.length; i++) { const p = P[i], q = P[(i + 1) % P.length]; quad([p.x, y0, p.y], [q.x, y0, q.y], [q.x, y1, q.y], [p.x, y1, p.y]); }
