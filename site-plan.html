@@ -247,6 +247,7 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
 .mat-tabs{margin:2px 0 8px}
 .ps-pages{flex:1;min-height:0;overflow:auto;background:#7C8582;padding:16px}
 .ps-wrap{width:fit-content;margin:0 auto 18px;box-shadow:0 2px 10px rgba(0,0,0,.35)}
+.ps-in{position:absolute;left:0;top:0;transform-origin:0 0}
 .ps-page{position:relative;overflow:hidden;background:#FFFFFF;color:#17231F;font-family:Barlow,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .ps-page .ps-svg,.ps-page .ps-img,.ps-page .ps-html,.ps-page .ps-tb,.ps-page .ps-frame{position:absolute}
 .ps-page .ps-svg{left:0;top:0;pointer-events:none}
@@ -814,7 +815,7 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
 </dialog>
 <dialog id="plandlg" class="dz" aria-labelledby="ps-title">
   <div class="dz-wrap">
-    <div class="dz-head"><h2 id="ps-title">Plan set</h2><span class="mat-msg" id="ps-msg" role="status"></span><label class="v3-opt">Paper <select id="ps-paper" aria-label="Paper size"><option value="tabloid">11 × 17</option><option value="letter">8½ × 11</option></select></label><button class="primary" id="ps-print">Print or save PDF</button><button class="ghost" id="ps-close">Close</button></div>
+    <div class="dz-head"><h2 id="ps-title">Plan set</h2><span class="mat-msg" id="ps-msg" role="status"></span><label class="v3-opt">Paper <select id="ps-paper" aria-label="Paper size"><option value="archd">24 × 36 (ARCH D)</option><option value="tabloid">11 × 17</option><option value="letter">8½ × 11</option></select></label><button class="primary" id="ps-print">Print or save PDF</button><button class="ghost" id="ps-close">Close</button></div>
     <div class="ps-pages" id="ps-pages"></div>
   </div>
 </dialog>
@@ -3041,17 +3042,15 @@ $("cost-csv").onclick = async () => {
 /* ---------- plan set: printable sheets for a builder ---------- */
 // Pages are fixed-size HTML sheets (inches) with a title block; drawings are SVG in inches (vector) except the floor plans
 // and site plan, which reuse the map's own drawing (drawAll) on a white canvas at a true scale. Print or Save as PDF.
-const PS_PAPER = { tabloid: [17, 11, "11 × 17 (tabloid)"], letter: [11, 8.5, "8½ × 11 (letter)"] };
+const PS_PAPER = { archd: [36, 24, "24 × 36 (ARCH D)"], tabloid: [17, 11, "11 × 17 (tabloid)"], letter: [11, 8.5, "8½ × 11 (letter)"] };
+// how much bigger text and lines print on this paper than on 11 × 17
+const psU = key => Math.max(0.9, Math.sqrt(PS_PAPER[key][1] / 11));
+let PSU = 1;   // set while a plan set is being drawn
 const PS_ARCH = [[1 / 2, "1/2\" = 1'-0\""], [3 / 8, "3/8\" = 1'-0\""], [1 / 4, "1/4\" = 1'-0\""], [3 / 16, "3/16\" = 1'-0\""], [1 / 8, "1/8\" = 1'-0\""], [3 / 32, "3/32\" = 1'-0\""], [1 / 16, "1/16\" = 1'-0\""], [1 / 32, "1/32\" = 1'-0\""]];
 const PS_ENG = [10, 20, 30, 40, 50, 60, 80, 100, 150, 200, 300, 400, 500, 1000].map(n => [1 / n, `1" = ${n}'`]);
-const psPick = (wFt, hFt, aw, ah, list) => list.find(([k]) => wFt * k <= aw && hFt * k <= ah) || list[list.length - 1];
-function psFit(wFt, hFt, aw, ah) {
-  const std = PS_ARCH.find(([k]) => wFt * k <= aw && hFt * k <= ah), kf = Math.min(aw / wFt, ah / hFt);
-  if ((std && std[0] >= kf * 0.88) || kf >= 0.5) return std || PS_ARCH[0];
-  const n = Math.floor(kf * 64); if (n < 1) return psPick(wFt, hFt, aw, ah, PS_ARCH);
-  let a = n, d = 64; while (a % 2 === 0) { a /= 2; d /= 2; }
-  return [n / 64, `${a}/${d}" = 1'-0"`];
-}
+const psPick = (wFt, hFt, aw, ah, list) => { const r = list.find(([k]) => wFt * k <= aw * PSU && hFt * k <= ah * PSU) || list[list.length - 1]; return [r[0] / PSU, r[1]]; };
+// the biggest standard architect's scale that fits (no odd in-between scales, so a scale ruler works)
+function psFit(wFt, hFt, aw, ah) { return psPick(wFt, hFt, aw, ah, PS_ARCH); }
 // graphic scale bar (sIn = inches per foot)
 function psBar(x, y, sIn, txt = "") {
   const step = [1, 2, 4, 5, 10, 20, 25, 50].find(v => v * sIn >= 0.35) || 50;
@@ -3507,8 +3506,8 @@ function psFoundDetail(b, o, bx, by, bw, bh, num, sheetNo) {
   }
   // ---- scale and layout ----
   const xs = [xl, Xb], ys = [bot, top], fw = Xb - xl, fh = top - bot, dwIn = bw * 0.5, dhIn = bh - 0.5;
-  const k = [3, 1.5, 1, 0.75, 0.5, 0.375, 0.25, 0.1875].find(v => fw * v <= dwIn && fh * v <= dhIn) || 0.1875;
-  const kTxt = { 3: "3\" = 1'-0\"", 1.5: "1½\" = 1'-0\"", 1: "1\" = 1'-0\"", 0.75: "3/4\" = 1'-0\"", 0.5: "1/2\" = 1'-0\"", 0.375: "3/8\" = 1'-0\"", 0.25: "1/4\" = 1'-0\"", 0.1875: "3/16\" = 1'-0\"" }[k];
+  const kr = [3, 1.5, 1, 0.75, 0.5, 0.375, 0.25, 0.1875].find(v => fw * v <= dwIn * PSU && fh * v <= dhIn * PSU) || 0.1875, k = kr / PSU;
+  const kTxt = { 3: "3\" = 1'-0\"", 1.5: "1½\" = 1'-0\"", 1: "1\" = 1'-0\"", 0.75: "3/4\" = 1'-0\"", 0.5: "1/2\" = 1'-0\"", 0.375: "3/8\" = 1'-0\"", 0.25: "1/4\" = 1'-0\"", 0.1875: "3/16\" = 1'-0\"" }[kr];
   bh = Math.min(bh, Math.max(fh * k, labs.length * 0.21) + 0.75);
   const ox = bx + 0.1, oy = by + 0.15, X = x => n2(ox + (x - xl) * k), Y = y => n2(oy + (top - y) * k), g = [`<rect x="${n2(bx)}" y="${n2(by)}" width="${n2(bw)}" height="${n2(bh)}" class="dbox"/>`];
   for (const [fill, pts, cls, circ] of sh) {
@@ -3544,7 +3543,7 @@ function psFoundDetail(b, o, bx, by, bw, bh, num, sheetNo) {
 
 // The map's own drawing of one floor (or the site), on white, at a true scale.
 function psRaster(b, lv, ext, sIn, ppi, tags, opt = {}) {
-  const wIn = (ext.x1 - ext.x0) / FT * sIn, hIn = (ext.y1 - ext.y0) / FT * sIn, k = 2, cw = Math.max(2, Math.round(wIn * ppi * k)), ch = Math.max(2, Math.round(hIn * ppi * k));
+  const wIn = (ext.x1 - ext.x0) / FT * sIn, hIn = (ext.y1 - ext.y0) / FT * sIn, k = 2 * Math.min(1.25, Math.max(1, PSU)), cw = Math.max(2, Math.round(wIn * ppi * k)), ch = Math.max(2, Math.round(hIn * ppi * k));
   const c = document.createElement("canvas"); c.width = cw; c.height = ch; const g = c.getContext("2d");
   g.fillStyle = "#FFFFFF"; g.fillRect(0, 0, cw, ch); g.setTransform(k, 0, 0, k, 0, 0);
   const save = { ctx, view: { ...view }, level: state.level, shapes: state.shapes, sel: selected, dims: state.showDims, ghost: state.ghost, nextId: state.nextId, layers: state.layers };
@@ -3572,7 +3571,8 @@ function psRaster(b, lv, ext, sIn, ppi, tags, opt = {}) {
 }
 
 function psBuild(b) {
-  const [PW, PH] = PS_PAPER[ps.paper], TB = PW > 12 ? 2.1 : 1.7, M = 0.4, aw = PW - 2 * M - TB - 0.2, ah = PH - 2 * M, ax = M, ay = M;
+  PSU = psU(ps.paper);
+  const [RW, RH] = PS_PAPER[ps.paper], PW = RW / PSU, PH = RH / PSU, TB = PW > 13 ? 2.1 : 1.7, M = 0.4, aw = PW - 2 * M - TB - 0.2, ah = PH - 2 * M, ax = M, ay = M;
   const o = matOpt(b), G = matGeom(b), post = o.frame === "post", F = G.F, pages = [], proj = (curProject() || {}).name || "My property", date = new Date().toLocaleDateString();
   const page = (no, title, scale, body) => pages.push({ no, title, scale, body });
   const svg = (inner, cls = "") => `<svg class="ps-svg ${cls}" viewBox="0 0 ${PW} ${PH}" width="${PW}in" height="${PH}in">${inner}</svg>`;
@@ -3660,7 +3660,7 @@ function psBuild(b) {
     for (let i = 0; i < P.length; i++) { const a = P[i], c = P[(i + 1) % P.length], u = unit(a, c), nn = { x: u.y, y: -u.x }; let m = { x: (a.x + c.x) / 2 + nn.x * 2.5, y: (a.y + c.y) / 2 + nn.y * 2.5 }; if (inPoly(m, P)) m = { x: (a.x + c.x) / 2 - nn.x * 2.5, y: (a.y + c.y) / 2 - nn.y * 2.5 }; g.push(`<text x="${X(m.x)}" y="${Y(m.y)}" class="tc tb">${psE(fmtLen(dist(a, c) * FT))}</text>`); }
     const { S } = matList(b), fsec = S.find(x => x.title === (post ? "Posts and footings" : "Foundation"));
     const notes = (fsec ? fsec.rows : []).map(r => `${r[0]}${r[3] ? " — " + r[3] : ""}`);
-    const nx = ax + aw * 0.7, big = PW > 12, nMax = big ? Math.max(6, Math.floor((ah * 0.42 - 0.6) / 0.27)) : 16, nN = Math.min(nMax, notes.length);
+    const nx = ax + aw * 0.7, big = PW > 13, nMax = big ? Math.max(6, Math.floor((ah * 0.42 - 0.6) / 0.27)) : 16, nN = Math.min(nMax, notes.length);
     const dY = ay + 0.6 + nN * 0.27 + (post ? 0.15 : 0.45), detA = big ? psFoundDetail(b, o, nx - 0.15, dY, ax + aw - nx + 0.15, ay + ah - dY, 1, "A-1") : "";
     g.push(psBar(ax + 0.05, PH - M - 0.32, s, sTxt));
     page("A-1", post ? "Post and footing plan" : "Foundation plan", sTxt, svg(g.join("") + `<text x="${n2(nx)}" y="${n2(ay + 0.3)}" class="tl tb">${post ? "Posts and footings" : "Foundation"}</text>` + notes.slice(0, nN).map((t, i) => `<text x="${n2(nx)}" y="${n2(ay + 0.6 + i * 0.27)}" class="tl">• ${psE(t.length > Math.floor(aw * 0.29 / 0.05) ? t.slice(0, Math.floor(aw * 0.29 / 0.05) - 1) + "…" : t)}</text>`).join("") + (post ? "" : `<text x="${n2(nx)}" y="${n2(ay + 0.6 + nN * 0.27 + 0.2)}" class="tl">Dots: ½" anchor bolts about 6 ft apart and near each corner. Dashed: footing edges.</text>`) + (detA ? PS_DEFS + detA : "")));
@@ -3696,21 +3696,31 @@ function psBuild(b) {
     g.push(psBar(ax + 0.05, PH - M - 0.36, s, sTxt));
     page("A-" + an++, "Roof plan", sTxt, svg(g.join("") + `<text x="${n2(nx)}" y="${n2(ay + 0.3)}" class="tl tb">Roof</text>` + notes.slice(0, 22).map((t, i) => `<text x="${n2(nx)}" y="${n2(ay + 0.6 + i * 0.25)}" class="tl">• ${psE(t.length > mc ? t.slice(0, mc - 1) + "…" : t)}</text>`).join("") + `<text x="${ax}" y="${n2(PH - M - 0.05)}" class="tl ts">Dark lines: ridges, hips and valleys where the slopes meet. Arrows point downhill. Dashed: outside of the walls on each floor.${RF.roofs.length === 1 && matRect(RF.roofs[0].P) && !RF.roofs[0].flat ? ` Thin lines: ${post ? "trusses" : o.rframe === "truss" ? "trusses @ 24\"" : "rafters @ 16\""}.` : ""}${more} Material counts cover the biggest floor's roof.</text>`));
   }
-  // ---- elevations, two to a sheet ----
+  // ---- elevations: laid out in the grid that prints them at the biggest true scale ----
   {
     const dirs = [{ x: 0, y: 1 }, { x: 0, y: -1 }, { x: 1, y: 0 }, { x: -1, y: 0 }], Z = dirs.map(n => psElevSize(RF, n)), wMax = Math.max(...Z.map(e => e.w)), hMax = Math.max(...Z.map(e => e.h));
-    const [s, sTxt] = psPick(wMax, hMax, aw, ah / 2 - 0.45, PS_ARCH);
-    for (let i = 0; i < 4; i += 2) {
+    const TXT = 1.4, HEAD = 0.45;   // room for the level marks' words to the right, and the title above
+    const elevGoal = fpPages.length ? Math.min(...fpPages.map(p => p[1].sIn)) : 0.25 / PSU;   // the floor plans' scale
+    let best = null;
+    for (const [cols, rows] of [[2, 2], [4, 1], [1, 4], [2, 1], [1, 2], [1, 1]]) {
+      const cw = aw / cols, ch = ah / rows, [sc, t] = psPick(wMax, hMax, cw - TXT - 0.2, ch - HEAD - 0.2, PS_ARCH), nS = Math.ceil(4 / (cols * rows));
+      const ok = sc >= elevGoal - 1e-9, better = !best ? true : ok !== best.ok ? ok : ok ? (nS < best.nS || (nS === best.nS && sc > best.s + 1e-9)) : (sc > best.s + 1e-9 || (Math.abs(sc - best.s) < 1e-9 && nS < best.nS));
+      if (better) best = { cols, rows, s: sc, t, cw, ch, nS, ok };
+    }   // fewest sheets that still print at the floor plans' scale or bigger, then the biggest scale
+    const { cols, rows, s, t: sTxt, cw, ch } = best, per = cols * rows;
+    for (let i = 0; i < 4; i += per) {
       let body = "";
-      for (let j = 0; j < 2; j++) {
-        const n = dirs[i + j], yb = ay + (j + 1) * ah / 2 - 0.35 - Z[i + j].fd * s, e = psElevSVG(b, RF, n, s, ax + 0.2, yb);
-        body += e.svg + `<text x="${n2(ax + 0.2)}" y="${n2(ay + j * ah / 2 + 0.25)}" class="tl tb">${psE(e.name)} elevation</text>`;
+      for (let j = 0; j < per && i + j < 4; j++) {
+        const z = Z[i + j], cx0 = ax + (j % cols) * cw, cy0 = ay + Math.floor(j / cols) * ch;
+        const x0 = cx0 + Math.max(0.1, (cw - (z.w * s + TXT)) / 2), dh = (RF.maxY + z.fd) * s, yb = cy0 + HEAD + Math.max(0, (ch - HEAD - dh) / 2) + RF.maxY * s;
+        const e = psElevSVG(b, RF, dirs[i + j], s, x0, yb);
+        body += e.svg + `<text x="${n2(x0)}" y="${n2(cy0 + 0.3)}" class="tl tb">${psE(e.name)} elevation</text>`;
       }
       page("A-" + an++, "Elevations", sTxt, svg(body));
     }
   }
   // ---- wall sections ----
-  const bigW = PW > 12, secW = bigW ? aw * 0.6 : aw - 0.1, detW = bigW ? psFoundDetail(b, o, ax + aw * 0.62, ay + 0.4, aw * 0.38, ah - 1.9, 2, "A-" + an) : "";
+  const bigW = PW > 13, secW = bigW ? aw * 0.6 : aw - 0.1, detW = bigW ? psFoundDetail(b, o, ax + aw * 0.62, ay + 0.4, aw * 0.38, ah - 1.9, 2, "A-" + an) : "";
   page("A-" + an++, "Typical wall section", "Not to scale", svg((detW ? PS_DEFS + detW : "") + psSectionSVG(b, ax + 0.1, ay + 0.4, secW, ah - 0.45) + `<text x="${n2(ax + 0.1)}" y="${n2(ay + 0.25)}" class="tl tb">Typical outside wall section</text>` + (post ? "" : `<g>${(() => { const x = bigW ? ax + aw * 0.62 : ax + aw * 0.5, y = ay + ah - 1.1; return `<text x="${n2(x)}" y="${n2(y - 0.15)}" class="tl tb">Typical inside wall</text><rect x="${n2(x)}" y="${n2(y)}" width="0.9" height="0.04" class="dw"/><rect x="${n2(x)}" y="${n2(y + 0.04)}" width="0.9" height="0.29" class="st"/><rect x="${n2(x)}" y="${n2(y + 0.33)}" width="0.9" height="0.04" class="dw"/><text x="${n2(x + 1.05)}" y="${n2(y + 0.14)}" class="tl ts">2×4 studs @ 16" o.c., single bottom plate, double top plate,</text><text x="${n2(x + 1.05)}" y="${n2(y + 0.27)}" class="tl ts">½" drywall both sides (plan view)</text>`; })()}</g>`)));
   // ---- schedules ----
   {
@@ -3731,7 +3741,11 @@ function psBuild(b) {
     const items = []; for (const f of ord) for (const w of psWalls(b, f.lv).walls) items.push([f, w]);
     if (!post && items.length) {
       const studIn = o.stud.replace("x", "×"), oc = +o.oc / 12, plies = o.stud === "2x6" ? 3 : 2;
-      const maxL = Math.max(...items.map(([, w]) => w.L)), [s, sTxt] = psPick(maxL + 1, 1, aw - 0.3, ah, PS_ARCH.slice(2));
+      const maxL = Math.max(...items.map(([, w]) => w.L)), maxH = Math.max(...items.map(([, w]) => w.H));
+      const sheetsAt = sc => { let n = 1, x = 0, y = 0, rowH = 0; for (const [, w] of items) { const wi = Math.max(w.L * sc + 0.5, (ord.length > 1 ? 66 : 52) * 0.058 + 0.3), hi = w.H * sc + 0.85; if (x > 0 && x + wi > aw) { x = 0; y += rowH; rowH = 0; } if (y + hi > ah) { n++; x = 0; y = 0; rowH = 0; } x += wi; rowH = Math.max(rowH, hi); } return n; };
+      const cands = PS_ARCH.slice(0, 3).map(([k, t]) => [k / PSU, t]).filter(([sc]) => (maxL + 1) * sc <= aw - 0.3 && maxH * sc + 0.85 <= ah);
+      let [s, sTxt] = cands.length ? cands[cands.length - 1] : psPick(maxL + 1, 1, aw - 0.3, ah, PS_ARCH.slice(2));
+      if (cands.length) { const nMin = sheetsAt(s); for (const c of cands) if (sheetsAt(c[0]) <= nMin) { [s, sTxt] = c; break; } }
       let pg = null, x = 0, y = 0, rowH = 0, sn = 1, lastLv = null;
       const foot = `<text x="${ax}" y="${n2(PH - M - 0.05)}" class="tl ts">Orange studs were added or moved in the wall view. Boxes are outlets and fixtures (codes on the E and P sheets) with their height to center; dashed = on the far side of the wall. Rings = holes to drill.</text>`;
       const flush = () => { if (pg) page("S-" + sn++, "Wall framing", sTxt, svg(pg + foot)); pg = ""; x = 0; y = 0; rowH = 0; };
@@ -3785,7 +3799,7 @@ function psBuild(b) {
   }
   // ---- material list ----
   {
-    const { S } = matList(b), pr = (b.build && b.build.prices) || {}, rowsPer = PH > 10 ? 30 : 22; let cur = [], n = 1, tot = 0;
+    const { S } = matList(b), pr = (b.build && b.build.prices) || {}, rowsPer = Math.max(18, Math.floor((ah - 0.1) / 0.34)); let cur = [], n = 1, tot = 0;
     const lines = []; for (const sec of S) { if (!sec.rows.length) continue; lines.push({ h: sec.title }); for (const r of sec.rows) { const v = pr[matKey(r[0])], c = typeof r[1] === "number" && v != null ? r[1] * v : null; if (c != null) tot += c; lines.push({ r, c }); } }
     const emit = () => { page("M-" + n++, "Material list", "", `<div class="ps-html" style="left:${ax}in;top:${ay}in;width:${n2(aw)}in;height:${n2(ah)}in"><table class="ps-tbl ps-mat"><tbody>${cur.map(l => l.h ? `<tr class="ps-mh"><td colspan="5">${psE(l.h)}</td></tr>` : `<tr><td>${psE(l.r[0])}</td><td class="r">${psE(typeof l.r[1] === "number" ? l.r[1].toLocaleString() : l.r[1])}</td><td>${psE(l.r[2])}</td><td class="r">${l.c != null ? psE(money(l.c)) : ""}</td><td class="nt">${psE(l.r[3])}</td></tr>`).join("")}</tbody></table>${n === 1 && false ? "" : ""}</div>`); cur = []; };
     for (const l of lines) { cur.push(l); if (cur.length >= rowsPer) emit(); }
@@ -3794,7 +3808,7 @@ function psBuild(b) {
   }
   // ---- build order ----
   {
-    const { S } = matList(b), steps = buildSteps(b, S, o), per = PH > 10 ? 6 : 4;
+    const { S } = matList(b), steps = buildSteps(b, S, o), per = Math.max(3, Math.floor(ah / 1.6));
     for (let i = 0; i < steps.length; i += per) page("B-" + (i / per + 1), "Build order", "", `<div class="ps-html ps-cols" style="left:${ax}in;top:${ay}in;width:${n2(aw)}in;height:${n2(ah)}in">${steps.slice(i, i + per).map((x, j) => `<div class="ps-step"><h3>${i + j + 1}. ${psE(x.t)} <span>about ${x.days} day${x.days === 1 ? "" : "s"}</span></h3><ul>${x.how.map(h => `<li>${h}</li>`).join("")}</ul>${x.insp ? `<p><b>Inspection:</b> ${psE(x.insp)}</p>` : ""}${x.secs.length ? `<p><b>Materials:</b> ${psE(x.secs.join(", "))} (sheet M)</p>` : ""}</div>`).join("")}</div>`);
   }
   // ---- cover (now that every sheet is known) ----
@@ -3809,15 +3823,17 @@ function psBuild(b) {
   }
   // ---- wrap each sheet with its title block ----
   const tbX = PW - M - TB;
-  return pages.map((p, i) => `<div class="ps-page" style="width:${PW}in;height:${PH}in">${p.body}<div class="ps-tb" style="left:${n2(tbX)}in;top:${M}in;width:${TB}in;height:${n2(PH - 2 * M)}in">
+  const out = pages.map((p, i) => `<div class="ps-page" style="width:${RW}in;height:${RH}in"><div class="ps-in" style="width:${n2(PW)}in;height:${n2(PH)}in;transform:scale(${PSU})">${p.body}<div class="ps-tb" style="left:${n2(tbX)}in;top:${M}in;width:${TB}in;height:${n2(PH - 2 * M)}in">
     <div class="ps-tb-proj">${psE(proj)}</div><div class="ps-tb-b">${psE(b.name)}</div><div class="ps-tb-sp"></div>
     <div class="ps-tb-t">${psE(p.title)}</div>${p.scale ? `<div class="ps-tb-s">Scale: ${psE(p.scale)}</div>` : ""}<div class="ps-tb-s">${psE(date)}</div>
     <div class="ps-tb-n">${psE(p.no)}</div><div class="ps-tb-s">Sheet ${i + 1} of ${pages.length}</div>
     <div class="ps-tb-d">Drawn with Site Plan. Check with your building official before building.</div></div>
-    <div class="ps-frame" style="left:${M}in;top:${M}in;width:${n2(PW - 2 * M)}in;height:${n2(PH - 2 * M)}in"></div></div>`);
+    <div class="ps-frame" style="left:${M}in;top:${M}in;width:${n2(PW - 2 * M)}in;height:${n2(PH - 2 * M)}in"></div></div></div>`);
+  PSU = 1;
+  return out;
 }
 
-function openPlans(b) { ps.b = b.id; ps.paper = state.psPaper || "tabloid"; $("ps-paper").value = ps.paper; $("ps-title").textContent = "Plan set · " + b.name; if (!$("plandlg").open) $("plandlg").showModal(); renderPlans(); }
+function openPlans(b) { ps.b = b.id; ps.paper = PS_PAPER[state.psPaper] ? state.psPaper : "tabloid"; $("ps-paper").value = ps.paper; $("ps-title").textContent = "Plan set · " + b.name; if (!$("plandlg").open) $("plandlg").showModal(); renderPlans(); }
 function renderPlans() {
   const b = state.shapes.find(s => s.id === ps.b && s.kind === "building"); if (!b) return;
   $("ps-msg").textContent = "Drawing the sheets…";
