@@ -736,6 +736,7 @@ const DEPTHS_IN = [0, 3, 4, 5, 6, 8, 10, 12];
 const CUYD = 0.764555;
 let view = { s: 1, x: 0, y: 0 };
 let img = null, W = 0, H = 0, dpr = 1;
+let selCorner = null, addCorner = null;   // the corner last touched on the selected shape; shape id waiting for "Add a corner"
 let tool = "select", selected = null, draft = [], cursor = null, measure = [];
 let undoStack = [], redoStack = [];
 
@@ -1736,7 +1737,7 @@ function drawAll() {
       ctx.beginPath(); ctx.rect(-9, -4, 18, 8); ctx.fill(); ctx.stroke(); ctx.restore();
     }
   }
-  if (sel && visible(sel) && !isFrozen(sel) && sel.kind !== "vehicle" && sel.kind !== "underlay") for (const p of sel.points) { const q = toS(p); ctx.beginPath(); ctx.arc(q.x, q.y, 7, 0, Math.PI * 2); ctx.fillStyle = "#FFFFFF"; ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = "#17231F"; ctx.stroke(); }
+  if (sel && visible(sel) && !isFrozen(sel) && sel.kind !== "vehicle" && sel.kind !== "underlay") sel.points.forEach((p, i) => { const q = toS(p), on = selCorner && selCorner.id === sel.id && selCorner.i === i; ctx.beginPath(); ctx.arc(q.x, q.y, on ? 8 : 7, 0, Math.PI * 2); ctx.fillStyle = on ? MARK : "#FFFFFF"; ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = "#17231F"; ctx.stroke(); });
 }
 
 /* hit testing */
@@ -1824,11 +1825,25 @@ function snapDimPoint(w) {
   if (eb) return { x: eb.x, y: eb.y, snap: "edge" };
   return w;
 }
+const CORNER_KINDS = new Set(["building", "pad", "room", "deck", "addon", "shape", "wall", "road"]);
+function canReshape(s) { return s && CORNER_KINDS.has(s.kind) && !isCircle(s) && !isLocked(s) && s.points.length >= 2; }
+function sideAt(s, sp) {   // index of the side (segment) of s nearest screen point sp, or -1
+  const P = s.points, w = toW(sp.x, sp.y), n = s.closed ? P.length : P.length - 1, tol = Math.max(12, (s.thickness || 0) / 2 * view.s) / view.s;
+  let best = -1, bd = tol;
+  for (let i = 0; i < n; i++) { const d = segDist(w, P[i], P[(i + 1) % P.length]); if (d < bd) { bd = d; best = i; } }
+  return best;
+}
+function cornerHTML(s) {
+  if (!canReshape(s)) return "";
+  const min = s.closed ? 3 : 2, ci = selCorner && selCorner.id === s.id && selCorner.i < s.points.length ? selCorner.i : -1;
+  return `<div class="row" style="margin:4px 0 6px"><button class="ghost small" data-act="addcorner" aria-pressed="${addCorner === s.id}">＋ Add a corner</button>${ci >= 0 && s.points.length > min ? '<button class="ghost small" data-act="delcorner">Remove corner</button>' : ""}</div>
+    <p class="muted" style="margin:0 0 12px;font-size:13px">${addCorner === s.id ? "Now tap a side where the new corner goes, then drag it." : ci >= 0 ? `Corner ${ci + 1} of ${s.points.length} is picked (orange). Drag corners to reshape.` : "Drag corners or sides to reshape. Add a corner to bend a side and make any shape."}</p>`;
+}
 function parentOf(x) { return x && x.bid ? state.shapes.find(s => s.id === x.bid) : null; }
 function inGroup(x) { const b = parentOf(x); return !!(b && b.grouped && !x.free); }
 function groupRoot(x) { return x && inGroup(x) ? parentOf(x) : x; }
 function isLocked(x) { if (!x) return false; if (x.locked) return true; return inGroup(x) && !!parentOf(x).locked; }
-function isFrozen(x) { return isLocked(x) || inGroup(x); }
+function isFrozen(x) { return isLocked(x); }   // grouped items can still be picked and changed on their own; they keep moving with the building
 const GROUP_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:6px"><rect x="3" y="3" width="11" height="11" rx="1.5"/><rect x="10" y="10" width="11" height="11" rx="1.5"/></svg>';
 function lockBadge(x, y) {
   ctx.save(); ctx.translate(x, y);
@@ -1899,6 +1914,7 @@ function extraHTML(s) {
     }
   }
   if (par && par.grouped && s.free) h += `<div class="row" style="margin-bottom:12px"><button class="ghost small" data-act="regroup1">${GROUP_SVG}Return to ${esc(par.name)} group</button></div>`;
+  h += cornerHTML(s);
   const btn = (act, t, v = "") => `<button class="ghost small" data-act="${act}" data-v="${v}">${t}</button>`;
   if (s.kind === "opening") {
     const wIn = Math.round(dist(s.points[0], s.points[1]) / IN);
@@ -2064,7 +2080,7 @@ $("d-extra").addEventListener("input", e => {
 });
 $("d-extra").addEventListener("change", e => {
   const el = e.target, s = state.shapes.find(x => x.id === selected); if (!s || !el.dataset.prop) return;
-  if (isFrozen(s) && s.bid) { $("hint").textContent = "This item is grouped with its building. Ungroup it to edit it on its own."; $("d-extra").innerHTML = ""; renderPanel(); return; }
+  if (isFrozen(s) && s.bid) { $("hint").textContent = `${groupRoot(s).name || "This"} is locked. Unlock it to change this.`; $("d-extra").innerHTML = ""; renderPanel(); return; }
   pushUndo(); applyProp(s, el.dataset.prop, el.value);
   if (el.tagName === "SELECT") el.blur();
   afterChange();
@@ -2072,6 +2088,11 @@ $("d-extra").addEventListener("change", e => {
 $("d-extra").addEventListener("click", e => {
   const b = e.target.closest("button[data-act]"), s = state.shapes.find(x => x.id === selected); if (!b || !s) return;
   const act = b.dataset.act; b.blur();
+  if (act === "addcorner") { addCorner = addCorner === s.id ? null : s.id; $("hint").textContent = addCorner ? "Tap a side of " + (s.name || "it") + " where the new corner goes." : ""; $("d-extra").innerHTML = ""; renderPanel(); requestDraw(); return; }
+  if (act === "delcorner") {
+    if (!selCorner || selCorner.id !== s.id || s.points.length <= (s.closed ? 3 : 2)) return;
+    pushUndo(); s.points.splice(selCorner.i, 1); if (s.shapeType === "rect") s.shapeType = "poly"; selCorner = null; $("d-extra").innerHTML = ""; afterChange(); return;
+  }
   if (act === "template") {
     if (s.grouped) { $("hint").textContent = `${s.name} is grouped. Ungroup all items to change its plan.`; return; }
     if (childrenOf(s).length && !templateArmed) { templateArmed = setTimeout(() => { templateArmed = 0; $("d-extra").innerHTML = ""; renderPanel(); }, 3000); $("d-extra").innerHTML = ""; renderPanel(); return; }
@@ -2289,8 +2310,11 @@ function openDesigner(b, keep) {
   const poly = ext ? offsetPoly(orientPoly(ext.points.map(F.toL)), -t / 2) : orientPoly(b.points.map(F.toL));
   dz = { b, lv, F, t, poly, drafts: prev ? prev.drafts : {}, rot: prev ? prev.rot : 0, rotC: prev ? prev.rotC : null, ox: 0, oy: 0, W: 0, D: 0, rooms: [], walls: [], opens: [], openType: "door", openW: 36, sel: null, snap: +$("dz-snap").value || 0.5, nid: prev ? prev.nid : 1, tool: "move", wallTh: +$("dz-wth").value / 12, view: prev ? prev.view : null };
   syncBox();
+  dz.roomIds = []; dz.fixedRooms = [];   // rectangles load as rooms here; any other shape stays as drawn on the map (shown dashed)
   for (const r of state.shapes.filter(s => s.bid === b.id && s.level === lv && s.kind === "room" && !["fixture", "porch"].includes(s.style))) {
-    const B = bbox(r.points.map(F.toL));
+    const L = r.points.map(F.toL), B = bbox(L), at = (v, a, c) => Math.abs(v - a) < 0.05 || Math.abs(v - c) < 0.05;
+    if (!(L.length === 4 && L.every(q => at(q.x, B.x0, B.x1) && at(q.y, B.y0, B.y1)))) { dz.fixedRooms.push({ name: r.name, pts: L }); continue; }
+    dz.roomIds.push(r.id);
     dz.rooms.push({ id: dz.nid++, name: r.name, sub: r.sub || "", style: r.style || "room", type: "room", x: B.x0, y: B.y0, w: B.x1 - B.x0, h: B.y1 - B.y0 });
   }
   dz.stairIds = [];   // stairs loaded here; only these get replaced on save
@@ -2335,7 +2359,8 @@ function openDesigner(b, keep) {
   if (!$("designer").open) $("designer").showModal();
   stepCommit();   // this floor's starting point for undo
   requestAnimationFrame(dzResize);
-  $("dz-status").textContent = lvName ? `Editing the ${lvName}.` : "";
+  const nf = dz.fixedRooms.length;
+  $("dz-status").textContent = (lvName ? `Editing the ${lvName}.` : "") + (nf ? ` ${nf} room${nf > 1 ? "s have" : " has"} a shape other than a rectangle: shown dashed and kept as is. Change ${nf > 1 ? "them" : "it"} on the map.` : "");
 }
 // Stairs in the designer: dir = which way it climbs (0 up the screen, 1 right, 2 down, 3 left),
 // hand = which side the first corner is on, so saving puts the points back in the same order.
@@ -2487,6 +2512,12 @@ function dzDraw() {
   for (const u of state.shapes) if (u.kind === "underlay" && u.bid === dz.b.id && u.level === dz.lv && !u.hidden) drawUnderlayOn(dctx, u, u.points.map(p => { const q = dz.F.toL(p); return dS(q.x, q.y); }), false);
   for (const e of extSides()) dzDrawWall(Object.assign({}, e, { x1: e.x1, y1: e.y1 }), dz.sel === e.id ? MARK : INK, false, true);
   for (const r of dz.rooms) dzDrawRoom(r, r.id === dz.sel, dz.rooms.some(q => q !== r && (q.type === "stair") === (r.type === "stair") && overlaps(q, r)), false);   // stairs sit inside rooms; only same-kind overlaps are flagged
+  for (const r of dz.fixedRooms || []) {   // odd-shaped rooms from the map: shown, kept, edited on the map
+    dctx.save(); dctx.setLineDash([6, 4]); dctx.strokeStyle = "#6B6B6B"; dctx.lineWidth = 1.5; dctx.fillStyle = "rgba(120,120,120,.08)"; dctx.beginPath();
+    r.pts.forEach((q, i) => { const a = dS(q.x, q.y); i ? dctx.lineTo(a.x, a.y) : dctx.moveTo(a.x, a.y); }); dctx.closePath(); dctx.fill(); dctx.stroke();
+    const c = r.pts.reduce((m, q) => ({ x: m.x + q.x / r.pts.length, y: m.y + q.y / r.pts.length }), { x: 0, y: 0 }), sc = dS(c.x, c.y);
+    dctx.setLineDash([]); dctx.fillStyle = "#555"; dctx.font = '600 12px "Barlow Condensed", sans-serif'; dctx.textAlign = "center"; dctx.fillText((r.name || "Room") + " (edit on the map)", sc.x, sc.y); dctx.restore();
+  }
   dzDrawBelowStairs();   // on top, so a stairwell that lines up with this floor's stairs still shows
   if (dz.rdraft && dz.rdraft.w > 0 && dz.rdraft.h > 0) dzDrawRoom(Object.assign({ name: "", type: "room", style: "room" }, dz.rdraft), false, false, true);
   for (const w of dz.walls) dzDrawWall(w, w.id === dz.sel ? MARK : INK, false);
@@ -2741,7 +2772,7 @@ $("dz-sgo").addEventListener("change", e => { const r = dzSel(); if (r && r.type
 $("dz-rot").onclick = () => { const r = dzSel(); if (r && "h" in r) { [r.w, r.h] = [r.h, r.w]; if (r.type === "stair") r.dir = ((r.dir || 0) + 1) % 4; dzSelFields(); dzDraw(); } };
 $("dz-dup").onclick = () => { const r = dzSel(); if (!r || !("h" in r)) return; const s = dzFindSpot(r.w, r.h), c = Object.assign({}, r, { id: dz.nid++, x: s.x, y: s.y }); dz.rooms.push(c); dz.sel = c.id; dzSelFields(); dzDraw(); };
 $("dz-del").onclick = () => { dz.rooms = dz.rooms.filter(x => x.id !== dz.sel); dz.sel = null; dzSelFields(); dzDraw(); };
-function levelKey() { return JSON.stringify({ t: dz.t, poly: dz.poly, ox: dz.ox, oy: dz.oy, W: dz.W, D: dz.D, rooms: dz.rooms, walls: dz.walls, opens: dz.opens, stairIds: dz.stairIds, views: dz.views, wallH: dz.wallH }); }
+function levelKey() { return JSON.stringify({ t: dz.t, poly: dz.poly, ox: dz.ox, oy: dz.oy, W: dz.W, D: dz.D, rooms: dz.rooms, walls: dz.walls, opens: dz.opens, stairIds: dz.stairIds, roomIds: dz.roomIds, fixedRooms: dz.fixedRooms, views: dz.views, wallH: dz.wallH }); }
 function levelSnap() { return { lv: dz.lv, base: dz.base, data: JSON.parse(levelKey()) }; }
 function restoreSnap(sn) { Object.assign(dz, sn.data); dz.lv = sn.lv; dz.base = sn.base; dz.sel = null; }
 function snapDirty(sn) { return JSON.stringify(sn.data) !== sn.base; }
@@ -2775,6 +2806,7 @@ function rotData(d, c) {
     if (o.ref.type === "free") { const q = rotPt({ x: o.cx, y: o.cy }, c); o.cx = q.x; o.cy = q.y; [o.ux, o.uy] = [-o.uy, o.ux]; }
   }
   for (const v of d.views || []) { v.p1 = rotPt(v.p1, c); v.p2 = rotPt(v.p2, c); }
+  for (const r of d.fixedRooms || []) r.pts = r.pts.map(q => rotPt(q, c));
 }
 function dzRotate(k) {
   if (!dz) return;
@@ -2867,8 +2899,8 @@ $("dz-save").onclick = () => {
 };
 function saveCurrentLevel() {
   const { b, lv, F } = dz, t = dz.t, I = innerPoly();
-  const loaded = new Set(dz.stairIds || []);
-  state.shapes = state.shapes.filter(s => !(s.bid === b.id && s.level === lv && (s.kind === "wall" || s.kind === "opening" || s.kind === "wallview" || (s.kind === "room" && !["fixture", "porch"].includes(s.style)) || (s.kind === "stair" && loaded.has(s.id)))));
+  const loaded = new Set(dz.stairIds || []), roomsIn = new Set(dz.roomIds || []);
+  state.shapes = state.shapes.filter(s => !(s.bid === b.id && s.level === lv && (s.kind === "wall" || s.kind === "opening" || s.kind === "wallview" || (s.kind === "room" && roomsIn.has(s.id)) || (s.kind === "stair" && loaded.has(s.id)))));
   const add = (o) => state.shapes.push(Object.assign({ id: state.nextId++, bid: b.id, level: lv, closed: false, thickness: 4.5 * IN }, o));
   const c = offsetPoly(dz.poly, t / 2);
   add({ kind: "wall", name: "Exterior walls", closed: true, thickness: t * FT, points: c.map(F.toW) });
@@ -3870,7 +3902,17 @@ function finishWall(close) {
 function tap(sx, sy) {
   const w = toW(sx, sy);
   updateReadout(w);
-  if (tool === "select") { const s = groupRoot(hitShape(w, sx, sy)); selected = s ? s.id : null; renderPanel(); requestDraw(); return; }
+  if (tool === "select") {
+    // The first tap picks the whole building; tap it again to pick the wall, room or door under your finger.
+    const h = hitShape(w, sx, sy), root = groupRoot(h), cur = state.shapes.find(x => x.id === selected);
+    if (cur && !isFrozen(cur) && cur.points.some(q => dist(toS(q), { x: sx, y: sy }) < 14)) { renderPanel(); requestDraw(); return; }   // tapped one of its corners: keep it picked
+    const s = h && root && h !== root && cur && groupRoot(cur) === root ? h : root;
+    if ((s ? s.id : null) !== selected) { selCorner = null; addCorner = null; $("d-extra").innerHTML = ""; }
+    selected = s ? s.id : null; renderPanel(); requestDraw();
+    if (s && h && s !== h) $("hint").textContent = `Tap again to pick just this ${({ wall: "wall", room: "room", opening: "door or window", stair: "stairs" })[h.kind] || "piece"} inside ${s.name}.`;
+    else if (s && s !== root) $("hint").textContent = `Picked ${s.name || "this"} inside ${root.name}. Tap empty space to let go.`;
+    return;
+  }
   if (tool === "measure") { const mp = snapDimPoint(w); if (measure.length !== 1) measure = [mp]; else measure.push(mp); requestDraw(); return; }
   if (tool === "road" || tool === "pad") {
     const p = (tool === "pad" && objSnap(w)) || snapPoint(w, draft, tool === "road" ? { angle: false, length: false } : {});
@@ -3980,17 +4022,24 @@ cv.addEventListener("pointerdown", e => {
     if (s && isFrozen(s)) {
       const hh = hitShape(toW(p.x, p.y));
       if ((hh && groupRoot(hh) === groupRoot(s)) || s.points.some(q => dist(toS(q), p) < 14))
-        $("hint").textContent = isLocked(s) ? `${groupRoot(s).name || "This"} is locked in place. Unlock it in the side panel to move or reshape it.` : `This item is grouped with ${parentOf(s).name}. Ungroup it in the side panel to change it on its own.`;
+        $("hint").textContent = `${groupRoot(s).name || "This"} is locked in place. Unlock it in the side panel to move or reshape it.`;
+    } else if (s && addCorner === s.id && sideAt(s, p) >= 0) {   // Add a corner: put one on the side here; keep holding to drag it
+      const k = sideAt(s, p), P = s.points, a = P[k], b = P[(k + 1) % P.length], w = toW(p.x, p.y), dx = b.x - a.x, dy = b.y - a.y;
+      const t = Math.max(0.05, Math.min(0.95, ((w.x - a.x) * dx + (w.y - a.y) * dy) / (dx * dx + dy * dy || 1)));
+      pushUndo(); P.splice(k + 1, 0, { x: a.x + dx * t, y: a.y + dy * t }); if (s.shapeType === "rect") s.shapeType = "poly";
+      addCorner = null; selCorner = { id: s.id, i: k + 1 }; drag = { type: "vertex", s, i: k + 1, undoPushed: true };
+      $("d-extra").innerHTML = ""; renderPanel(); requestDraw(); save();
+      $("hint").textContent = "Corner added. Drag it where it goes. Remove corner in the side panel takes it out.";
     } else if (s) {
       let i = s.kind === "vehicle" || s.kind === "underlay" ? -1 : s.points.findIndex(q => dist(toS(q), p) < 14);
       if (isCircle(s) && i === 0) i = -1;
       const ei = i >= 0 ? -1 : edgeAt(s, p);
-      if (i >= 0) drag = { type: "vertex", s, i, undoPushed: false };
+      if (i >= 0) { drag = { type: "vertex", s, i, undoPushed: false }; if (!selCorner || selCorner.id !== s.id || selCorner.i !== i) { selCorner = { id: s.id, i }; $("d-extra").innerHTML = ""; renderPanel(); requestDraw(); } }
       else if (ei >= 0) {
         const a = s.points[ei], b = s.points[(ei + 1) % s.points.length], u = unit(a, b);
         drag = { type: "edge", s, i: ei, start: toW(p.x, p.y), o: s.points.map(q => ({ ...q })), n: { x: -u.y, y: u.x }, undoPushed: false };
       }
-      else if ((() => { const hh = hitShape(toW(p.x, p.y)); return hh && groupRoot(hh) === s; })()) {
+      else if ((() => { const hh = hitShape(toW(p.x, p.y)); return hh && (groupRoot(hh) === s || hh === s); })()) {
         const grp = s.kind === "building" ? [s, ...childrenOf(s).filter(c => !c.free)] : s.kind === "shape" ? [s, ...childrenOf(s)] : [s];
         drag = { type: "move", s, start: toW(p.x, p.y), grp: grp.map(g => ({ g, o: g.points.map(q => ({ ...q })) })), undoPushed: false };
       }
@@ -4244,12 +4293,12 @@ function renderPanel() {
   for (let i = 0; i < n; i++) sides.push(fmtLen(dist(s.points[i], s.points[(i + 1) % s.points.length])));
   $("d-sides").hidden = isRoad || (isPlan && s.kind !== "room") || isCircle(s);
   const grouped = inGroup(s);
-  $("d-lock").innerHTML = grouped ? GROUP_SVG + "Ungroup this item to edit it" : s.locked ? LOCK_SVG + "Locked · tap to unlock" : UNLOCK_SVG + "Lock in place";
+  $("d-lock").innerHTML = grouped ? GROUP_SVG + "Take it out of the group" : s.locked ? LOCK_SVG + "Locked · tap to unlock" : UNLOCK_SVG + "Lock in place";
   $("d-lock").setAttribute("aria-pressed", String(!!s.locked));
-  const frozen = grouped && s.kind !== "building";
+  const frozen = isLocked(s) && s.kind !== "building";
   $("f-name").style.opacity = $("d-extra").style.opacity = frozen ? .5 : 1;
   $("d-extra").style.pointerEvents = frozen ? "none" : ""; $("d-name").disabled = frozen;
-  if (grouped) $("d-extra").insertAdjacentHTML("afterbegin", `<p class="muted" style="margin:0 0 10px;font-size:13px">Grouped with ${esc(parentOf(s).name)}. It moves and locks with the building.</p>`);
+  if (grouped && !$("d-extra").querySelector(".grpnote")) $("d-extra").insertAdjacentHTML("afterbegin", `<p class="muted grpnote" style="margin:0 0 10px;font-size:13px">Part of ${esc(parentOf(s).name)}: it moves and locks with the building, and you can still change it here.</p>`);
   const noDel = isFrozen(s) || !!s.locked;
   $("d-del").disabled = noDel; $("d-del").style.opacity = noDel ? .4 : 1;
   $("d-sides").textContent = "Sides: " + sides.join(" · ");
@@ -4286,7 +4335,7 @@ $("d-zoom").onclick = () => { const s = state.shapes.find(x => x.id === selected
 function deleteSelected() {
   if (!selected) return;
   const sl = state.shapes.find(x => x.id === selected);
-  if (sl && isFrozen(sl)) { $("hint").textContent = inGroup(sl) && !isLocked(sl) ? `This item is grouped with ${parentOf(sl).name}. Ungroup it to delete it.` : `${groupRoot(sl).name || "This"} is locked. Unlock it to delete it.`; return; }
+  if (sl && isFrozen(sl)) { $("hint").textContent = `${groupRoot(sl).name || "This"} is locked. Unlock it to delete it.`; return; }
   pushUndo(); const id = selected; state.shapes = state.shapes.filter(s => s.id !== id && !(s.bid === id && (s.level || s.kind === "dim")));
   for (const x of state.shapes) if (x.bid === id) { delete x.bid; delete x.free; }
   selected = null; afterChange(); }
