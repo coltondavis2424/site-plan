@@ -237,6 +237,19 @@ dialog.dz{width:100vw;height:100vh;height:100dvh;max-width:none;max-height:none;
 #wv-tools .dz-presets{margin-bottom:8px}
 .dz-zoom button{box-shadow:0 2px 10px rgba(0,0,0,.25)}
 .dz-wrap{display:flex;flex-direction:column;height:100%}
+.mat-body{display:flex;flex:1;min-height:0}
+.mat-opts{width:300px;flex:none;overflow:auto;padding:4px 16px 16px;border-right:1px solid var(--line)}
+.mat-g{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:18px;margin:14px 0 8px}
+.mat-main{flex:1;overflow:auto;padding:12px 20px 20px;min-width:0}
+.mat-sum{margin:4px 0 8px;font-size:14px}
+.mat-msg{font-size:13px;color:var(--muted)}
+.mat-sec h3{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:19px;margin:18px 0 4px}
+.mat-sec table{width:100%;border-collapse:collapse;font-size:14px;table-layout:fixed}
+.mat-sec .mi{width:42%}
+.mat-sec td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+.mat-sec .mq{text-align:right;font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums;width:72px}
+.mat-sec .mu{color:var(--muted);width:150px}
+.mat-sec .mn{color:var(--muted);font-size:13px}
 .zoom .z3d{font-family:"Barlow Condensed",sans-serif;font-size:16px;font-weight:700;letter-spacing:.02em}
 .v3-stage{position:relative;flex:1;min-height:0;background:#BFD4E6;overflow:hidden}
 .v3-stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
@@ -310,6 +323,14 @@ dialog.dz{width:100vw;height:100vh;height:100dvh;max-width:none;max-height:none;
   .dz-head h2{flex:1 1 100%;font-size:18px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .dz-head select{flex:1;min-width:0}
   .dz-head .primary,.dz-head .ghost{padding:8px 12px}
+  .mat-body{flex-direction:column;overflow:auto}
+  .mat-opts{width:auto;border-right:0;border-bottom:1px solid var(--line);overflow:visible;display:grid;grid-template-columns:1fr 1fr;column-gap:10px}
+  .mat-opts .mat-g,.mat-opts p{grid-column:1/-1}
+  .mat-opts .field{min-width:0}
+  .mat-main{overflow:visible;padding:8px 12px 16px}
+  .mat-sec .mn{display:none}
+  .mat-sec .mi{width:auto}
+  .mat-sec .mu{width:104px}
   .actions{bottom:12px}
   .zoom{bottom:12px}
   /* What's selected, with its main actions, so nothing needs the sheet. */
@@ -701,6 +722,12 @@ dialog.dz{width:100vw;height:100vh;height:100dvh;max-width:none;max-height:none;
       <button class="primary" id="v3-close">Close</button>
     </div>
     <div class="v3-stage" id="v3-stage"><canvas id="v3c" aria-label="3D view of the property"></canvas><p class="v3-hint" id="v3-hint"></p><p class="v3-info" id="v3-info"></p></div>
+  </div>
+</dialog>
+<dialog id="matdlg" class="dz" aria-labelledby="mat-title">
+  <div class="dz-wrap">
+    <div class="dz-head"><h2 id="mat-title">Material list</h2><span class="mat-msg" id="mat-msg" role="status"></span><button class="ghost" id="mat-csv">Save as spreadsheet</button><button class="primary" id="mat-close">Close</button></div>
+    <div class="mat-body"><form class="mat-opts" id="mat-opts" onsubmit="return false"></form><div class="mat-main"><p class="mat-sum" id="mat-sum"></p><div id="mat-list"></div></div></div>
   </div>
 </dialog>
 <dialog id="projdlg" aria-labelledby="proj-title">
@@ -1775,6 +1802,399 @@ function drawDirt() {
   }
 }
 
+/* ---------- material list ---------- */
+// A take-off for one building: framing, sheathing, roofing, siding, insulation, drywall, foundation, windows and doors.
+// Works in feet in the building's own frame. Choices live on the building as b.build (defaults in MAT_DEF).
+const MAT_OPTS = [
+  ["Foundation", [
+    ["found", "Foundation", [["frost", "Frost wall and slab (5 ft frost depth)"], ["slab", "Slab on grade, thickened edge"], ["crawl", "Crawlspace, block walls"], ["bsmt", "Full basement, poured walls"], ["none", "Leave it out"]]],
+  ]],
+  ["Walls", [
+    ["stud", "Outside wall studs", [["2x6", "2×6"], ["2x4", "2×4"]]],
+    ["oc", "Stud spacing", [["16", "16\" on center"], ["24", "24\" on center"]]],
+    ["wsheath", "Wall sheathing", [["osb", "7/16\" OSB + house wrap"], ["ply", "1/2\" plywood + house wrap"], ["zip", "ZIP System (no wrap needed)"]]],
+    ["siding", "Siding", [["lp", "LP SmartSide lap, 8\""], ["vinyl", "Vinyl lap"], ["fc", "Fiber cement lap"], ["bb", "Board and batten"], ["steel", "Steel ribbed panels"], ["cedar", "Cedar shingles"]]],
+    ["insul", "Wall insulation", [["batt", "Fiberglass batts"], ["mw", "Mineral wool batts"], ["spray", "Closed-cell spray foam"]]],
+  ]],
+  ["Floors", [
+    ["joist", "Floor joists", [["2x10", "2×10 @ 16\""], ["2x12", "2×12 @ 16\""], ["ij", "I-joists 11⅞\" @ 16\""]]],
+  ]],
+  ["Roof", [
+    ["roof", "Roof shape", [["gable", "Gable"], ["hip", "Hip"], ["shed", "Shed (one slope)"], ["flat", "Flat / low slope"]]],
+    ["pitch", "Roof pitch", [3, 4, 5, 6, 7, 8, 9, 10, 12].map(n => [String(n), n + " in 12"])],
+    ["over", "Overhang", [["12", "12\""], ["18", "18\""], ["24", "24\""], ["0", "None"]]],
+    ["rframe", "Roof framing", [["truss", "Trusses @ 24\""], ["rafter", "Rafters 2×10 @ 16\""]]],
+    ["rsheath", "Roof sheathing", [["osb716", "7/16\" OSB"], ["osb12", "1/2\" OSB"], ["ply58", "5/8\" plywood"]]],
+    ["roofing", "Roofing", [["arch", "Architectural shingles"], ["3tab", "3-tab shingles"], ["metal", "Steel panels, 3 ft wide"], ["seam", "Standing seam metal"]]],
+    ["gutter", "Gutters", [["yes", "Gutters and downspouts"], ["no", "No gutters"]]],
+  ]],
+  ["Inside", [
+    ["attic", "Attic insulation", [["r49", "Blown-in R-49"], ["r60", "Blown-in R-60"], ["none", "None"]]],
+    ["dw", "Drywall sheets", [["12", "4×12"], ["8", "4×8"]]],
+    ["waste", "Extra for waste", [["10", "10%"], ["5", "5%"], ["15", "15%"], ["0", "None"]]],
+  ]],
+];
+const MAT_DEF = {};
+for (const [, L] of MAT_OPTS) for (const [k, , o] of L) MAT_DEF[k] = o[0][0];
+MAT_DEF.pitch = "6";
+const matOpt = b => Object.assign({}, MAT_DEF, b.build || {});
+
+// What the building is made of, in feet: one entry per floor with its outline, wall height, openings and inside walls.
+function matGeom(b) {
+  const F = buildingFrame(b), o = matOpt(b);
+  let top = GROUND; for (const x of state.shapes) if (x.bid === b.id && x.level > top && x.level <= 4 && ["wall", "room", "opening", "stair"].includes(x.kind)) top = x.level;
+  const base = orientPoly(b.points.map(F.toL)), floors = [];
+  for (let lv = GROUND; lv <= top; lv++) floors.push(matFloor(b, F, lv, base));
+  const bsmt = o.found === "bsmt" ? matFloor(b, F, BASEMENT, base) : null;
+  return { F, floors, bsmt, base };
+}
+function matFloor(b, F, lv, base) {
+  const ext = state.shapes.find(s => s.bid === b.id && s.level === lv && s.kind === "wall" && s.closed);
+  const P = (ext && ext.points.length >= 3 ? offsetPoly(orientPoly(ext.points.map(F.toL)), -(ext.thickness || 0) / FT / 2) : base).map(q => ({ x: Math.round(q.x * 1000) / 1000, y: Math.round(q.y * 1000) / 1000 }));   // to 1/1000 ft so 32 ft is 32
+  const H = (b.wallH && b.wallH[lv]) || 8, n = P.length, edges = [];
+  for (let i = 0; i < n; i++) edges.push([P[i], P[(i + 1) % n]]);
+  const nearOut = q => edges.some(([a, c]) => segDist(q, a, c) < 1.2);
+  const opens = state.shapes.filter(s => s.bid === b.id && s.level === lv && s.kind === "opening" && s.points && s.points.length >= 2).map(s => {
+    const a = F.toL(s.points[0]), c = F.toL(s.points[1]), w = dist(a, c), vt = openVert(s, H);
+    return { s, w, sill: vt.sill, head: vt.head, h: vt.head - vt.sill, out: nearOut({ x: (a.x + c.x) / 2, y: (a.y + c.y) / 2 }), win: s.otype === "window" };
+  }).filter(q => q.w > 0.3 && q.s.otype !== "opening");
+  let inLF = 0, inEnds = 0, inTees = 0;
+  for (const w of state.shapes.filter(s => s.bid === b.id && s.level === lv && s.kind === "wall" && s !== ext && s.points.length >= 2)) {
+    const L = w.points.map(F.toL), m = w.closed ? L.length : L.length - 1;
+    for (let i = 0; i < m; i++) inLF += dist(L[i], L[(i + 1) % L.length]);
+    if (!w.closed) { inEnds += 2; inTees += [L[0], L[L.length - 1]].filter(nearOut).length; }
+  }
+  let convex = 0, concave = 0;
+  for (let i = 0; i < n; i++) { const a = P[(i + n - 1) % n], p = P[i], c = P[(i + 1) % n], z = (p.x - a.x) * (c.y - p.y) - (p.y - a.y) * (c.x - p.x); if (Math.abs(z) < 1e-6) continue; if (z > 0) convex++; else concave++; }
+  const Bx = bbox(P);
+  return { lv, P, H, perim: perim(P, true), area: Math.abs(polyArea(P)), opens, inLF, inEnds, inTees, convex, concave, L: Bx.x1 - Bx.x0, W: Bx.y1 - Bx.y0 };
+}
+const matRect = P => P.length === 4 && P.every((p, i) => { const a = P[(i + 3) % 4], c = P[(i + 1) % 4]; const u = { x: a.x - p.x, y: a.y - p.y }, v = { x: c.x - p.x, y: c.y - p.y }; return Math.abs(u.x * v.x + u.y * v.y) < 0.02 * Math.hypot(u.x, u.y) * Math.hypot(v.x, v.y); });
+
+// Precut stud for a wall height (double top plate, single bottom plate), or the stock length to cut from.
+function studName(H, size) {
+  const pre = { 8: "92⅝\"", 9: "104⅝\"", 10: "116⅝\"" }[Math.round(H * 4) / 4];
+  if (pre) return `${size} × ${pre} precut`;
+  const need = H - 4.5 / 12; for (const L of [8, 10, 12, 14, 16, 18, 20]) if (L >= need) return `${size} × ${L} ft`;
+  return `${size} × ${Math.ceil(need)} ft`;
+}
+const stockFor = (len, list = [8, 10, 12, 14, 16, 18, 20]) => list.find(L => L >= len - 1e-6) || Math.ceil(len / 2) * 2;
+
+function matList(b) {
+  const o = matOpt(b), G = matGeom(b), fl = G.floors, g0 = fl[0], waste = 1 + (+o.waste) / 100, oc = +o.oc / 12;
+  const S = []; let sec;
+  const section = t => { sec = { title: t, rows: [] }; S.push(sec); };
+  const row = (item, qty, unit, note) => { if (qty > 0 || typeof qty === "string") sec.rows.push([item, typeof qty === "number" ? Math.ceil(qty - 1e-9) : qty, unit, note || ""]); };
+  const r1 = v => Math.round(v), sf = v => r1(v).toLocaleString() + " sq ft", lf = v => r1(v).toLocaleString() + " lin ft";
+  const cuyd = v => String(Math.ceil(v * 4 - 1e-9) / 4);   // to the next quarter yard
+  const pcs = (LF, len = 16) => Math.ceil(LF * waste / len);
+  const stud = o.stud, stories = fl.length, joistBelow = lv => lv > GROUND || ["crawl", "bsmt"].includes(o.found);
+  const jd = { "2x10": 9.25, "2x12": 11.25, ij: 11.875 }[o.joist] / 12 + 0.75 / 12;   // joist + subfloor depth, ft
+  const pitch = +o.pitch / 12, k = o.roof === "flat" ? 1 : Math.sqrt(1 + pitch * pitch), ov = +o.over / 12;
+  const topF = fl.reduce((a, f) => f.area > a.area + 1 ? f : a, fl[0]), rect = matRect(topF.P);   // the roof covers the biggest floor
+  const roofShape = o.roof !== "flat" && !rect ? "hip" : o.roof;   // gable and shed need a rectangle
+  const RW = rect ? Math.min(dist(topF.P[0], topF.P[1]), dist(topF.P[1], topF.P[2])) : topF.W, RL = rect ? Math.max(dist(topF.P[0], topF.P[1]), dist(topF.P[1], topF.P[2])) : topF.L;
+  const rise = roofShape === "shed" ? RW * pitch : roofShape === "flat" ? 0 : RW / 2 * pitch;
+  const gableA = roofShape === "gable" ? RW * rise : roofShape === "shed" ? RW * rise + RL * rise : 0;   // two gable triangles; shed: two side triangles + the high wall
+  let wallHtot = 0; fl.forEach(f => { wallHtot += f.H + (joistBelow(f.lv) ? jd + 0.125 : 0); });
+
+  // Summary
+  const sum = { stories, floorArea: fl.reduce((a, f) => a + f.area, 0) + (G.bsmt ? G.bsmt.area : 0) };
+
+  // ---------- foundation ----------
+  const P0 = g0.perim, A0 = g0.area, corners0 = g0.convex + g0.concave;
+  if (o.found !== "none") {
+    section("Foundation");
+    const slab4 = (area, label) => { row(label + ", 4\" thick", cuyd(area * (4 / 12) / 27 * 1.05), "cu yd concrete", `${sf(area)} + 5%`); row("Gravel under the slab, 6\"", Math.ceil(area * 0.5 / 27 * 1.4), "tons", "Class 5 or crushed rock, compacted"); row("Vapor barrier, 10 mil", Math.ceil(area * 1.15 / 1000), "rolls 10×100 ft", sf(area * 1.15)); row("Wire mesh 6×6 (or fiber mix)", Math.ceil(area * 1.1 / 750), "rolls 5×150 ft"); };
+    if (o.found === "slab") {
+      slab4(A0, "Slab");
+      row("Thickened edge, 12\" wide × 8\" deeper", cuyd(P0 * 1 * (8 / 12) / 27 * 1.05), "cu yd concrete", lf(P0) + " around the edge");
+      row("Rebar #4, 20 ft (2 bars in the edge)", Math.ceil(P0 * 2 * 1.1 / 20), "bars");
+      row("Foam board 2\" XPS, 4×8, edge and wing insulation", Math.ceil(P0 * 4 / 32 * waste), "sheets", "Frost-protected shallow foundation detail");
+    } else if (o.found === "frost") {
+      row("Footing, 20\" × 8\"", cuyd(P0 * (20 / 12) * (8 / 12) / 27 * 1.05), "cu yd concrete", lf(P0));
+      row("Frost wall, 8\" × 5 ft poured", cuyd(P0 * (8 / 12) * 5 / 27 * 1.05), "cu yd concrete", "To 60\" below grade (northern MN)");
+      row("Rebar #4, 20 ft", Math.ceil(P0 * 4 * 1.1 / 20), "bars", "2 in the footing, 2 in the wall");
+      row("Foam board 2\" XPS, 4×8, inside of the wall", Math.ceil(P0 * 5 / 32 * waste), "sheets");
+      slab4(Math.max(0, A0 - P0 * (8 / 12)), "Slab inside the walls");
+    } else if (o.found === "crawl") {
+      const courses = 9;
+      row("Footing, 20\" × 8\"", cuyd(P0 * (20 / 12) * (8 / 12) / 27 * 1.05), "cu yd concrete", lf(P0));
+      row("Concrete block 8×8×16", Math.ceil(P0 * 0.75 * courses * 1.05), "blocks", `${courses} courses (6 ft)`);
+      row("Mortar, type S", Math.ceil(P0 * 0.75 * courses / 28), "bags (80 lb)");
+      row("Rebar #4, 20 ft", Math.ceil(P0 * 2 * 1.1 / 20), "bars", "In the footing");
+      row("Vapor barrier on the crawlspace floor, 10 mil", Math.ceil(A0 * 1.2 / 1000), "rolls 10×100 ft");
+      row("Foam board 2\" XPS, 4×8, inside of the walls", Math.ceil(P0 * 6 / 32 * waste), "sheets");
+    } else if (o.found === "bsmt") {
+      row("Footing, 24\" × 10\"", cuyd(P0 * 2 * (10 / 12) / 27 * 1.05), "cu yd concrete", lf(P0));
+      row("Basement walls, 8\" × 8 ft poured", cuyd(P0 * (8 / 12) * 8 / 27 * 1.05), "cu yd concrete");
+      row("Rebar #4, 20 ft", Math.ceil(P0 * 6 * 1.1 / 20), "bars", "Footing plus wall bars");
+      row("Dampproofing on the outside", Math.ceil(P0 * 7), "sq ft");
+      row("Drain tile, 4\" perforated with sock", Math.ceil((P0 + 20) / 100), "rolls 100 ft", "Around the footing to a sump");
+      row("Sump basket and pump", 1, "each");
+      row("Foam board 2\" XPS, 4×8, inside of the walls", Math.ceil(P0 * 8 / 32 * waste), "sheets");
+      slab4(Math.max(0, A0 - P0 * (8 / 12)), "Basement slab");
+    }
+    if (["crawl", "bsmt"].includes(o.found)) {
+      row("Sill plate, treated 2×6", pcs(P0), "pcs 16 ft", lf(P0));
+      row("Sill gasket, 5½\"", Math.ceil(P0 / 50), "rolls 50 ft");
+      if (g0.L > 16 && g0.W > 16) { const bl = Math.min(g0.L, g0.W) === g0.W ? g0.L : g0.W; row("Center beam, 3-ply " + (o.joist === "2x12" ? "2×12" : "2×10") + " (or steel)", pcs(bl * 3), "pcs 16 ft", `${lf(bl)} down the middle`); row("Steel posts (lally columns) under the beam", Math.ceil(bl / 8) - 1, "each", "About every 8 ft"); }
+    }
+    row("Anchor bolts ½\" × 10\" (with nuts and washers)", Math.ceil(P0 / 6) + corners0, "each", "Every 6 ft and at each corner");
+  }
+
+  // ---------- floor framing ----------
+  const jName = { "2x10": "2×10", "2x12": "2×12", ij: "I-joist 11⅞\"" }[o.joist], jMax = o.joist === "ij" ? 22 : o.joist === "2x12" ? 18 : 15.5;
+  const floorsJ = fl.filter(f => joistBelow(f.lv));
+  if (floorsJ.length) {
+    section("Floor framing");
+    for (const f of floorsJ) {
+      const span = Math.min(f.L, f.W), run = Math.max(f.L, f.W), fill = f.area / Math.max(1, f.L * f.W), rows = Math.ceil((Math.ceil(run * 12 / 16) + 1) * fill);
+      const parts = span > jMax ? 2 : 1, len = stockFor(span / parts + (parts > 1 ? 0.5 : 0), [8, 10, 12, 14, 16, 18, 20, 22, 24]);
+      const nm = levelName(f.lv);
+      row(`${nm}: floor joists, ${jName} × ${len} ft`, Math.ceil(rows * parts * waste), "pcs", `${rows} rows across ${fmtLen(span * FT)}${parts > 1 ? ", lapped over a center beam or wall" : ""}`);
+      row(`${nm}: rim board, ${o.joist === "ij" ? "1⅛\" × 11⅞\" LVL rim" : jName}`, pcs(f.perim), "pcs 16 ft", lf(f.perim));
+      row(`${nm}: subfloor, ¾\" tongue-and-groove OSB 4×8`, Math.ceil(f.area * waste / 32), "sheets", sf(f.area));
+      row(`${nm}: subfloor glue, 28 oz`, Math.ceil(f.area / 32 / 2), "tubes");
+      if (o.joist !== "ij") row(`${nm}: joist hangers and blocking`, "as needed", "", "Only where joists hang off a beam or header");
+    }
+  }
+
+  // ---------- outside walls ----------
+  section("Outside wall framing");
+  let studsAll = 0, plateLF = 0, extNet = 0, extGross = 0, openPer = 0, headLF = {};
+  const hdrPly = stud === "2x6" ? 3 : 2;
+  for (const f of fl) {
+    const nm = levelName(f.lv), ext = f.opens.filter(q => q.out), base = Math.ceil(f.perim / oc) + f.convex + f.concave;
+    let extra = 0, crip = 0, inl = 0;
+    for (const q of ext) {
+      extra += 2 + (q.w > 6 ? 4 : 2) - Math.floor(q.w / oc);
+      const c = Math.ceil(q.w / oc) + 1; if (q.win && q.sill > 0.3) crip += c; if (f.H - q.head > 0.4) crip += c;
+      const hs = q.w <= 3 ? "2×6" : q.w <= 4.5 ? "2×8" : q.w <= 6 ? "2×10" : q.w <= 8 ? "2×12" : "LVL 1¾×11⅞";
+      headLF[hs] = (headLF[hs] || 0) + (q.w + 0.25) * hdrPly;
+      inl += q.w * q.h; openPer += 2 * q.h + (q.win ? 2 : 1) * q.w;
+    }
+    const corners = (f.convex + f.concave) * 2, tees = f.inTees * 2, n = Math.ceil((base + corners + tees + extra + Math.ceil(crip / 2)) * waste);
+    studsAll += n;
+    row(`${nm}: studs, ${studName(f.H, stud.replace("x", "×"))}`, n, "pcs", `${lf(f.perim)} at ${o.oc}" on center, ${f.convex + f.concave} corners, ${ext.length} openings, ${f.inTees} inside walls tying in`);
+    const pt = f.lv === GROUND && ["slab", "frost"].includes(o.found);
+    row(`${nm}: bottom plate, ${pt ? "treated " : ""}${stud.replace("x", "×")}`, pcs(f.perim), "pcs 16 ft", lf(f.perim) + (pt ? ", on concrete" : ""));
+    row(`${nm}: double top plate, ${stud.replace("x", "×")}`, pcs(f.perim * 2), "pcs 16 ft", lf(f.perim * 2));
+    plateLF += f.perim * 3;
+    const gross = f.perim * (f.H + (joistBelow(f.lv) ? jd + 0.125 : 0));
+    extGross += gross; extNet += gross - inl;
+  }
+  for (const [hs, L] of Object.entries(headLF)) row(`Headers, ${hs} (${hdrPly} plies)`, hs.startsWith("LVL") ? Math.ceil(L * waste) : pcs(L, 12), hs.startsWith("LVL") ? "lin ft" : "pcs 12 ft", lf(L) + " total");
+  if (Object.keys(headLF).length && stud === "2x6") row("Header insulation, 1\" foam between plies", "as needed", "", "Or use 2 plies with foam on the inside");
+  extGross += gableA; extNet += gableA;
+  if (gableA) row(roofShape === "shed" ? "Shed roof: framing for the high wall and the sloped sides" : "Gable end framing (if not using gable-end trusses)", Math.ceil(gableA / (RW / 2 || 1) / 4 * waste), "pcs 2×4 × 12 ft", sf(gableA));
+
+  // ---------- inside walls ----------
+  const inLF = fl.reduce((a, f) => a + f.inLF, 0) + (G.bsmt ? G.bsmt.inLF : 0);
+  let inOpen = 0;
+  if (inLF > 0) {
+    section("Inside wall framing");
+    for (const f of fl.concat(G.bsmt ? [G.bsmt] : [])) {
+      if (!f.inLF) continue;
+      const nm = levelName(f.lv), ins = f.opens.filter(q => !q.out), n = Math.ceil((Math.ceil(f.inLF / (16 / 12)) + f.inEnds + 2 * ins.length) * waste);
+      ins.forEach(q => inOpen += q.w * q.h);
+      row(`${nm}: studs, ${studName(f.H, "2×4")}`, n, "pcs", `${lf(f.inLF)} of inside walls at 16" on center`);
+      const pt = (f.lv === GROUND && ["slab", "frost"].includes(o.found)) || f.lv === BASEMENT;
+      row(`${nm}: bottom plate, ${pt ? "treated " : ""}2×4`, pcs(f.inLF), "pcs 16 ft", lf(f.inLF));
+      row(`${nm}: double top plate, 2×4`, pcs(f.inLF * 2), "pcs 16 ft");
+      if (ins.length) row(`${nm}: door headers, 2×4 flat or 2-ply 2×6`, ins.length, "each");
+      plateLF += f.inLF * 3; studsAll += n;
+    }
+  }
+
+  // ---------- wall sheathing and wrap ----------
+  section("Wall sheathing and wrap");
+  const wSheet = Math.ceil(extNet * waste / 32);
+  row(o.wsheath === "zip" ? "ZIP System wall panels 7/16\", 4×8" : o.wsheath === "ply" ? "Plywood ½\" CDX, 4×8" : "OSB 7/16\", 4×8", wSheet, "sheets", `${sf(extNet)} of outside wall, openings taken out`);
+  if (o.wsheath === "zip") row("ZIP System tape, 3¾\"", Math.ceil((wSheet * 12 + openPer) / 90), "rolls 90 ft", "Every seam and around every opening");
+  else { row("House wrap, 9×150 ft", Math.ceil(extGross * 1.15 / 1350), "rolls", sf(extGross)); row("House wrap tape", Math.ceil(extGross * 1.15 / 1350) + 1, "rolls"); row("Cap nails or cap staples", Math.ceil(extGross / 1000), "boxes (1,000)"); }
+  row("Window and door flashing tape, 6\"", Math.ceil(openPer / 75), "rolls 75 ft", lf(openPer) + " around openings");
+
+  // ---------- siding and trim ----------
+  section("Siding and trim");
+  const sA = extNet * waste, outC = fl.reduce((a, f) => a + f.convex, 0) / Math.max(1, stories), inC = fl.reduce((a, f) => a + f.concave, 0) / Math.max(1, stories);
+  if (o.siding === "vinyl") {
+    row("Vinyl lap siding", Math.ceil(sA / 100), "squares (100 sq ft)", `${Math.ceil(sA / 200)} boxes of 2 squares`);
+    row("Starter strip, 12 ft", Math.ceil(P0 / 12 * waste), "pcs");
+    row("Outside corner posts, 10 ft", Math.ceil(outC * Math.ceil(wallHtot / 10)), "pcs");
+    if (inC) row("Inside corner posts, 10 ft", Math.ceil(inC * Math.ceil(wallHtot / 10)), "pcs");
+    row("J-channel, 12½ ft", Math.ceil((openPer + (roofShape === "gable" ? 2 * RW / 2 * k * 2 : 0)) / 12.5 * waste), "pcs", "Around openings and under the gable rakes");
+    row("Utility trim (undersill), 12 ft", Math.ceil(fl.reduce((a, f) => a + f.opens.filter(q => q.out && q.win).reduce((b2, q) => b2 + q.w, 0), 0) / 12 + P0 / 12), "pcs");
+  } else if (o.siding === "lp" || o.siding === "fc") {
+    const cov = o.siding === "lp" ? 16 * 7 / 12 : 12 * 7 / 12;
+    row(o.siding === "lp" ? "LP SmartSide lap, 8\" × 16 ft (7\" showing)" : "Fiber cement lap, 8¼\" × 12 ft (7\" showing)", Math.ceil(sA / cov), "boards", sf(extNet));
+    row("Corner and window trim, 1×4 (5/4×4) × 16 ft", Math.ceil(((outC + inC) * wallHtot * 2 + openPer) / 16 * waste), "pcs");
+    row("Siding nails, stainless or hot-dip", Math.ceil(sA / 1000 * 2), "lb boxes (5 lb)");
+    row("Paintable caulk", Math.ceil(sA / 250), "tubes");
+  } else if (o.siding === "bb") {
+    row("Siding panels 4×8 (LP SmartSide or similar)", Math.ceil(sA / 32), "sheets", sf(extNet));
+    row("Battens 1×3 × 16 ft, 12\" apart", Math.ceil(sA / 16), "pcs");
+    row("Corner and window trim, 1×4 × 16 ft", Math.ceil(((outC + inC) * wallHtot * 2 + openPer) / 16 * waste), "pcs");
+  } else if (o.siding === "steel") {
+    const nP = Math.ceil(fl.reduce((a, f) => a + f.perim, 0) / 3 * waste);
+    row("Steel wall panels, 3 ft cover", nP, "panels", `Cut to each wall's height (about ${fmtLen(wallHtot / stories * FT)}); plus gable pieces`);
+    if (gableA) row("Steel panels for the gable ends", Math.ceil(gableA / (3 * Math.max(rise, 1)) * 2 * waste), "panels", "Cut on the slope");
+    row("Outside corner trim, 10 ft", Math.ceil(outC * Math.ceil(wallHtot / 10)), "pcs");
+    row("J-trim around openings, 10 ft", Math.ceil(openPer / 10 * waste), "pcs");
+    row("Base trim, 10 ft", Math.ceil(P0 / 10 * waste), "pcs");
+    row("Siding screws #9 × 1\"", Math.ceil(sA / 100 * 80 / 250), "bags (250)");
+  } else {
+    row("Cedar shingles (7½\" showing)", Math.ceil(sA / 25), "bundles", sf(extNet) + ", 4 bundles a square");
+    row("Corner and window trim, 1×4 cedar × 16 ft", Math.ceil(((outC + inC) * wallHtot * 2 + openPer) / 16 * waste), "pcs");
+  }
+
+  // ---------- roof ----------
+  const RP = offsetPoly(orientPoly(topF.P), -ov), planA = Math.abs(polyArea(RP)), roofA = planA * k, Lo = RL + 2 * ov, Wo = RW + 2 * ov;
+  let eave, rake = 0, ridge = 0, hips = 0;
+  if (roofShape === "gable") { eave = 2 * Lo; rake = 4 * (Wo / 2) * k; ridge = Lo; }
+  else if (roofShape === "shed") { eave = Lo; rake = 2 * Wo * k; ridge = Lo; }
+  else if (roofShape === "flat") { eave = perim(RP, true); }
+  else if (rect) { eave = 2 * (Lo + Wo); ridge = Math.max(0, Lo - Wo); hips = 4 * Math.sqrt(2 * (Wo / 2) ** 2 + (Wo / 2 * pitch) ** 2); }
+  else { eave = perim(RP, true); hips = eave * 0.68 * Math.sqrt(1 + pitch * pitch / 2); }
+  const valleys = rect || roofShape === "flat" ? 0 : topF.concave * Math.sqrt(2 * (RW / 2) ** 2 + (RW / 2 * pitch) ** 2);
+  section("Roof framing");
+  if (o.roof !== roofShape) row("Note", "—", "", "A gable or shed roof needs a rectangle; this outline is counted as a hip roof.");
+  if (o.rframe === "truss") {
+    const n = rect ? Math.floor(RL / 2 + 1e-6) + 1 : Math.ceil(topF.area / (2 * Math.max(RW, 1))) + 2 * topF.convex;
+    const kind = roofShape === "gable" ? "common trusses (2 are gable-end trusses)" : roofShape === "hip" ? "hip truss package (girders and jacks included)" : roofShape === "shed" ? "mono (one-slope) trusses" : "flat trusses";
+    row(`Roof trusses, ${fmtLen(RW * FT)} span, ${roofShape === "flat" ? "flat" : o.pitch + "/12"}`, n, "each", kind + (rect ? "" : " (estimate)"));
+    row("Hurricane ties (H2.5A)", n * 2, "each");
+    row("Truss bracing / lateral 2×4 × 16 ft", Math.ceil(RL / 16 * 3 + 2), "pcs");
+    if (o.rsheath === "osb716") row("Plywood clips (H-clips) 7/16\"", Math.ceil(roofA * waste / 32), "each", "Between sheets at 24\" spacing");
+  } else {
+    const per = Math.ceil(RL * 12 / 16) + 1, len = stockFor((roofShape === "shed" ? Wo : Wo / 2) * k, [8, 10, 12, 14, 16, 18, 20, 22, 24]);
+    const n = roofShape === "flat" ? per : roofShape === "shed" ? per : 2 * per;
+    row(`Rafters 2×10 × ${len} ft`, Math.ceil(n * waste * (rect ? 1 : 1.15)), "pcs", `${per} per side at 16" on center`);
+    if (ridge) row("Ridge board 2×12", pcs(ridge), "pcs 16 ft", lf(ridge));
+    if (hips || valleys) row("Hip and valley rafters 2×12", pcs((hips + valleys) * 1.1), "pcs 16 ft", lf(hips + valleys));
+    const cj = stockFor(RW > 16 ? RW / 2 + 0.5 : RW, [8, 10, 12, 14, 16, 18, 20]);
+    row(`Ceiling joists 2×8 × ${cj} ft`, Math.ceil(per * (RW > 16 ? 2 : 1) * waste), "pcs", "16\" on center");
+    row("Collar ties 2×6 × 12 ft", Math.ceil(RL / 4), "pcs", "Every 4 ft");
+    row("Hurricane ties (H2.5A)", n, "each");
+  }
+  row("Fascia board 2×6 or 1×6 × 16 ft", pcs(eave + rake), "pcs", lf(eave + rake));
+  if (ov > 0) { row("Soffit, vented vinyl or aluminum 12\" × 12 ft", Math.ceil(eave * ov / 12 * waste), "panels", `${lf(eave)} × ${o.over}" overhang`); row("Soffit J-channel or F-channel, 12 ft", Math.ceil(eave * 2 / 12 * waste), "pcs"); }
+  row("Fascia cover (aluminum), 12 ft", Math.ceil((eave + rake) / 12 * waste), "pcs");
+
+  section("Roof sheathing and roofing");
+  row({ osb716: "OSB 7/16\", 4×8", osb12: "OSB ½\", 4×8", ply58: "Plywood ⅝\", 4×8" }[o.rsheath], Math.ceil(roofA * waste / 32), "sheets", `${sf(roofA)} of roof (${(roofA / 100).toFixed(1)} squares)`);
+  if (roofShape === "flat") {
+    row("EPDM or TPO membrane", Math.ceil(roofA * 1.15), "sq ft", "Low-slope roofing; tapered insulation if the deck is dead flat");
+    row("Membrane adhesive and edge metal", "as needed", "");
+  } else {
+    const iceW = Math.max(3, Math.ceil(((ov + 2) * k) / 3) * 3);
+    row("Ice and water shield, 36\" × 66.7 ft", Math.ceil((eave * iceW + valleys * 3) * 1.1 / 200), "rolls (2 squares)", `${iceW} ft up from the eaves${valleys ? " and in the valleys" : ""} (MN code: 24\" inside the wall)`);
+    row("Synthetic underlayment", Math.ceil(roofA * 1.1 / 1000), "rolls (10 squares)");
+    row("Drip edge, 10 ft", Math.ceil((eave + rake) / 10 * 1.1), "pcs", lf(eave + rake));
+    if (valleys) row("Valley flashing, 10 ft", Math.ceil(valleys / 10 * 1.1), "pcs");
+    if (o.roofing === "arch" || o.roofing === "3tab") {
+      const sq = roofA * waste / 100 + (hips ? 0.15 * roofA / 100 : 0);
+      row(o.roofing === "arch" ? "Architectural shingles" : "3-tab shingles", Math.ceil(sq * 3), "bundles", `${Math.ceil(sq)} squares, 3 bundles a square${hips ? ", extra for hip cuts" : ""}`);
+      row("Starter shingles", Math.ceil((eave + rake) / 105), "bundles (about 105 ft)");
+      if (ridge + hips) row("Hip and ridge cap shingles", Math.ceil((ridge + hips) / 33), "bundles (about 33 ft)", lf(ridge + hips));
+      row("Roofing nails, 1¼\" coil", Math.ceil(sq / 20), "boxes (7,200)");
+      if (ridge && roofShape !== "shed") row("Ridge vent, 4 ft", Math.ceil(ridge / 4), "pcs");
+    } else {
+      const cover = o.roofing === "seam" ? 16 / 12 : 3, slopeL = roofShape === "shed" ? Wo * k : Wo / 2 * k;
+      if (rect && roofShape !== "hip") { const nP = Math.ceil(Lo / cover) * (roofShape === "shed" ? 1 : 2); row(`${o.roofing === "seam" ? "Standing seam panels, 16\"" : "Steel roof panels, 3 ft"} × ${fmtLen(Math.ceil(slopeL * 12) * IN)}`, Math.ceil(nP * (1 + (+o.waste) / 200)), "panels", `${roofShape === "shed" ? "one slope" : "two slopes"}, eave to ${roofShape === "shed" ? "high edge" : "ridge"}`); }
+      else row(o.roofing === "seam" ? "Standing seam panels, 16\" cover" : "Steel roof panels, 3 ft cover", Math.ceil(roofA * waste / cover), "lin ft of panel", "Hip roof: panels cut on the hips (estimate)");
+      if (ridge + hips) row("Ridge / hip cap, 10 ft", Math.ceil((ridge + hips) / 9.5), "pcs", lf(ridge + hips));
+      row("Eave trim, 10 ft", Math.ceil(eave / 9.5), "pcs"); if (rake) row("Gable (rake) trim, 10 ft", Math.ceil(rake / 9.5), "pcs");
+      row("Closure strips (inside at eaves, outside at ridge)", Math.ceil(eave / 3 + (ridge + hips) * 2 / 3), "each");
+      if (o.roofing === "metal") row("Roofing screws #10 × 1½\"", Math.ceil(roofA / 100 * 80 / 250), "bags (250)", "About 80 a square");
+      else row("Panel clips and pancake screws", Math.ceil(roofA / 100 * 40 / 100), "boxes (100)");
+    }
+    row("Pipe boots / roof vents", "as needed", "", "One for each plumbing vent and bath fan");
+  }
+  if (o.gutter === "yes") {
+    const gL = roofShape === "gable" ? 2 * Lo : roofShape === "shed" ? Lo : eave, nD = Math.max(2, Math.ceil(gL / 35));
+    section("Gutters");
+    row("5\" K-style gutter, 10 ft", Math.ceil(gL / 10 * 1.1), "pcs", lf(gL));
+    row("Downspouts 2×3, 10 ft", nD * Math.ceil((wallHtot + 1) / 10), "pcs", `${nD} downspouts`);
+    row("Downspout outlets, elbows (3 each), end caps", nD, "sets");
+    row("Gutter hangers", Math.ceil(gL / 2), "each", "Every 2 ft");
+  }
+
+  // ---------- insulation ----------
+  section("Insulation and vapor barrier");
+  const wallIns = fl.reduce((a, f) => a + f.perim * f.H, 0) - fl.reduce((a, f) => a + f.opens.filter(q => q.out).reduce((b2, q) => b2 + q.w * q.h, 0), 0) + (roofShape === "shed" ? 0 : 0);
+  if (o.insul === "spray") row("Closed-cell spray foam, 3\"", Math.ceil(wallIns * 3), "board feet", sf(wallIns) + " of wall (usually hired out)");
+  else {
+    const bag = o.insul === "mw" ? (stud === "2x6" ? 39.8 : 59.7) : (stud === "2x6" ? 77.5 : 88), rv = o.insul === "mw" ? (stud === "2x6" ? "R-23" : "R-15") : (stud === "2x6" ? "R-21" : "R-15");
+    row(`${o.insul === "mw" ? "Mineral wool" : "Fiberglass"} batts ${rv}, ${o.oc === "24" ? "23\"" : "15\""} wide`, Math.ceil(wallIns * waste / bag), "bags", `${sf(wallIns)} of wall, about ${bag} sq ft a bag`);
+  }
+  if (o.attic !== "none" && roofShape !== "flat") {
+    const ca = topF.area, cov = o.attic === "r60" ? 32 : 40;
+    row(`Blown-in fiberglass, ${o.attic === "r60" ? "R-60" : "R-49"}`, Math.ceil(ca * 1.05 / cov), "bags", `${sf(ca)} of attic floor, about ${cov} sq ft a bag`);
+    row("Attic baffles (rafter vents)", Math.ceil(eave / (o.rframe === "truss" ? 2 : 16 / 12)), "each", "One per bay at the eaves");
+  }
+  if (o.insul !== "spray") row("Poly vapor barrier, 6 mil", Math.ceil((wallIns + topF.area) * 1.15 / 1000), "rolls 10×100 ft", "Warm side of walls and top ceiling");
+  row("Rim joist and gap foam (cans)", Math.ceil((P0 * floorsJ.length + openPer) / 60) || 1, "cans");
+
+  // ---------- drywall ----------
+  section("Drywall");
+  const dwSheet = +o.dw * 4;
+  let dwWall = 0, dwCeil = 0;
+  for (const f of fl) { dwWall += f.perim * f.H - f.opens.filter(q => q.out).reduce((a, q) => a + q.w * q.h, 0) + f.inLF * f.H * 2 - f.opens.filter(q => !q.out).reduce((a, q) => a + q.w * q.h * 2, 0); dwCeil += f.area; }
+  if (G.bsmt && G.bsmt.inLF) { dwWall += G.bsmt.inLF * G.bsmt.H * 2; }
+  row(`Drywall ½\", 4×${o.dw} (walls)`, Math.ceil(dwWall * waste / dwSheet), "sheets", sf(dwWall));
+  row(`Drywall ⅝\" ceiling board, 4×${o.dw}`, Math.ceil(dwCeil * waste / dwSheet), "sheets", sf(dwCeil));
+  const dwT = dwWall + dwCeil;
+  row("Joint compound, ready-mix", Math.ceil(dwT / 480), "boxes (4.5 gal)");
+  row("Paper tape", Math.ceil(dwT * 0.38 / 500), "rolls 500 ft");
+  row("Drywall screws 1¼\"", Math.ceil(dwT / 1300), "boxes (5 lb)");
+  row("Corner bead, 8 ft", Math.ceil(fl.reduce((a, f) => a + f.opens.filter(q => q.out && q.win).length * 1.5 + f.inEnds * f.H / 8, 0)), "pcs", "Window returns and wall ends (estimate)");
+
+  // ---------- windows and doors ----------
+  const od = new Map();
+  for (const f of fl.concat(G.bsmt ? [G.bsmt] : [])) for (const q of f.opens) {
+    const key = `${OTYPES[q.s.otype] || "Door"} ${fmtLen(q.w * FT)} × ${fmtLen(q.h * FT)}${q.out ? "" : " (inside)"}`;
+    od.set(key, (od.get(key) || 0) + 1);
+  }
+  if (od.size) { section("Windows and doors"); for (const [k2, n] of [...od].sort()) row(k2, n, "each", "Rough opening: add about ½\" each way"); }
+
+  // ---------- fasteners ----------
+  section("Fasteners and glue");
+  const trussN = o.rframe === "truss" ? Math.floor(RL / 2 + 1e-6) + 1 : 0;
+  const n16 = studsAll * 10 + plateLF * 1.5 + trussN * 8 + floorsJ.reduce((a, f) => a + f.area / 1.33 * 0.5, 0);
+  row("Framing nails 3¼\" (16d), collated", Math.ceil(n16 / 2500), "boxes (2,500)");
+  row("Sheathing nails 2⅜\" (8d), collated", Math.ceil((wSheet + Math.ceil(roofA * waste / 32)) * 60 / 2500), "boxes (2,500)");
+  row("Construction adhesive, 28 oz", Math.ceil(wSheet / 8) + 2, "tubes", "Plates on concrete, sheathing edges");
+  sum.roofA = roofA; sum.studs = studsAll; sum.roofShape = roofShape;
+  return { S, sum, o };
+}
+
+// ---- the material list window ----
+let matB = null;
+function openMat(b) { matB = b.id; renderMat(); if (!$("matdlg").open) $("matdlg").showModal(); }
+function renderMat() {
+  const b = state.shapes.find(s => s.id === matB && s.kind === "building"); if (!b) { if ($("matdlg").open) $("matdlg").close(); return; }
+  const { S, sum, o } = matList(b);
+  $("mat-title").textContent = "Material list · " + b.name;
+  $("mat-opts").innerHTML = MAT_OPTS.map(([g, L]) => `<p class="mat-g">${esc(g)}</p>` + L.map(([k, t, opts]) => `<div class="field"><label for="mo-${k}">${esc(t)}</label><select id="mo-${k}" data-mo="${k}">${optList(opts, o[k])}</select></div>`).join("")).join("")
+    + `<p class="muted" style="font-size:13px;margin-top:12px">Your choices are saved with this building. Wall heights come from the floor plan designer (each floor can differ).</p>`;
+  const fl = matGeom(b).floors;
+  $("mat-sum").innerHTML = `<b>${fl.length} floor${fl.length === 1 ? "" : "s"}</b> · ${Math.round(sum.floorArea * 1).toLocaleString()} sq ft of floor · walls ${fl.map(f => fmtLen(f.H * FT)).join(" / ")} · roof ${(sum.roofA / 100).toFixed(1)} squares (${sum.roofShape}) · ${sum.studs.toLocaleString()} studs`;
+  $("mat-list").innerHTML = S.filter(s => s.rows.length).map(s => `<section class="mat-sec"><h3>${esc(s.title)}</h3><table><tbody>${s.rows.map(r => `<tr><td class="mi">${esc(r[0])}</td><td class="mq">${esc(typeof r[1] === "number" ? r[1].toLocaleString() : r[1])}</td><td class="mu">${esc(r[2])}</td><td class="mn">${esc(r[3])}</td></tr>`).join("")}</tbody></table></section>`).join("")
+    + `<p class="muted" style="font-size:13px">These are estimates for planning and pricing. Check spans, headers and local code with your lumber yard or building inspector before ordering.</p>`;
+}
+$("mat-opts").addEventListener("change", e => {
+  const k = e.target.dataset.mo, b = state.shapes.find(s => s.id === matB); if (!k || !b) return;
+  pushUndo(); b.build = Object.assign({}, b.build, { [k]: e.target.value }); afterChange(); renderMat();
+});
+$("mat-close").onclick = () => $("matdlg").close();
+$("mat-csv").onclick = async () => {
+  const b = state.shapes.find(s => s.id === matB); if (!b) return;
+  const { S } = matList(b), q = v => `"${String(v).replace(/"/g, '""')}"`;
+  const csv = "﻿" + [["Section", "Item", "Quantity", "Unit", "Notes"].map(q).join(",")].concat(S.flatMap(s => s.rows.map(r => [s.title, ...r].map(q).join(",")))).join("\r\n");
+  $("mat-msg").textContent = await saveFileOut(new Blob([csv], { type: "text/csv" }), (b.name || "Building") + " materials.csv", "Saved. Open it in Excel or Google Sheets.");
+};
+
 /* ---------- view ---------- */
 function resize() {
   const r = stage.getBoundingClientRect();
@@ -2465,6 +2885,8 @@ function extraHTML(s) {
       ${PLAN_DRAWINGS ? `<div class="row" style="margin-bottom:8px">${btn("template", templateArmed ? "Tap again to replace the plan" : esc(PLAN_DRAWINGS.button))}</div>` : ""}
       <div class="row" style="margin-bottom:10px">${btn("design", "Design floor plan")}${btn("autodim", "Auto-dimension " + esc(levelName(state.level)))}</div>
       </div>
+      <p class="sublabel" style="margin:4px 0 6px;font-size:13px;color:var(--muted);font-weight:500">Materials</p>
+      <div class="row" style="margin-bottom:10px">${btn("matlist", "Material list")}</div>
       <p class="sublabel" style="margin:4px 0 6px;font-size:13px;color:var(--muted);font-weight:500">Rotate building and plan</p>
       <div class="row" style="margin-bottom:14px${s.locked ? ";opacity:.45;pointer-events:none" : ""}">${btn("rot", "⟲ 90°", -90)}${btn("rot", "⟳ 90°", 90)}${btn("rot", "−1°", -1)}${btn("rot", "+1°", 1)}${btn("rot", "180°", 180)}</div>`;
   }
@@ -2575,6 +2997,7 @@ $("d-extra").addEventListener("click", e => {
   if (act === "group") { pushUndo(); s.grouped = !s.grouped; if (!s.grouped) for (const k of childrenOf(s)) delete k.free; $("d-extra").innerHTML = ""; afterChange(); return; }
   if (act === "regroupall") { pushUndo(); for (const k of childrenOf(s)) delete k.free; $("d-extra").innerHTML = ""; afterChange(); return; }
   if (act === "regroup1") { pushUndo(); delete s.free; const p = parentOf(s); if (p) selected = p.id; $("d-extra").innerHTML = ""; afterChange(); return; }
+  if (act === "matlist") { openMat(s); return; }
   if ((act === "design" || act === "template" || act === "autodim") && s.grouped) { $("hint").textContent = `${s.name} is grouped. Ungroup all items to change its plan.`; return; }
   if (act === "design") { openDesigner(s); return; }
   if (act === "rot" && s.locked) { $("hint").textContent = `${s.name} is locked. Unlock it to rotate.`; return; }
@@ -4068,6 +4491,7 @@ document.addEventListener("keydown", e => {
   else if ($("designer").open && dz) dzStep(back);
   else if ($("projdlg").open) { if (back && !$("proj-undo").hidden) $("proj-undo").click(); }
   else if ($("v3d").open) { /* nothing to undo in the 3D view */ }
+  else if ($("matdlg").open) { if (back) undo(); else redo(); renderMat(); }
   else if (back) undo(); else redo();
 }, true);
 
@@ -4988,7 +5412,7 @@ $("panel-toggle").onclick = () => {
   if (o) { $("layers").hidden = true; $("open-layers").setAttribute("aria-expanded", "false"); }
 };
 document.addEventListener("keydown", e => {
-  if (e.target.matches("input, textarea, select") || $("dlg").open || $("designer").open || $("v3d").open) return;
+  if (e.target.matches("input, textarea, select") || $("dlg").open || $("designer").open || $("v3d").open || $("matdlg").open) return;
   const k = e.key.toLowerCase();
   if (k === "escape") { if (draft.length) { draft = []; dimPhase = false; updateUI(); } else { measure = []; selected = null; renderPanel(); requestDraw(); } }
   else if (k === "enter" && (tool in MULTI || (tool === "rect" && state.bldShape === "poly") || (tool === "shape" && state.shapeType === "poly"))) finishWall(false);
@@ -5204,14 +5628,25 @@ function v3Building(b, H) {
   for (let i = 0; i < P.length; i++) { const p = P[i], q = P[(i + 1) % P.length]; quad([p.x, y0, p.y], [q.x, y0, q.y], [q.x, y1, q.y], [p.x, y1, p.y]); }
   const rp = [];
   const rect = P.length === 4 && [0, 1, 2, 3].every(i => { const a = P[i], m = P[(i + 1) % 4], n = P[(i + 2) % 4]; const u = { x: a.x - m.x, y: a.y - m.y }, v = { x: n.x - m.x, y: n.y - m.y }; return Math.abs(u.x * v.x + u.y * v.y) < 0.02 * Math.hypot(u.x, u.y) * Math.hypot(v.x, v.y); });
-  if (rect) {
+  const bo = b.build ? matOpt(b) : null, pch = bo ? +bo.pitch / 12 : 0.5, shape = bo ? bo.roof : "gable";
+  if (shape === "flat") {
+    const y = y1 + 0.2, tri = T.ShapeUtils.triangulateShape(P.map(q => new T.Vector2(q.x, q.y)), []);
+    for (const t of tri) for (const i of t) rp.push(P[i].x, y, P[i].y);
+    for (let i = 0; i < P.length; i++) { const p = P[i], q = P[(i + 1) % P.length]; quad([p.x, y1, p.y], [q.x, y1, q.y], [q.x, y, q.y], [p.x, y, p.y]); }
+  } else if (rect && shape === "shed") {
+    let [A, B, C, D] = P; if (dist(A, B) < dist(B, C)) [A, B, C, D] = [B, C, D, A];   // A-B low eave, C-D high side
+    const yh = y1 + dist(B, C) * pch, v = (p, y) => [p.x, y, p.y];
+    rp.push(...v(A, y1), ...v(B, y1), ...v(C, yh), ...v(A, y1), ...v(C, yh), ...v(D, yh));
+    wp.push(...v(B, y1), ...v(C, y1), ...v(C, yh), ...v(D, y1), ...v(A, y1), ...v(D, yh));
+    quad(v(C, y1), v(D, y1), v(D, yh), v(C, yh));
+  } else if (rect && shape === "gable") {
     let [A, B, C, D] = P; if (dist(A, B) < dist(B, C)) [A, B, C, D] = [B, C, D, A];   // A-B along the ridge
-    const rise = dist(B, C) / 2 * 0.5, mid = (p, q) => ({ x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 }), Ra = mid(D, A), Rb = mid(B, C), yr = y1 + rise;
+    const rise = dist(B, C) / 2 * pch, mid = (p, q) => ({ x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 }), Ra = mid(D, A), Rb = mid(B, C), yr = y1 + rise;
     const v = (p, y) => [p.x, y, p.y], rq = (a, b2, c2, d) => rp.push(...a, ...b2, ...c2, ...a, ...c2, ...d);
     rq(v(A, y1), v(B, y1), v(Rb, yr), v(Ra, yr)); rq(v(C, y1), v(D, y1), v(Ra, yr), v(Rb, yr));   // the two roof slopes
     wp.push(...v(B, y1), ...v(C, y1), ...v(Rb, yr), ...v(D, y1), ...v(A, y1), ...v(Ra, yr));   // gable ends are wall
   } else {
-    for (const v of v3HipRoof(P, y1, 0.5)) rp.push(v);   // any other shape: a hip roof that follows the outline
+    for (const v of v3HipRoof(P, y1, pch)) rp.push(v);   // any other shape: a hip roof that follows the outline
   }
   const mk = arr => { const gq = new T.BufferGeometry(); gq.setAttribute("position", new T.Float32BufferAttribute(arr, 3)); gq.computeVertexNormals(); return gq; };
   return { walls: mk(wp), roof: mk(rp), b, top, floor0: g1 + 0.45, eave: y1 };
