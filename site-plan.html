@@ -2901,6 +2901,29 @@ const WV_ITEMS = {
     hooks: ["Coat hooks", 24, 4, 60], towel: ["Towel bar", 24, 3, 48], curtain: ["Curtain rod", 60, 3, 84], clock: ["Clock", 12, 12, 72] },
 };
 const WV_RUNS = { wire: ["Wire", "#D9822B", 1.5], hot: ["Hot water", "#D9342B", 3], cold: ["Cold water", "#2F6BD8", 3], drain: ["Drain", "#5F5F5F", 6], vent: ["Vent", "#9A9A9A", 4] };
+// Sizes per kind: [value, label]; pipes are nominal inches. Defaults: [size, height in feet for "Straight across"].
+const WV_SUPPLY = [[0.5, "½″"], [0.75, "¾″"]];
+const WV_SIZES = { wire: [["14/2", "14/2 (15 A lights, outlets)"], ["12/2", "12/2 (20 A outlets)"], ["10/2", "10/2 (30 A dryer, heater)"], ["6/3", "6/3 (range, subpanel)"]],
+  hot: WV_SUPPLY, cold: WV_SUPPLY, drain: [[1.5, "1½″"], [2, "2″"], [3, "3″"]], vent: [[1.5, "1½″"], [2, "2″"]] };
+const WV_RUN_DEF = { wire: ["14/2", 2], hot: [0.5, 20 / 12], cold: [0.5, 20 / 12], drain: [2, 1.5], vent: [1.5, 6] };
+const runSize = it => it.size != null ? it.size : WV_RUN_DEF[it.type][0];
+function runOD(it) { const s = runSize(it); return it.type === "wire" ? { "14/2": .4, "12/2": .45, "10/2": .55, "6/3": .9 }[s] || .4 : s + (s < 1 ? .125 : .4); }   // inches across
+function runHole(it) { const s = runSize(it); return it.type === "wire" ? (s === "6/3" ? 1.25 : .75) : { 0.5: .75, 0.75: 1, 1.5: 2, 2: 2.5, 3: 3.5 }[s] || s + .5; }   // drill bit, inches
+// Where a run passes through framing: studs it crosses, and plates/headers/sills a rise crosses. View feet.
+function wvHoles(pts) {
+  const out = [], F = wvFraming();
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i];
+    for (const f of F) {
+      const vert = !["plate", "header", "sill"].includes(f.kind);
+      if (vert) { const cx = f.x + f.w / 2; if ((a.x - cx) * (b.x - cx) > 0 || a.x === b.x) continue; const y = a.y + (b.y - a.y) * (cx - a.x) / (b.x - a.x); if (y >= f.y && y <= f.y + f.h) out.push({ x: cx, y, f }); }
+      else { const cy = f.y + f.h / 2; if ((a.y - cy) * (b.y - cy) > 0 || a.y === b.y) continue; const x = a.x + (b.x - a.x) * (cy - a.y) / (b.y - a.y); if (x >= f.x && x <= f.x + f.w) out.push({ x, y: cy, f }); }
+    }
+  }
+  return out;
+}
+function fmtInches(v) { const q = Math.round(v * 4), w = Math.floor(q / 4), f = ["", "¼", "½", "¾"][q % 4]; return (w || !f ? w : "") + f + "″"; }   // 2.5 → 2½″
+const wvStudDepth = () => (wv.S.th || 0.375) * 12 >= 6 ? 5.5 : 3.5;   // 2×6 or 2×4, inches
 const WV_COLORS = [["wood", "Wood", "#B98552"], ["white", "White", "#F4F2EC"], ["black", "Black", "#2A2A2A"], ["gray", "Gray", "#8B8F93"], ["navy", "Navy", "#2B3E63"], ["green", "Green", "#4F6B4A"]];
 const wvColor = k => (WV_COLORS.find(c => c[0] === k) || WV_COLORS[0])[2];
 function openVert(o, H) {   // sill and head heights in feet
@@ -2934,7 +2957,7 @@ function openWallView(S, from) {
   let face = 1;
   if (from) face = (from.x - mid.x) * nL.x + (from.y - mid.y) * nL.y >= 0 ? 1 : -1;
   else { const inL = wvSideLabel(S, nL), inR = wvSideLabel(S, { x: -nL.x, y: -nL.y }); face = inL === "Outside" ? -1 : inR === "Outside" ? 1 : inL !== "Inside" ? 1 : inR !== "Inside" ? -1 : 1; }
-  wv = { v, S, nL, face, isNew, layer: "framing", show: { framing: true, openings: true, elec: true, plumb: true, drywall: false, finish: true }, sel: null, tool: null, view: null,
+  wv = { v, S, nL, face, isNew, layer: "framing", runPick: { elec: { type: "wire", size: "14/2" }, plumb: { type: "cold", size: 0.5 } }, show: { framing: true, openings: true, elec: true, plumb: true, drywall: false, finish: true }, sel: null, tool: null, view: null,
     undo: JSON.stringify({ v, opens: dz.opens, wallH: dz.wallH }) };
   wvSetLayer("framing");
   $("wallview").showModal(); requestAnimationFrame(wvResize);
@@ -3056,9 +3079,13 @@ function wvDrawItem(q, sel, drywallOn) {
 }
 function wvDrawRun(q, sel) {
   const g = wctx, R = WV_RUNS[q.it.type] || WV_RUNS.wire;
-  g.save(); g.strokeStyle = sel ? MARK : R[1]; g.lineWidth = Math.max(1.5, WI(R[2] / 2) * wk); g.lineJoin = g.lineCap = "round";
+  g.save(); g.strokeStyle = sel ? MARK : R[1]; g.lineWidth = Math.max(q.it.type === "wire" ? 2 : 2.5, WI(runOD(q.it)) * wk); g.lineJoin = g.lineCap = "round";
   if (q.it.type === "vent") g.setLineDash([6, 4]);
   g.beginPath(); q.pts.forEach((p, i) => { const s = wS(p.x, p.y); i ? g.lineTo(s.x, s.y) : g.moveTo(s.x, s.y); }); g.stroke(); g.restore();
+  if (!wv.show.framing || q.pts.length < 2) return;
+  g.save(); g.strokeStyle = "#5A3F1E"; g.lineWidth = 1.2;   // drilled holes where it goes through wood
+  for (const h of wvHoles(q.pts)) { const s = wS(h.x, h.y); g.beginPath(); g.arc(s.x, s.y, Math.max(3, WI(runHole(q.it)) / 2 * wk), 0, Math.PI * 2); g.stroke(); }
+  g.restore();
 }
 function wvDim(x0, y0, x1, y1, text, off, tight) {   // dimension line in view feet; off = screen px to the side; tight: leave out text that doesn't fit
   const g = wctx, a = wS(x0, y0), b = wS(x1, y1), L = Math.hypot(b.x - a.x, b.y - a.y); if (L < 6) return;
@@ -3116,7 +3143,7 @@ function wvDraw() {
     if (wv.sel && wv.sel.open === q.o) { g.save(); g.strokeStyle = MARK; g.lineWidth = 2.5; g.setLineDash([5, 3]); g.strokeRect(a.x - 3, a.y - 3, w + 6, h + 6); g.restore(); }
   }
   for (const q of boxes) if (q.it.layer === "finish") wvDrawItem(q, wv.sel && wv.sel.item === q.it, dw);
-  if (wv.draft) wvDrawRun({ it: { type: wv.tool.run }, pts: [...wv.draft, wv.cursor].filter(Boolean) }, true);
+  if (wv.draft) wvDrawRun({ it: { type: wv.tool.run, size: wv.tool.size }, pts: [...wv.draft, wv.cursor].filter(Boolean).map(p => ({ x: fr.x(p.t), y: p.y })) }, true);
   // Overall size, and where the selected thing sits.
   const chain = wv.show.framing && act === "framing";
   wvDim(0, H, L, H, fl(L), chain ? -48 : -18); wvDim(0, 0, 0, H, fl(H), -18);
@@ -3156,6 +3183,7 @@ function wvMoveStudTo(t) {   // the selected stud goes to t; a layout stud becom
 function wvSelGeom() {   // left edge and bottom of the selection, view feet
   const sel = wv.sel; if (!sel) return null; const fr = wvFrame();
   if (sel.item && !sel.item.run) return { x0: fr.x(sel.item.t) - sel.item.w / 2, y0: sel.item.cy - sel.item.h / 2 };
+  if (sel.item) { const p = sel.item.pts.reduce((a, b) => fr.x(b.t) < fr.x(a.t) ? b : a); return { x0: fr.x(p.t), y0: p.y }; }   // a run: its left end
   if (sel.open) { const q = wvOpenings().find(q => q.o === sel.open); return q ? { x0: fr.x(q.t) - q.w / 2, y0: q.sill } : null; }
   return null;
 }
@@ -3173,8 +3201,8 @@ function wvTitle() {
 const WV_HINTS = {
   framing: "Drag Add a stud onto the wall to place one. Drag studs you placed to move them; tap any other stud, then Move or Remove.",
   openings: "These are the doors and windows from the floor plan. Drag one to move it, or set its sizes on the left.",
-  elec: "Tap an item on the left to add it, then drag it into place. Draw wire connects them; tap to bend, tap the last point again to finish.",
-  plumb: "Add fixtures and stub-outs, or draw pipe runs: tap to bend, tap the last point again to finish.",
+  elec: "Tap an item on the left to add it, then drag it into place. Straight across runs a wire end to end; Draw a wire lets you bend it.",
+  plumb: "Add fixtures and stub-outs. Straight across runs a pipe end to end; Draw a pipe lets you bend it. Holes show where it goes through studs.",
   drywall: "Drywall covers this side of the wall. Pick a paint color on the left. Electrical items show as cover plates.",
   finish: "Add shelves, art, a TV, cabinets and more, then drag them into place. Scroll or pinch to zoom; drag empty space to pan.",
 };
@@ -3189,11 +3217,16 @@ function wvTools() {
   else {
     const cat = WV_ITEMS[l];
     h = `<h3>Add to the wall</h3><div class="dz-presets">${Object.entries(cat).map(([k, d]) => `<button data-additem="${k}"><span>${esc(d[0])}</span><small>${esc(fl(WI(d[1])))} × ${esc(fl(WI(d[2])))}</small></button>`).join("")}</div>`;
-    const runs = l === "elec" ? ["wire"] : ["hot", "cold", "drain", "vent"];
-    h += `<div class="row">${runs.map(r => `<button class="ghost small" data-run="${r}" aria-pressed="${!!(wv.tool && wv.tool.run === r)}">Draw ${esc(WV_RUNS[r][0].toLowerCase())}</button>`).join("")}</div>`;
+    if (l === "elec" || l === "plumb") {   // wire and pipe runs: drawn with bends, or straight across the whole wall
+      const pk = wv.runPick[l], noun = l === "elec" ? "wire" : "pipe", drawing = !!(wv.tool && wv.tool.run);
+      h += `<h3>${l === "elec" ? "Wire runs" : "Pipe runs"}</h3><div class="${l === "plumb" ? "pair" : ""}">`
+        + (l === "plumb" ? `<div class="field"><label for="wv-rnewkind">Pipe</label><select id="wv-rnewkind">${optList(["hot", "cold", "drain", "vent"].map(r => [r, WV_RUNS[r][0]]), pk.type)}</select></div>` : "")
+        + `<div class="field"><label for="wv-rnewsize">Size</label><select id="wv-rnewsize">${optList(WV_SIZES[pk.type], pk.size)}</select></div></div>`
+        + `<div class="row"><button class="ghost small" data-run="across">Straight across</button><button class="ghost small" data-run="draw" aria-pressed="${drawing}">Draw a ${noun}</button></div>`;
+    }
   }
   $("wv-tools").innerHTML = h;
-  $("wv-hint").textContent = wv.tool && wv.tool.run ? `Tap to start the ${WV_RUNS[wv.tool.run][0].toLowerCase()}, tap to bend it, and tap the last point again to finish.` : wv.tool && wv.tool.stud ? "Tap where the new stud goes, or press and slide to place it exactly." : WV_HINTS[l];
+  $("wv-hint").textContent = wv.tool && wv.tool.run ? `Tap to start the ${WV_RUNS[wv.tool.run][0].toLowerCase()}, tap to bend it, and tap the last point again to finish. It stays level or straight up and down; hold Shift for an angle.` : wv.tool && wv.tool.stud ? "Tap where the new stud goes, or press and slide to place it exactly." : WV_HINTS[l];
 }
 function wvField(id, label, val, type = "text") { return `<div class="field"><label for="${id}">${label}</label><input id="${id}" type="${type}" inputmode="decimal" value="${esc(val)}"></div>`; }
 function wvFields() {
@@ -3214,7 +3247,19 @@ function wvFields() {
       <div class="pair">${wvField("wv-osill", q.o.otype === "window" ? "Sill from floor" : "Bottom from floor", fl(q.sill))}${wvField("wv-ox", "From left end", fl(fr.x(q.t) - q.w / 2))}</div>`;
   } else {
     const it = sel.item;
-    if (it.run) { $("wv-selname").textContent = WV_RUNS[it.type][0]; h = `<div class="field"><label for="wv-rtype">Kind</label><select id="wv-rtype">${optList((it.layer === "elec" ? ["wire"] : ["hot", "cold", "drain", "vent"]).map(r => [r, WV_RUNS[r][0]]), it.type)}</select></div>`; }
+    if (it.run) {
+      $("wv-selname").textContent = WV_RUNS[it.type][0];
+      const xs = it.pts.map(p => fr.x(p.t)), level = it.pts.length === 2 && Math.abs(it.pts[0].y - it.pts[1].y) < 1e-6;
+      h = `<div class="${it.layer === "plumb" ? "pair" : ""}">${it.layer === "plumb" ? `<div class="field"><label for="wv-rtype">Pipe</label><select id="wv-rtype">${optList(["hot", "cold", "drain", "vent"].map(r => [r, WV_RUNS[r][0]]), it.type)}</select></div>` : ""}
+        <div class="field"><label for="wv-rsize">Size</label><select id="wv-rsize">${optList(WV_SIZES[it.type], runSize(it))}</select></div></div>`;
+      if (level) h += `<div class="pair">${wvField("wv-ry", "Height from floor", fl(it.pts[0].y))}${wvField("wv-rx", "Starts from left end", fl(Math.min(...xs)))}</div>${wvField("wv-rl", "Length", fl(Math.abs(xs[1] - xs[0])))}`;
+      const holes = wvHoles(it.pts.map(p => ({ x: fr.x(p.t), y: p.y }))), hole = runHole(it), dep = wvStudDepth();
+      if (holes.length) {
+        const studs = holes.filter(q => !["plate", "header", "sill"].includes(q.f.kind)).length, other = holes.length - studs;
+        h += `<p class="muted" style="font-size:13px;margin:0 0 8px">Goes through ${studs ? studs + " stud" + (studs > 1 ? "s" : "") : ""}${studs && other ? " and " : ""}${other ? other + " plate" + (other > 1 ? "s" : "") + " or header" + (other > 1 ? "s" : "") : ""}: drill ${holes.length} hole${holes.length > 1 ? "s" : ""} about ${esc(fmtInches(hole))} across, centered in the stud.</p>`;
+        if (hole > dep * 0.4) h += `<p style="font-size:13px;margin:0 0 8px;color:${MARK}">That hole is more than 40% of a ${dep > 4 ? "2×6" : "2×4"}'s ${esc(fmtInches(dep))} depth, which most codes don't allow in a bearing wall. Ask your inspector, or use a thicker wall.</p>`;
+      }
+    }
     else {
       $("wv-selname").textContent = it.label || (WV_ITEMS[it.layer][it.type] || [])[0] || "Item";
       const fin = it.layer === "finish";
@@ -3239,7 +3284,14 @@ $("wv-selfields").addEventListener("change", e => {
     if (id === "wv-ox") { const v = wvLen(id); if (isFinite(v)) wvMoveOpening(o, fr.t(v + q.w / 2)); }
   } else if (sel.item) {
     const it = sel.item, fin = it.layer === "finish";
-    if (id === "wv-rtype") it.type = e.target.value;
+    if (id === "wv-rtype") { it.type = e.target.value; it.size = WV_RUN_DEF[it.type][0]; }
+    if (id === "wv-rsize") it.size = it.type === "wire" ? e.target.value : +e.target.value;
+    if (it.run && ["wv-ry", "wv-rx", "wv-rl"].includes(id)) {   // a level run: height, where it starts, how long
+      const v = wvLen(id), xs = it.pts.map(p => fr.x(p.t)), x0 = Math.min(...xs), i0 = xs.indexOf(x0), i1 = 1 - i0;
+      if (id === "wv-ry" && isFinite(v)) for (const p of it.pts) p.y = Math.max(0, Math.min(dz.wallH, v));
+      if (id === "wv-rx" && isFinite(v)) for (const p of it.pts) p.t = fr.t(fr.x(p.t) + v - x0);
+      if (id === "wv-rl" && v > 0) it.pts[i1].t = fr.t(x0 + v);
+    }
     if (id === "wv-label") it.label = e.target.value.trim();
     if (id === "wv-icolor") it.color = e.target.value;
     if (id === "wv-iw") { const v = wvLen(id); if (v > 0) it.w = v; }
@@ -3264,6 +3316,8 @@ $("wv-tools").addEventListener("change", e => {
   if (e.target.id === "wv-from") { const left = e.target.value === "lo"; v.layFrom = (fr.s > 0) === left ? "lo" : "hi"; }
   if (e.target.id === "wv-paint") { v.paint = Object.assign({}, v.paint, { [fr.vf]: e.target.value }); }
   if (e.target.id === "wv-dwth") v.dwTh = e.target.value;
+  if (e.target.id === "wv-rnewkind") { const k = e.target.value; wv.runPick.plumb = { type: k, size: WV_RUN_DEF[k][0] }; wv.tool = null; wvTools(); }
+  if (e.target.id === "wv-rnewsize") { const pk = wv.runPick[wv.layer]; pk.size = pk.type === "wire" ? e.target.value : +e.target.value; if (wv.tool && wv.tool.run) wv.tool.size = pk.size; }
   wvDraw();
 });
 $("wv-tools").addEventListener("input", e => { if (e.target.id === "wv-paint") { wv.v.paint = Object.assign({}, wv.v.paint, { [wvFrame().vf]: e.target.value }); wvDraw(); } });
@@ -3271,7 +3325,11 @@ $("wv-tools").addEventListener("click", e => {
   const fr = wvFrame(), mid = fr.t(fr.L / 2), b = e.target.closest("button"); if (!b) return;
   if (b.id === "wv-addstud") { if (e.detail === 0) { wv.tool = wv.tool && wv.tool.stud ? null : { stud: true }; wvTools(); } return; }   // keyboard; mouse and touch are handled on pointerup
   if (b.id === "wv-resetstud") { wv.v.studAdd = []; wv.v.studDel = []; wv.sel = null; wvFields(); wvDraw(); return; }
-  if (b.dataset.run) { wv.tool = wv.tool && wv.tool.run === b.dataset.run ? null : { run: b.dataset.run }; wv.draft = null; wvTools(); wvDraw(); return; }
+  if (b.dataset.run === "draw") { const pk = wv.runPick[wv.layer]; wv.tool = wv.tool && wv.tool.run ? null : { run: pk.type, size: pk.size }; wv.draft = null; wvTools(); wvDraw(); return; }
+  if (b.dataset.run === "across") {   // end to end at the usual height for its kind
+    const pk = wv.runPick[wv.layer], y = WV_RUN_DEF[pk.type][1], it = { id: Date.now() + Math.random(), layer: wv.layer, run: true, type: pk.type, size: pk.size, pts: [{ t: fr.t(0), y }, { t: fr.t(fr.L), y }], face: 0 };
+    wv.v.items.push(it); wv.tool = null; wv.draft = null; wv.sel = { item: it }; wvTools(); wvFields(); wvDraw(); return;
+  }
   if (b.dataset.addopen) {
     const k = b.dataset.addopen, w = OPEN_DEFAULT_W[k] / 12, S = wv.S, o = { id: dz.nid++, otype: k, w, hinge: 0, side: 1, label: "" };
     if (S.ref && S.ref.type !== "free") { o.ref = S.ref; o.along = 0; }
@@ -3298,6 +3356,11 @@ function wvHit(p) {   // what's under the pointer: the layer you're on first, th
   }
   return null;
 }
+function wvRunPt(p, last, free) {   // the next point of a run: level or straight up from the last one unless Shift is held
+  const fr = wvFrame(); let x = wvSnap(p.x), y = wvSnap(Math.max(0, Math.min(dz.wallH, p.y)));
+  if (last && !free) { const lx = fr.x(last.t); if (Math.abs(x - lx) >= Math.abs(y - last.y)) y = last.y; else x = lx; }
+  return { t: fr.t(x), y };
+}
 const wvPtrs = new Map(); let wvPinch = null, wvDrag = null;
 wvc.addEventListener("wheel", e => { if (!wv) return; e.preventDefault(); const p = wvLocal(e); wvZoomAt(Math.exp(-e.deltaY * 0.0015), p.sx, p.sy); }, { passive: false });
 wvc.addEventListener("pointerdown", e => {
@@ -3312,9 +3375,9 @@ wvc.addEventListener("pointerdown", e => {
   const fr = wvFrame();
   if (wv.tool && wv.tool.stud) { const t = wvStudT(p.x); wvAddStud(t); wvDrag = { stud: true, t0: t, start: p }; return; }   // keep holding to slide it
   if (wv.tool && wv.tool.run) {
-    const q = { t: fr.t(wvSnap(p.x)), y: wvSnap(Math.max(0, Math.min(dz.wallH, p.y))) }, last = wv.draft && wv.draft[wv.draft.length - 1];
+    const last = wv.draft && wv.draft[wv.draft.length - 1], q = wvRunPt(p, last, e.shiftKey);
     if (last && Math.hypot((fr.x(last.t) - fr.x(q.t)) * wk, (last.y - q.y) * wk) < 12) {   // tap the last point again: done
-      if (wv.draft.length >= 2) { const it = { id: Date.now() + Math.random(), layer: wv.layer, run: true, type: wv.tool.run, pts: wv.draft, face: 0 }; wv.v.items.push(it); wv.sel = { item: it }; }
+      if (wv.draft.length >= 2) { const it = { id: Date.now() + Math.random(), layer: wv.layer, run: true, type: wv.tool.run, size: wv.tool.size, pts: wv.draft, face: 0 }; wv.v.items.push(it); wv.sel = { item: it }; }
       wv.draft = null; wv.cursor = null; wv.tool = null; wvTools(); wvFields(); wvDraw(); return;
     }
     wv.draft = [...(wv.draft || []), q]; wvDraw(); return;
@@ -3336,7 +3399,7 @@ wvc.addEventListener("pointermove", e => {
     const k = Math.max(fit * .5, Math.min(fit * 30, P.k * Math.hypot(a.x - b.x, a.y - b.y) / P.d)), mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
     const wx = (P.mid.x - P.x) / P.k, wy = (P.y - P.mid.y) / P.k; wv.view = { k, x: mid.x - wx * k, y: mid.y + wy * k }; wvDraw(); return;
   }
-  if (wv.tool && wv.tool.run && wv.draft) { const fr = wvFrame(); wv.cursor = { x: wvSnap(p.x), y: wvSnap(p.y) }; wv.cursor.t = fr.t(wv.cursor.x); wvDrawDraftCursor(); return; }
+  if (wv.tool && wv.tool.run && wv.draft) { const c = wvRunPt(p, wv.draft[wv.draft.length - 1], e.shiftKey); wv.cursor = { ...c, x: wvFrame().x(c.t) }; wvDrawDraftCursor(); return; }
   if (wv.tool && wv.tool.stud && !wvDrag) { wv.ghost = wvStudT(p.x); wvDraw(); return; }   // where the stud would go
   if (!wvDrag) return;
   if (wvDrag.stud) { wvMoveStudTo(wvStudT(wvFrame().x(wvDrag.t0) + p.x - wvDrag.start.x)); wvFields(); wvDraw(); return; }
