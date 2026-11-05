@@ -3045,6 +3045,20 @@ const PS_PAPER = { tabloid: [17, 11, "11 × 17 (tabloid)"], letter: [11, 8.5, "8
 const PS_ARCH = [[1 / 2, "1/2\" = 1'-0\""], [3 / 8, "3/8\" = 1'-0\""], [1 / 4, "1/4\" = 1'-0\""], [3 / 16, "3/16\" = 1'-0\""], [1 / 8, "1/8\" = 1'-0\""], [3 / 32, "3/32\" = 1'-0\""], [1 / 16, "1/16\" = 1'-0\""], [1 / 32, "1/32\" = 1'-0\""]];
 const PS_ENG = [10, 20, 30, 40, 50, 60, 80, 100, 150, 200, 300, 400, 500, 1000].map(n => [1 / n, `1" = ${n}'`]);
 const psPick = (wFt, hFt, aw, ah, list) => list.find(([k]) => wFt * k <= aw && hFt * k <= ah) || list[list.length - 1];
+function psFit(wFt, hFt, aw, ah) {
+  const std = PS_ARCH.find(([k]) => wFt * k <= aw && hFt * k <= ah), kf = Math.min(aw / wFt, ah / hFt);
+  if ((std && std[0] >= kf * 0.88) || kf >= 0.5) return std || PS_ARCH[0];
+  const n = Math.floor(kf * 64); if (n < 1) return psPick(wFt, hFt, aw, ah, PS_ARCH);
+  let a = n, d = 64; while (a % 2 === 0) { a /= 2; d /= 2; }
+  return [n / 64, `${a}/${d}" = 1'-0"`];
+}
+// graphic scale bar (sIn = inches per foot)
+function psBar(x, y, sIn, txt = "") {
+  const step = [1, 2, 4, 5, 10, 20, 25, 50].find(v => v * sIn >= 0.35) || 50;
+  return [0, 1, 2, 3, 4].map(i => `<rect x="${n2(x + i * step * sIn)}" y="${n2(y)}" width="${n2(step * sIn)}" height=".06" fill="${i % 2 ? "#FFFFFF" : "#17231F"}" stroke="#17231F" stroke-width=".006"/>`).join("")
+    + [0, 2, 4].map(i => `<text x="${n2(x + i * step * sIn)}" y="${n2(y - 0.04)}" class="tc ts">${i * step}'</text>`).join("")
+    + (txt ? `<text x="${n2(x + 5 * step * sIn + 0.12)}" y="${n2(y + 0.06)}" class="tl ts">${psE(txt)}</text>` : "");
+}
 const psE = t => esc(t);
 const ps = { b: null, paper: "tabloid" };
 const n2 = v => +v.toFixed(3);
@@ -3554,7 +3568,7 @@ function psRaster(b, lv, ext, sIn, ppi, tags, opt = {}) {
     if (opt.extra) opt.extra(g);
   } catch (e) { console.warn("plan drawing:", e); }
   finally { ctx = save.ctx; Object.assign(view, save.view); state.level = save.level; state.shapes = save.shapes; selected = save.sel; state.showDims = save.dims; state.ghost = save.ghost; state.nextId = save.nextId; }
-  return { url: c.toDataURL("image/png"), wIn, hIn };
+  return { url: c.toDataURL("image/png"), wIn, hIn, sIn };
 }
 
 function psBuild(b) {
@@ -3568,8 +3582,8 @@ function psBuild(b) {
   const fpPages = [];
   for (const f of ord) {
     const WL = psWalls(b, f.lv), pts = state.shapes.filter(s => s.bid === b.id && (s.level === f.lv || s.kind === "building")).flatMap(s => s.points).concat(b.points);
-    const B = bbox(pts), pad = 6 * FT, ext = { x0: B.x0 - pad, y0: B.y0 - pad, x1: B.x1 + pad, y1: B.y1 + pad };
-    const [sIn, sTxt] = psPick((ext.x1 - ext.x0) / FT, (ext.y1 - ext.y0) / FT, aw, ah - 0.5, PS_ARCH);
+    const B = bbox(pts), dh = ah - 0.6, [sIn, sTxt] = psFit((B.x1 - B.x0) / FT + 24, (B.y1 - B.y0) / FT + 24, aw, dh);
+    const cx = (B.x0 + B.x1) / 2, cy = (B.y0 + B.y1) / 2, hw = aw / sIn / 2 * FT, hh = dh / sIn / 2 * FT, ext = { x0: cx - hw, y0: cy - hh, x1: cx + hw, y1: cy + hh };
     const tags = WL.walls.map(w => { const m = { x: (w.a.x + w.c.x) / 2, y: (w.a.y + w.c.y) / 2 }, u = unit(w.a, w.c), nn = { x: -u.y, y: u.x }, off = w.ext ? 2.2 : 1.1; let q = { x: m.x + nn.x * off, y: m.y + nn.y * off }; if (w.ext && inPoly(q, WL.f.P)) q = { x: m.x - nn.x * off, y: m.y - nn.y * off }; return { tag: w.tag, p: F.toW(q) }; });
     const R = psRaster(b, f.lv, ext, sIn, 100, tags);
     fpPages.push([f, R, sTxt, WL]);
@@ -3628,8 +3642,9 @@ function psBuild(b) {
   }
   // ---- foundation plan ----
   {
-    const P = G.floors[0].P, B = bbox(P), wF = B.x1 - B.x0 + 12, hF = B.y1 - B.y0 + 12, [s, sTxt] = psPick(wF, hF, aw * 0.68, ah - 0.4, PS_ARCH);
-    const X = v => n2(ax + 0.3 + (v - B.x0 + 6) * s), Y = v => n2(ay + 0.3 + (v - B.y0 + 6) * s), pl = Q => Q.map(q => X(q.x) + "," + Y(q.y)).join(" "), g = [];
+    const P = G.floors[0].P, B = bbox(P), fw = aw * 0.68, fh = ah - 0.6, [s, sTxt] = psFit(B.x1 - B.x0 + 10, B.y1 - B.y0 + 10, fw, fh);
+    const ox = ax + (fw - (B.x1 - B.x0) * s) / 2, oy = ay + (fh - (B.y1 - B.y0) * s) / 2;
+    const X = v => n2(ox + (v - B.x0) * s), Y = v => n2(oy + (v - B.y0) * s), pl = Q => Q.map(q => X(q.x) + "," + Y(q.y)).join(" "), g = [];
     if (post) {
       g.push(`<polygon points="${pl(P)}" class="fo"/>`);
       for (let i = 0; i < P.length; i++) { const a = P[i], c = P[(i + 1) % P.length], L = dist(a, c), n = Math.ceil(L / +o.poc - 1e-6); for (let j = 0; j < n; j++) { const t = j / n, q = { x: a.x + (c.x - a.x) * t, y: a.y + (c.y - a.y) * t }; g.push(`<rect x="${n2(X(q.x) - 0.25 * s)}" y="${n2(Y(q.y) - 0.25 * s)}" width="${n2(0.5 * s)}" height="${n2(0.5 * s)}" class="ps-post"/><circle cx="${X(q.x)}" cy="${Y(q.y)}" r="${n2(0.75 * s)}" class="ftd"/>`); } }
@@ -3647,18 +3662,20 @@ function psBuild(b) {
     const notes = (fsec ? fsec.rows : []).map(r => `${r[0]}${r[3] ? " — " + r[3] : ""}`);
     const nx = ax + aw * 0.7, big = PW > 12, nMax = big ? Math.max(6, Math.floor((ah * 0.42 - 0.6) / 0.27)) : 16, nN = Math.min(nMax, notes.length);
     const dY = ay + 0.6 + nN * 0.27 + (post ? 0.15 : 0.45), detA = big ? psFoundDetail(b, o, nx - 0.15, dY, ax + aw - nx + 0.15, ay + ah - dY, 1, "A-1") : "";
+    g.push(psBar(ax + 0.05, PH - M - 0.32, s, sTxt));
     page("A-1", post ? "Post and footing plan" : "Foundation plan", sTxt, svg(g.join("") + `<text x="${n2(nx)}" y="${n2(ay + 0.3)}" class="tl tb">${post ? "Posts and footings" : "Foundation"}</text>` + notes.slice(0, nN).map((t, i) => `<text x="${n2(nx)}" y="${n2(ay + 0.6 + i * 0.27)}" class="tl">• ${psE(t.length > Math.floor(aw * 0.29 / 0.05) ? t.slice(0, Math.floor(aw * 0.29 / 0.05) - 1) + "…" : t)}</text>`).join("") + (post ? "" : `<text x="${n2(nx)}" y="${n2(ay + 0.6 + nN * 0.27 + 0.2)}" class="tl">Dots: ½" anchor bolts about 6 ft apart and near each corner. Dashed: footing edges.</text>`) + (detA ? PS_DEFS + detA : "")));
     if (!big) { const d = psFoundDetail(b, o, ax, ay + 0.1, aw, ah - 0.2, 1, "A-1.1"); if (d) page("A-1.1", "Foundation detail", "As noted", svg(PS_DEFS + d)); }
   }
   // ---- floor plans ----
-  fpPages.forEach(([f, R, sTxt, WL], i) => page("A-" + (2 + i), levelName(f.lv) + " plan", sTxt, `<img class="ps-img" src="${R.url}" style="left:${ax}in;top:${ay}in;width:${n2(R.wIn)}in;height:${n2(R.hIn)}in">` + svg(`<text x="${ax}" y="${n2(PH - M - 0.05)}" class="tl">${psE(levelName(f.lv))}: ${Math.round(f.area).toLocaleString()} sq ft. Circled tags (E1, I1…) match the wall framing sheets. Wall height ${psE(fmtLen(f.H * FT))}.</text>`)));
+  fpPages.forEach(([f, R, sTxt, WL], i) => page("A-" + (2 + i), levelName(f.lv) + " plan", sTxt, `<img class="ps-img" src="${R.url}" style="left:${ax}in;top:${ay}in;width:${n2(R.wIn)}in;height:${n2(R.hIn)}in">` + svg(psBar(ax + 0.05, PH - M - 0.32, R.sIn, sTxt) + `<text x="${ax}" y="${n2(PH - M - 0.05)}" class="tl">${psE(levelName(f.lv))}: ${Math.round(f.area).toLocaleString()} sq ft. Circled tags (E1, I1…) match the wall framing sheets. Wall height ${psE(fmtLen(f.H * FT))}.</text>`)));
   let an = 2 + fpPages.length;
   // ---- roof plan ----
   const RF = psRoofs(b, o);
   {
     const B0 = bbox(RF.roofs.flatMap(r => r.out).concat(G.floors.flatMap(f => f.P)));
-    const [s, sTxt] = psPick(B0.x1 - B0.x0 + 8, B0.y1 - B0.y0 + 8, aw * 0.7, ah - 0.4, PS_ARCH);
-    const X = v => n2(ax + 0.3 + (v - B0.x0 + 4) * s), Y = v => n2(ay + 0.3 + (v - B0.y0 + 4) * s), pl = Q => Q.map(q => X(q.x) + "," + Y(q.y)).join(" "), g = [];
+    const rw = aw * 0.7, rh = ah - 0.7, [s, sTxt] = psFit(B0.x1 - B0.x0 + 6, B0.y1 - B0.y0 + 6, rw, rh);
+    const rox = ax + (rw - (B0.x1 - B0.x0) * s) / 2, roy = ay + (rh - (B0.y1 - B0.y0) * s) / 2;
+    const X = v => n2(rox + (v - B0.x0) * s), Y = v => n2(roy + (v - B0.y0) * s), pl = Q => Q.map(q => X(q.x) + "," + Y(q.y)).join(" "), g = [];
     const img = psRoofImg(RF, B0, Math.min(30, s * 160));
     g.push(`<image href="${img.url}" x="${X(B0.x0)}" y="${Y(B0.y0)}" width="${n2((B0.x1 - B0.x0) * s)}" height="${n2((B0.y1 - B0.y0) * s)}" preserveAspectRatio="none"/>`);
     for (const f of G.floors) g.push(`<polygon points="${pl(f.P)}" class="ftd"/>`);
@@ -3676,6 +3693,7 @@ function psBuild(b) {
     const { S } = matList(b), rs = S.find(x => x.title === "Roof framing"), rn = S.find(x => x.title === (post ? "Roofing" : "Roof sheathing and roofing")), nx = ax + aw * 0.72;
     const notes = [...(rs ? rs.rows : []), ...(rn ? rn.rows : [])].map(r => `${r[0]}: ${typeof r[1] === "number" ? r[1].toLocaleString() : r[1]} ${r[2]}`), mc = Math.floor(aw * 0.27 / 0.05);
     const more = RF.roofs.length > 1 ? ` ${RF.roofs.length} roofs: each floor with open sky above gets its own roof at its wall height.` : "";
+    g.push(psBar(ax + 0.05, PH - M - 0.36, s, sTxt));
     page("A-" + an++, "Roof plan", sTxt, svg(g.join("") + `<text x="${n2(nx)}" y="${n2(ay + 0.3)}" class="tl tb">Roof</text>` + notes.slice(0, 22).map((t, i) => `<text x="${n2(nx)}" y="${n2(ay + 0.6 + i * 0.25)}" class="tl">• ${psE(t.length > mc ? t.slice(0, mc - 1) + "…" : t)}</text>`).join("") + `<text x="${ax}" y="${n2(PH - M - 0.05)}" class="tl ts">Dark lines: ridges, hips and valleys where the slopes meet. Arrows point downhill. Dashed: outside of the walls on each floor.${RF.roofs.length === 1 && matRect(RF.roofs[0].P) && !RF.roofs[0].flat ? ` Thin lines: ${post ? "trusses" : o.rframe === "truss" ? "trusses @ 24\"" : "rafters @ 16\""}.` : ""}${more} Material counts cover the biggest floor's roof.</text>`));
   }
   // ---- elevations, two to a sheet ----
