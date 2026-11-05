@@ -428,7 +428,7 @@ dialog.dz{width:min(1200px,96vw);height:min(840px,94vh);max-width:none;max-heigh
         <p class="note">Blue lines show where rain runs. Shaded areas show where it pools.</p>
       </div>
       <div class="layer">
-        <label><input type="checkbox" id="l-ghost"> Show the level below, faded</label>
+        <label><input type="checkbox" id="l-ghost"> Show the floor below and stairs to this floor, faded</label>
       </div>
       <div class="src">
         <p id="s-terrain"></p>
@@ -550,6 +550,7 @@ dialog.dz{width:min(1200px,96vw);height:min(840px,94vh);max-width:none;max-heigh
             <div class="field"><label for="dz-rh">Depth</label><input id="dz-rh" type="text" inputmode="decimal"></div>
           </div>
           <div class="field"><label for="dz-rstyle">Kind</label><select id="dz-rstyle"><option value="room">Room</option><option value="open">Open to below/above</option><option value="stair">Stairs</option></select></div>
+          <div class="field" id="dz-sgo-f" hidden><label for="dz-sgo">Goes</label><select id="dz-sgo"></select></div>
           <div class="row"><button class="ghost small" id="dz-rot">Turn 90°</button><button class="ghost small" id="dz-dup">Duplicate</button><button class="danger small" id="dz-del">Remove</button></div>
         </div>
         <div id="dz-openbox" hidden>
@@ -1557,7 +1558,7 @@ function drawStair(s, sel, ghost) {
   ctx.beginPath(); ctx.moveTo(a1.x, a1.y);
   ctx.lineTo(a1.x - hl * Math.cos(ang - .4), a1.y - hl * Math.sin(ang - .4)); ctx.lineTo(a1.x - hl * Math.cos(ang + .4), a1.y - hl * Math.sin(ang + .4)); ctx.closePath();
   ctx.fillStyle = col; ctx.fill();
-  if (dist(sp[0], sp[3]) > 40) labelDark(s.label || "UP", a0.x + (a1.x - a0.x) * .12 + Math.cos(ang + Math.PI / 2) * 12, a0.y + (a1.y - a0.y) * .12 + Math.sin(ang + Math.PI / 2) * 12, 0, 11, 700, col);
+  if (dist(sp[0], sp[3]) > 40) labelDark(typeof ghost === "string" ? ghost : s.label || "UP",a0.x + (a1.x - a0.x) * .12 + Math.cos(ang + Math.PI / 2) * 12, a0.y + (a1.y - a0.y) * .12 + Math.sin(ang + Math.PI / 2) * 12, 0, 11, 700, col);
 }
 function dimGeom(s) {
   const P = s.points, u = unit(P[0], P[P.length > 1 ? 1 : 0]), n = { x: -u.y, y: u.x }, off = s.offset || 0;
@@ -1653,8 +1654,10 @@ function drawAll() {
     else if (s.kind === "opening") drawOpening(s, sel);
     else drawShape(s.points, s.closed, s.thickness, sel, false);
   }
-  const below = levelBelow(state.level);   // stairs coming up from the floor below, faded, on top so they show even under this floor's stairs
-  if (state.ghost && below) for (const s of state.shapes) if (s.level === below && planB.has(s.bid) && s.kind === "stair") { ctx.save(); ctx.globalAlpha = .4; ctx.setLineDash([5, 4]); drawStair(s, false, true); ctx.restore(); }
+  // Stairs arriving from the floor below (going up) or above (going down), faded, on top so they show even under this floor's stairs.
+  if (state.ghost) for (const s of arrivingStairs(state.level, state.shapes.filter(s => s.kind === "stair" && planB.has(s.bid)), s => s.level)) {
+    ctx.save(); ctx.globalAlpha = .4; ctx.setLineDash([5, 4]); drawStair(s, false, "From " + levelName(s.level).replace(/ floor$/, "")); ctx.restore();
+  }
   for (const s of vis.filter(s => ANNO.has(s.kind) && (s.kind !== "dim" || state.showDims))) s.kind === "dim" ? drawDim(s, s.id === selected) : drawNote(s, s.id === selected);
   if (sel0 && sel0.kind === "building" && sel0.grouped) {
     const pts = [sel0, ...childrenOf(sel0).filter(c => !c.free && visible(c))].flatMap(x => x.points).map(toS);
@@ -1787,18 +1790,29 @@ function rotateGroup(b, deg) {
 
 /* levels */
 // Level ids 1–4 are always these four floors (old projects: Main → Ground floor, Upper → 1st floor).
-const FLOORS = ["Ground floor", "1st floor", "2nd floor", "3rd floor"];
+// The basement is id -1 (never 0: a plan item's level must be truthy). The building outline belongs to the Ground floor.
+const FLOORS = ["Ground floor", "1st floor", "2nd floor", "3rd floor"], BASEMENT = -1, GROUND = 1;
 function normalizeLevels() {
   FLOORS.forEach((name, i) => { const l = state.levels.find(x => x.id === i + 1); if (l) l.name = name; else state.levels.push({ id: i + 1, name }); });
+  const bs = state.levels.find(x => x.id === BASEMENT); if (bs) bs.name = "Basement"; else state.levels.push({ id: BASEMENT, name: "Basement" });
   state.levels = state.levels.filter(l => l.id <= FLOORS.length || state.shapes.some(s => s.level === l.id));   // drop empty extras from the old + button
   state.levels.sort((a, b) => a.id - b.id);
   if (!state.levels.some(l => l.id === state.level)) state.level = 1;
 }
 function levelBelow(lv) { const ids = state.levels.map(l => l.id).filter(id => id < lv); return ids.length ? Math.max(...ids) : 0; }
+function levelAbove(lv) { const ids = state.levels.map(l => l.id).filter(id => id > lv); return ids.length ? Math.min(...ids) : 0; }
+// Stairs say where they go: label "UP" to the floor above, "DN" to the floor below.
+const goesDown = s => s.label === "DN";
+function stairDefault(lv) { return !levelAbove(lv) ? "DN" : "UP"; }
+// Stairs from neighbouring floors that arrive on floor lv: up-stairs from below, down-stairs from above.
+function arrivingStairs(lv, list, levelOf) {
+  const bl = levelBelow(lv), ab = levelAbove(lv);
+  return list.filter(s => (bl && levelOf(s) === bl && !goesDown(s)) || (ab && levelOf(s) === ab && goesDown(s)));
+}
 function renderLevels() {
   normalizeLevels();
   const box = $("levels");
-  box.innerHTML = state.levels.map(l => { const short = l.name.replace(/ floor$/, ""); return `<button data-lv="${l.id}" aria-pressed="${l.id === state.level}" aria-label="${esc(l.name)}" title="${esc(l.name)}">${esc(short)}${short !== l.name ? `<span class="hide-sm"> floor</span>` : ""}</button>`; }).join("");
+  box.innerHTML = state.levels.map(l => { const short = l.name.replace(/ floor$/, ""), text = l.id === BASEMENT ? `<span class="hide-sm">Basement</span><span class="show-sm">Bsmt</span>` : esc(short) + (short !== l.name ? `<span class="hide-sm"> floor</span>` : ""); return `<button data-lv="${l.id}" aria-pressed="${l.id === state.level}" aria-label="${esc(l.name)}" title="${esc(l.name)}">${text}</button>`; }).join("");
 }
 $("levels").onclick = e => {
   const b = e.target.closest("button"); if (!b) return;
@@ -1838,8 +1852,9 @@ function extraHTML(s) {
     h += `<div class="field"><label>Note above the name</label><input type="text" data-prop="sub" value="${esc(s.sub)}" placeholder="e.g. New, Existing/to remain, Remodel"></div>
       <div class="field"><label>Style</label><select data-prop="style">${optList([["room", "Room"], ["open", "Open to below/above"], ["fixture", "Fixture or built-in"], ["porch", "Porch or deck"]], s.style || "room")}</select></div>`;
   } else if (s.kind === "stair") {
-    h += `<div class="field"><label>Arrow label</label><select data-prop="label">${optList([["UP", "UP"], ["DN", "DN"]], s.label || "UP")}</select></div>
-      <div class="row" style="margin-bottom:12px">${btn("reverse", "Reverse direction")}</div>`;
+    const up = levelAbove(s.level), dn = levelBelow(s.level);
+    h += `<div class="field"><label>Goes</label><select data-prop="label">${optList([["UP", "Up" + (up ? " to " + levelName(up) : "")], ["DN", "Down" + (dn ? " to " + levelName(dn) : "")]], s.label || "UP")}</select></div>
+      <div class="row" style="margin-bottom:12px">${btn("reverse", "Turn arrow around")}</div>`;
   } else if (s.kind === "dim") {
     h += `<div class="row" style="margin-bottom:12px">${btn("dimOut", "Move line out")}${btn("dimIn", "Move line in")}${btn("flipDim", "Other side")}</div>`;
   } else if (s.kind === "note") {
@@ -2036,7 +2051,7 @@ $("d-extra").addEventListener("click", e => {
   if (act === "flipSwing") s.side = -(s.side || 1);
   if (act === "flipHinge") s.hinge = s.hinge ? 0 : 1;
   if (act === "flipLabel") s.lside = -(s.lside || -1);
-  if (act === "reverse") { const p = s.points; s.points = [p[3], p[2], p[1], p[0]]; s.label = s.label === "DN" ? "UP" : "DN"; }
+  if (act === "reverse") { const p = s.points; s.points = [p[3], p[2], p[1], p[0]]; }   // which way you walk; up or down is set by Goes
   if (act === "flipDim") s.offset = -(s.offset || 0);
   if (act === "dimOut" || act === "dimIn") { const sg = (s.offset || 0) >= 0 ? 1 : -1, d = act === "dimOut" ? FT : -FT; s.offset = (s.offset || 0) + sg * d; if ((s.offset || 0) * sg < 0) s.offset = 0; }
   if (act === "rot") rotateGroup(s, +b.dataset.v);
@@ -2296,6 +2311,8 @@ function dzSelFields() {
     if (document.activeElement !== $("dz-rw")) $("dz-rw").value = fl(s.w);
     if (document.activeElement !== $("dz-rh")) $("dz-rh").value = fl(s.h);
     $("dz-rstyle").value = s.type === "stair" ? "stair" : s.style;
+    $("dz-sgo-f").hidden = s.type !== "stair";
+    if (s.type === "stair") { const up = levelAbove(dz.lv), dn = levelBelow(dz.lv); $("dz-sgo").innerHTML = optList([["UP", "Up" + (up ? " to " + levelName(up) : "")], ["DN", "Down" + (dn ? " to " + levelName(dn) : "")]], s.label || "UP"); }
   }
   if (isWall) {
     $("dz-wsel").value = String(Math.round(s.th * 12 * 2) / 2);
@@ -2335,18 +2352,23 @@ function dzStairMarks(P, tread, arrow) {
   g.beginPath(); g.moveTo(a0.x, a0.y); g.lineTo(a1.x, a1.y); g.stroke();
   g.beginPath(); g.moveTo(a1.x, a1.y); g.lineTo(a1.x - hl * Math.cos(ang - .4), a1.y - hl * Math.sin(ang - .4)); g.lineTo(a1.x - hl * Math.cos(ang + .4), a1.y - hl * Math.sin(ang + .4)); g.closePath(); g.fill();
 }
-// Stairs on the floor below this one (corners in designer feet), from its draft if it was edited here.
-function dzBelowStairs() {
-  const bl = levelBelow(dz.lv); if (!bl) return [];
-  const d = dz.drafts[bl], out = d ? d.data.rooms.filter(r => r.type === "stair").map(dzStairPts) : [], skip = new Set(d ? d.data.stairIds || [] : []);
-  for (const s of state.shapes) if (s.bid === dz.b.id && s.level === bl && s.kind === "stair" && s.points.length === 4 && !skip.has(s.id))
-    out.push(s.points.map(p => { const q = dz.rot ? rotPtK(dz.F.toL(p), dz.rot, dz.rotC) : dz.F.toL(p); return [q.x, q.y]; }));
+// Stairs arriving on this floor: up-stairs from the floor below and down-stairs from the floor above
+// (corners in designer feet, with the floor they start on), from that floor's draft if it was edited here.
+function dzArrivingStairs() {
+  const out = [];
+  for (const [L, down] of [[levelBelow(dz.lv), false], [levelAbove(dz.lv), true]]) {
+    if (!L) continue;
+    const want = s => goesDown(s) === down, d = dz.drafts[L], skip = new Set(d ? d.data.stairIds || [] : []);
+    if (d) for (const r of d.data.rooms) if (r.type === "stair" && want(r)) out.push({ pts: dzStairPts(r), lv: L });
+    for (const s of state.shapes) if (s.bid === dz.b.id && s.level === L && s.kind === "stair" && s.points.length === 4 && want(s) && !(d && skip.has(s.id)))
+      out.push({ pts: s.points.map(p => { const q = dz.rot ? rotPtK(dz.F.toL(p), dz.rot, dz.rotC) : dz.F.toL(p); return [q.x, q.y]; }), lv: L });
+  }
   return out;
 }
 function dzDrawBelowStairs() {
-  const g = dctx, from = "From " + levelName(levelBelow(dz.lv));
-  for (const L of dzBelowStairs()) {
-    const P = L.map(([x, y]) => dS(x, y));
+  const g = dctx;
+  for (const { pts, lv } of dzArrivingStairs()) {
+    const P = pts.map(([x, y]) => dS(x, y)), from = "From " + levelName(lv);
     g.save(); g.setLineDash([5, 4]); g.strokeStyle = "rgba(0,0,0,.45)"; g.lineWidth = 1.2;
     g.beginPath(); P.forEach((q, i) => i ? g.lineTo(q.x, q.y) : g.moveTo(q.x, q.y)); g.closePath(); g.stroke(); g.restore();
     dzStairMarks(P, "rgba(0,0,0,.15)", "rgba(0,0,0,.3)");
@@ -2370,7 +2392,7 @@ function dzDrawRoom(r, sel, bad, preview) {
   g.font = `700 ${ns}px "Barlow Condensed", "Arial Narrow", sans-serif`;
   if (r.name && g.measureText(r.name).width < w - 4) g.fillText(r.name, a.x + w / 2, a.y + h / 2 - ns * .55);
   g.font = `500 ${ns * .8}px "Barlow Condensed", "Arial Narrow", sans-serif`;
-  const sz = `${fl(r.w)} × ${fl(r.h)}`; if (g.measureText(sz).width < w - 4) g.fillText(sz, a.x + w / 2, a.y + h / 2 + (r.name ? ns * .6 : 0));
+  const sz = `${fl(r.w)} × ${fl(r.h)}` + (r.type === "stair" ? (r.label === "DN" ? " · DN" : " · UP") : ""); if (g.measureText(sz).width < w - 4) g.fillText(sz, a.x + w / 2, a.y + h / 2 + (r.name ? ns * .6 : 0));
 }
 let lastDirtySig = "";
 function dzDraw() {
@@ -2585,6 +2607,7 @@ $("dz-presets").addEventListener("click", e => {
   const b = e.target.closest("button[data-p]"); if (!b || !dz) return;
   const [name, w, h, kind] = PRESETS[+b.dataset.p], spot = dzFindSpot(w, h);
   const r = { id: dz.nid++, name, sub: "", style: kind === "open" ? "open" : "room", type: kind === "stair" ? "stair" : "room", x: spot.x, y: spot.y, w, h };
+  if (kind === "stair") r.label = stairDefault(dz.lv);
   dz.rooms.push(r); dz.sel = r.id; dzSetTool("move"); dz.sel = r.id; dzSelFields(); dzDraw();
 });
 function dzSetFoot() {
@@ -2601,7 +2624,8 @@ $("dz-rname").addEventListener("input", e => { const r = dzSel(); if (r && "h" i
 for (const [id, key] of [["dz-rw", "w"], ["dz-rh", "h"]]) $(id).addEventListener("change", e => {
   const r = dzSel(), v = parseLen(e.target.value); if (r && "h" in r && v > 0.5) r[key] = v; dzSelFields(); dzDraw();
 });
-$("dz-rstyle").addEventListener("change", e => { const r = dzSel(); if (!r || !("h" in r)) return; if (e.target.value === "stair") r.type = "stair"; else { r.type = "room"; r.style = e.target.value; } dzDraw(); });
+$("dz-rstyle").addEventListener("change", e => { const r = dzSel(); if (!r || !("h" in r)) return; if (e.target.value === "stair") { r.type = "stair"; r.label = r.label || stairDefault(dz.lv); } else { r.type = "room"; r.style = e.target.value; } dzSelFields(); dzDraw(); });
+$("dz-sgo").addEventListener("change", e => { const r = dzSel(); if (r && r.type === "stair") { r.label = e.target.value; dzDraw(); } });
 $("dz-rot").onclick = () => { const r = dzSel(); if (r && "h" in r) { [r.w, r.h] = [r.h, r.w]; if (r.type === "stair") r.dir = ((r.dir || 0) + 1) % 4; dzSelFields(); dzDraw(); } };
 $("dz-dup").onclick = () => { const r = dzSel(); if (!r || !("h" in r)) return; const s = dzFindSpot(r.w, r.h), c = Object.assign({}, r, { id: dz.nid++, x: s.x, y: s.y }); dz.rooms.push(c); dz.sel = c.id; dzSelFields(); dzDraw(); };
 $("dz-del").onclick = () => { dz.rooms = dz.rooms.filter(x => x.id !== dz.sel); dz.sel = null; dzSelFields(); dzDraw(); };
@@ -2643,7 +2667,7 @@ function dzRotate(k) {
   if (!dz) return;
   const cur = dz.lv, b = dz.b;
   dz.drafts[cur] = levelSnap();
-  const lowest = Math.min(...state.levels.map(l => l.id));
+  const lowest = GROUND;   // the floor that owns the building outline
   const need = new Set([lowest, ...state.shapes.filter(x => x.bid === b.id && x.level).map(x => x.level)]);
   for (const L of need) if (!dz.drafts[L]) { state.level = L; openDesigner(b, true); dz.drafts[L] = levelSnap(); }
   state.level = cur; renderLevels();
@@ -2746,8 +2770,7 @@ function saveCurrentLevel() {
   let n = 0;
   for (const r of rooms) add({ kind: "room", name: r.name.trim() || "Room " + (++n), sub: r.sub, style: r.style, closed: true, points: [[r.x, r.y], [r.x + r.w, r.y], [r.x + r.w, r.y + r.h], [r.x, r.y + r.h]].map(([x, y]) => F.toW({ x, y })) });
   for (const r of dz.rooms.filter(r => r.type === "stair")) add(Object.assign({}, r.extra, { kind: "stair", name: r.name || "Stairs", label: r.label || "UP", closed: true, points: dzStairPts(r).map(([x, y]) => F.toW({ x, y })) }));
-  const lowest = Math.min(...state.levels.map(l => l.id));
-  if (lv === lowest) b.points = dz.poly.map(p => F.toW(p));
+  if (lv === GROUND) b.points = dz.poly.map(p => F.toW(p));
   if ($("dz-autodim").checked) autoDimension(b, lv);
 }
 
@@ -3142,7 +3165,7 @@ function tap(sx, sy) {
       }
       const lc = levelCtx(centroid(pts));
       if (tool === "room") return addShape(pts, true, "room", Object.assign({ style: "room", sub: "" }, lc));
-      return addShape(pts, true, "stair", Object.assign({ label: "UP", name: "Stairs" }, lc));
+      return addShape(pts, true, "stair", Object.assign({ label: stairDefault(state.level), name: "Stairs" }, lc));
     }
     updateUI();
   }
