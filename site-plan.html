@@ -218,6 +218,11 @@ dialog::backdrop{background:rgba(5,10,8,.55)}
 .roadpick select{background:#EEF3F1;color:#17231F;border:0;border-radius:999px;padding:5px 10px;font-weight:600}
 .tbpick input[type=range]{width:96px;accent-color:#F2B84B}
 .tbpick .tbv{min-width:38px;white-space:nowrap;font-family:"Barlow Condensed",sans-serif;font-weight:600;font-size:15px}
+.dirt-tot{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 4px;font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:16px}
+.dirt-tot .dug{color:#C8402E}.dirt-tot .piled{color:#2F8A45}
+.dirt-list{margin:6px 0 0;padding-left:0;list-style:none;font-size:13px}
+.dirt-list li{margin:0 0 5px;line-height:1.35}
+.dirt-list button{padding:2px 8px;margin-right:4px}
 .tbpick .tbw{font-size:12px;opacity:.8;white-space:nowrap;padding-right:6px}
 @media (max-width:760px){.cat[data-cat="ground"]{display:none}}
 .readout{position:absolute;left:12px;bottom:16px;background:rgba(13,23,20,.86);color:#EEF3F1;padding:7px 12px;border-radius:8px;
@@ -375,7 +380,7 @@ dialog.dz{width:100vw;height:100vh;height:100dvh;max-width:none;max-height:none;
     </div>
     <div class="cat" data-cat="ground">
       <button class="catbtn" data-cat="ground" aria-pressed="false" aria-expanded="false" aria-haspopup="menu" title="Ground"><span class="caticon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M2 19l6-9 4 5 3-4 7 8z"/><path d="M15 6c1.5-1.5 3.5-1.5 5 0" opacity=".7"/></svg></span><span class="catlabel">Ground</span><span class="catcaret" aria-hidden="true"></span></button>
-      <div class="fly" role="menu" aria-label="Ground" hidden><p class="flyhead">Ground</p><button class="tool flytool" data-tool="terrain" aria-pressed="false" title="Terrain brush: raise, lower, smooth or flatten the ground (G)" role="menuitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M2 19l6-9 4 5 3-4 7 8z"/><path d="M15 6c1.5-1.5 3.5-1.5 5 0" opacity=".7"/></svg><span class="fl">Terrain brush</span><kbd>G</kbd></button></div>
+      <div class="fly" role="menu" aria-label="Ground" hidden><p class="flyhead">Ground</p><button class="tool flytool" data-tool="terrain" aria-pressed="false" title="Terrain brush: raise, lower, smooth or flatten the ground (G)" role="menuitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M2 19l6-9 4 5 3-4 7 8z"/><path d="M15 6c1.5-1.5 3.5-1.5 5 0" opacity=".7"/></svg><span class="fl">Terrain brush</span><kbd>G</kbd></button><button class="tool flytool" data-tool="culvert" aria-pressed="false" title="Culvert: a pipe that carries water under a road or driveway (U)" role="menuitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 16c3-1 6-1 9 0s6 1 9 0" opacity=".6"/><rect x="4" y="7" width="13" height="6" rx="1"/><ellipse cx="18" cy="10" rx="2" ry="3"/></svg><span class="fl">Culvert</span><kbd>U</kbd></button></div>
     </div>
     <hr>
     <button class="toggle snapbtn" id="t-snap" aria-pressed="true" aria-expanded="false" aria-controls="snapmenu" title="Snapping options">
@@ -418,7 +423,7 @@ dialog.dz{width:100vw;height:100vh;height:100dvh;max-width:none;max-height:none;
       <select id="tb-mode" aria-label="Brush"><option value="raise">Raise</option><option value="lower">Lower</option><option value="smooth">Smooth</option><option value="flatten">Flatten</option></select>
       <label for="tb-size">Size</label><input type="range" id="tb-size" min="0" max="100" step="1"><span class="tbv" id="tb-size-v"></span>
       <label for="tb-str">Strength</label><input type="range" id="tb-str" min="1" max="10" step="1"><span class="tbv" id="tb-str-v"></span>
-      <span class="tbw" id="tb-water"></span>
+      <span class="tbw" id="tb-dirt"></span><span class="tbw" id="tb-water"></span>
     </div>
     <div class="roadpick" id="bldpick" hidden>
       <label for="bld-shape">Shape</label>
@@ -461,6 +466,11 @@ dialog.dz{width:100vw;height:100vh;height:100dvh;max-width:none;max-height:none;
         <label><input type="checkbox" id="l-water"> Water flow &amp; pooling</label>
         <input type="range" id="o-water" min="0.1" max="1" step="0.05" aria-label="Water layer opacity">
         <p class="note">Blue lines show where rain runs. Shaded areas show where it pools.</p>
+      </div>
+      <div class="layer off" id="row-dirt">
+        <label><input type="checkbox" id="l-dirt" disabled> Dirt dug and piled</label>
+        <p class="note">Red is dug out, green is piled up, compared with your original terrain.</p>
+        <div id="dirt-box"></div>
       </div>
       <div class="layer">
         <label><input type="checkbox" id="l-ghost"> Show the floor below and stairs to this floor, faded</label>
@@ -754,7 +764,7 @@ let ctx = cv.getContext("2d");   // the 3D view borrows it for a moment to paint
 let state = { shapes: [], imageWidthM: 2017, units: "ft", snap: true, grid: true, snapCorners: true, angleStep: 45, lenStep: 6 * 0.0254, nextId: 1, skipPhoto: false,
   zmin: 350.88, zrange: 37.22, roadPreset: "drive_gravel",
   levels: [{ id: 1, name: "Ground floor" }, { id: 2, name: "1st floor" }, { id: 3, name: "2nd floor" }, { id: 4, name: "3rd floor" }], level: 1, showDims: true, ghost: true, openType: "door", openWidthIn: 36,
-  layers: { photo: { on: true, op: 1 }, shade: { on: false, op: 0.55 }, contour: { on: false, intM: 2 * 0.3048 }, water: { on: false, op: 0.85 } } };
+  layers: { photo: { on: true, op: 1 }, shade: { on: false, op: 0.55 }, contour: { on: false, intM: 2 * 0.3048 }, water: { on: false, op: 0.85 }, dirt: { on: true } } };
 let hm = null, shadeCanvas = null, contourCanvas = null, waterImg = null;
 const SURFACES = {
   concrete: { name: "Concrete", color: "#D2CEC5", edge: "#8E8A80" },
@@ -819,7 +829,7 @@ async function cleanStorage(planLoaded) {
   await kvDel((await kvKeys(PK("bp:"))).filter(k => !keep.has(k)));
 }
 let saveTimer = 0;
-function save() { clearTimeout(saveTimer); saveTimer = setTimeout(() => { kvSet(PK("plan"), JSON.stringify(state)); touchProject(); }, 300); }
+function save() { if (typeof culvertWatch === "function") culvertWatch(); clearTimeout(saveTimer); saveTimer = setTimeout(() => { kvSet(PK("plan"), JSON.stringify(state)); touchProject(); }, 300); }
 
 /* ---------- geometry ---------- */
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -1087,6 +1097,7 @@ function draw() {
     ctx.globalAlpha = 1;
   }
   if (hm && L.contour.on) drawContours();
+  drawDirt();
   if (state.grid) drawGrid();
   drawAll();
   // drafts
@@ -1107,6 +1118,11 @@ function draw() {
   }
   if (cursor && ["rect", "deck", "addon", "pad", "room", "stair", "shape"].includes(tool)) { const oc2 = objSnap(cursor); if (oc2) snapMarker(toS(oc2), oc2.snap); }
   if (snapMark) snapMarker(toS(snapMark), "corner");
+  if (tool === "culvert" && draft.length && cursor) {
+    const a = toS(draft[0]), b = toS(cursor); ctx.save(); ctx.setLineDash([]); ctx.lineCap = "butt";
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.strokeStyle = "#1E2326"; ctx.lineWidth = Math.max(5, 18 * IN * view.s) + 4; ctx.stroke();
+    ctx.strokeStyle = "#9AA3A8"; ctx.lineWidth -= 4; ctx.stroke(); ctx.restore(); dot(a, "#2F6FB0");
+  }
   if (tool === "terrain" && cursor && hm) {
     const q = toS(cursor), r = Math.max(3, Math.max(tb().d / 2, cellM() * 1.2) * view.s);
     ctx.beginPath(); ctx.arc(q.x, q.y, r, 0, Math.PI * 2); ctx.lineWidth = 3; ctx.strokeStyle = "rgba(13,23,20,.7)"; ctx.stroke();
@@ -1338,7 +1354,7 @@ async function rebuildTerrainLayers() {
   terrainBusy = true; lstatus("Drawing terrain layers…");
   await new Promise(r => setTimeout(r, 30));
   applyElevations(); buildShade(); buildContourRaster();
-  terrainBusy = false; lstatus(""); renderLayers(); renderPanel(); requestDraw();
+  terrainBusy = false; lstatus(""); renderLayers(); renderPanel(); requestDraw(); if (hm0raw) dirtCompute();
 }
 async function loadTerrainBlob(blob) {
   try { const t = await decodePNG16(await blob.arrayBuffer()); tstroke = null; hm = t; applyElevations(); await rebuildTerrainLayers(); if (!img) fit(); return true; }
@@ -1386,6 +1402,7 @@ function renderTB() {
   const b = tb();
   $("tb-mode").value = b.mode; $("tb-size").value = Math.round(100 * Math.log(b.d / TB_DMIN) / Math.log(TB_DMAX / TB_DMIN)); $("tb-size-v").textContent = tbLen(b.d);
   $("tb-str").value = b.str; $("tb-str-v").textContent = b.str + " of 10";
+  $("tb-dirt").textContent = dirt ? `Dug ${fmtVol(dirt.cut)} · Piled ${fmtVol(dirt.fill)}` : "";
   $("tb-water").textContent = !hm ? "" : waterBusy ? "Water: working it out…" : waterImg ? "Water: up to date" : "";
 }
 function tbHint() {
@@ -1403,6 +1420,7 @@ function tbStart(sx, sy) {
   if (!hm || terrainBusy) { $("hint").textContent = hm ? "The terrain is still loading. Try again in a moment." : tbHint(); return false; }
   const w = toW(sx, sy), target = elevAt(w);
   if (target == null) { $("hint").textContent = "Start the stroke on your terrain."; return false; }
+  if (!hm0raw && !hmOrig) hm0raw = hm.raw.slice();   // the ground before the first edit: what "dirt moved" compares with
   tstroke = { pos: w, last: w, t: performance.now(), before: hm.raw.slice(), box: null, target, clamped: false };
   cursor = w; requestAnimationFrame(tbFrame); return true;
 }
@@ -1474,6 +1492,7 @@ function terrainApply(t, side, verb) {
 function terrainChanged() {
   hmDirty = true; clearTimeout(hmSaveTimer); hmSaveTimer = setTimeout(saveHeightmap, 1200);
   clearTimeout(waterTimer); waterTimer = setTimeout(runWater, 400);
+  clearTimeout(dirtTimer); dirtTimer = setTimeout(dirtCompute, 250);
   renderLayers(); if (tool === "terrain") renderTB();
 }
 async function saveHeightmap() {
@@ -1511,9 +1530,10 @@ async function saveFileOut(blob, filename, okMsg) {
 // 1) fill low spots (priority flood with a tiny slope, edges drain off the map), 2) each spot drains to its steepest
 // downhill neighbour (D8), 3) add up the land draining through each spot. Colors match water_overlay.png.
 // This function runs in a background worker when the browser allows it, so it uses nothing from outside itself.
-function waterCompute(z, w, h, c) {
+function waterCompute(z, w, h, c, cv) {
   const n = w * h, EPS = 1e-4, W = new Float64Array(n), seen = new Uint8Array(n), hi = new Int32Array(n), hk = new Float64Array(n), order = new Int32Array(n);
   let hn = 0, on = 0;
+  const via = new Int32Array(n).fill(-1), cmap = new Map(); (cv || []).forEach((q, k) => { if (!cmap.has(q.o)) cmap.set(q.o, []); cmap.get(q.o).push(k); });
   const push = (i, key) => { let p = hn++; while (p > 0) { const q = (p - 1) >> 1; if (hk[q] <= key) break; hi[p] = hi[q]; hk[p] = hk[q]; p = q; } hi[p] = i; hk[p] = key; };
   const pop = () => {
     const top = hi[0], li = hi[--hn], lk = hk[hn]; let p = 0;
@@ -1528,10 +1548,13 @@ function waterCompute(z, w, h, c) {
       const nx = x + DX[k], ny = y + DY[k]; if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
       const j = ny * w + nx; if (seen[j]) continue; seen[j] = 1; W[j] = Math.max(z[j], wi + EPS); push(j, W[j]);
     }
+    const CL = cmap.get(i);   // a culvert outlet here: its inlet fills only to the pipe bottom, then drains through the pipe
+    if (CL) for (const k of CL) { const j = cv[k].i; if (seen[j]) continue; seen[j] = 1; W[j] = Math.max(z[j], Math.max(cv[k].inv, wi) + EPS); via[j] = i; push(j, W[j]); }
   }
   const rec = new Int32Array(n).fill(-1), DD = DX.map((dx, k) => c * Math.hypot(dx, DY[k]));
   for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
-    const i = y * w + x; let best = 0, r = -1;
+    const i = y * w + x; if (via[i] >= 0) { rec[i] = via[i]; continue; }
+    let best = 0, r = -1;
     for (let k = 0; k < 8; k++) { const j = i + DY[k] * w + DX[k], drop = (W[i] - W[j]) / DD[k]; if (drop > best) { best = drop; r = j; } }
     rec[i] = r;
   }
@@ -1551,30 +1574,31 @@ function waterCompute(z, w, h, c) {
       rgba[o] = mix(90, 0, t); rgba[o + 1] = mix(210, 110, t); rgba[o + 2] = mix(230, 200, t); rgba[o + 3] = mix(90, 200, t);
     }
   }
-  return { rgba, pond, deep };
+  return { rgba, pond, deep, cArea: (cv || []).map(q => via[q.i] >= 0 ? acc[q.i] * A : -1) };
 }
 function runWater() {
   clearTimeout(waterTimer);
   if (!hm) return; if (waterBusy) { waterAgain = true; return; }
   waterBusy = true; renderLayers(); if (tool === "terrain") renderTB(); lstatus("Working out where water runs…");
-  const w = hm.w, h = hm.h, c = cellM(), z = new Float32Array(hm.z), t0 = performance.now();
+  const w = hm.w, h = hm.h, c = cellM(), z = new Float32Array(hm.z), t0 = performance.now(), cv = culvertCells();
   let finished = false;
   const done = r => {
     if (finished) return; finished = true; waterBusy = false;
+    culvertArea = new Map(cv.map((q, k) => [q.id, r.cArea ? r.cArea[k] : null]));
     const cv2 = document.createElement("canvas"); cv2.width = w; cv2.height = h; cv2.getContext("2d").putImageData(new ImageData(r.rgba, w, h), 0, 0);
     if (!waterImg || waterShow) state.layers.water.on = true;
     waterImg = cv2; waterShow = false; waterDirty = cv2; setTimeout(saveWater, 300); save();
     lstatus(`Water map worked out from your terrain in ${((performance.now() - t0) / 1000).toFixed(1)} s. Pools cover ${fmtArea(r.pond)}${r.deep ? `, deepest ${fmtRise(r.deep)}` : ""}.`);
-    renderLayers(); if (tool === "terrain") renderTB(); requestDraw();
+    renderLayers(); renderPanel(); if (tool === "terrain") renderTB(); requestDraw();
     if (waterAgain) { waterAgain = false; runWater(); }
   };
-  const inPage = () => setTimeout(() => done(waterCompute(z, w, h, c)), 30);
+  const inPage = () => setTimeout(() => done(waterCompute(z, w, h, c, cv)), 30);
   if (waterWorkerOK) {
     try {
-      if (!waterWorker) waterWorker = new Worker(URL.createObjectURL(new Blob([`const waterCompute = ${waterCompute.toString()};\nonmessage = e => { const r = waterCompute(e.data.z, e.data.w, e.data.h, e.data.c); postMessage(r, [r.rgba.buffer]); };`], { type: "text/javascript" })));
+      if (!waterWorker) waterWorker = new Worker(URL.createObjectURL(new Blob([`const waterCompute = ${waterCompute.toString()};\nonmessage = e => { const r = waterCompute(e.data.z, e.data.w, e.data.h, e.data.c, e.data.cv); postMessage(r, [r.rgba.buffer]); };`], { type: "text/javascript" })));
       waterWorker.onmessage = e => done(e.data);
       waterWorker.onerror = e => { if (e && e.preventDefault) e.preventDefault(); waterWorkerOK = false; waterWorker = null; inPage(); };   // no background workers here: do it in the page
-      waterWorker.postMessage({ z, w, h, c }); return;
+      waterWorker.postMessage({ z, w, h, c, cv }); return;
     } catch (e) { waterWorkerOK = false; waterWorker = null; }
   }
   inPage();
@@ -1582,6 +1606,173 @@ function runWater() {
 async function saveWater() {
   const cv2 = waterDirty; if (!cv2) return; waterDirty = null;
   const blob = await new Promise(res => cv2.toBlob(res, "image/png")); if (blob) await kvSet(PK("water"), blob);
+}
+
+/* ---------- culverts ---------- */
+// A culvert is a two-point line: points[0] = inlet (uphill, water goes in), points[1] = outlet. Its own bottom
+// elevations (invIn / invOut, meters) set the slope. The water model (waterCompute) sends water from the inlet cell
+// straight to the outlet cell, and ponds behind the inlet up to the inlet bottom. Max flow = Manning, pipe running
+// full; water arriving = rational method (C × rain × land draining to the inlet, from the water model).
+const CULV_SIZES = [12, 15, 18, 24, 30, 36, 48];
+const CULV_MATS = { cmp: ["Corrugated steel (CMP)", 0.024], hdpe: ["Plastic, smooth inside (HDPE)", 0.012], rcp: ["Concrete (RCP)", 0.013] };
+const CULV_RAIN = [[1, "1 in/hr: an ordinary storm"], [2, "2 in/hr: a heavy storm"], [3, "3 in/hr: severe"], [4, "4 in/hr: extreme cloudburst"]];
+const CULV_LAND = [[0.15, "Mostly woods"], [0.3, "Fields and pasture"], [0.45, "Lawn, gravel, a few roofs"], [0.8, "Mostly roofs and pavement"]];
+let culvertArea = new Map();   // culvert id -> m² of land draining into its inlet (-1: water at the inlet drains away another way)
+var culvertSig = "";
+function culvertCalc(s) {
+  const D = (s.size || 18) * IN, A = Math.PI * D * D / 4, R = D / 4, n = (CULV_MATS[s.mat] || CULV_MATS.cmp)[1], L = dist(s.points[0], s.points[1]);
+  const fall = s.invIn != null && s.invOut != null ? s.invIn - s.invOut : null, S = fall != null && L > 0 ? fall / L : null;
+  const Q = S > 0 ? (1 / n) * A * Math.pow(R, 2 / 3) * Math.sqrt(S) : 0;   // m³/s
+  const area = culvertArea.has(s.id) ? culvertArea.get(s.id) : null, Qin = area > 0 ? (s.runoffC || 0.3) * ((s.rain || 2) * IN / 3600) * area : null;
+  return { D, A, L, fall, S, Q, V: Q / A, area, Qin };
+}
+function fmtFlow(q) {
+  return state.units === "m" ? `${(q * 1000).toFixed(q < 0.1 ? 1 : 0)} L/s` : `${(q / 0.0283168).toFixed(q < 0.3 ? 2 : 1)} cu ft/s (${Math.round(q / 0.0283168 * 448.83).toLocaleString()} gal/min)`;
+}
+function fmtSpeed(v) { return state.units === "m" ? v.toFixed(1) + " m/s" : (v / FT).toFixed(1) + " ft/s"; }
+function fmtLand(m2) { return state.units === "m" ? (m2 / 10000).toFixed(m2 < 1e5 ? 2 : 1) + " hectares" : (m2 / 4046.86).toFixed(m2 < 4e4 ? 2 : 1) + " acres"; }
+function culvertStats(s) {
+  const k = culvertCalc(s), r = [["Pipe", `${s.size}″ ${(CULV_MATS[s.mat] || CULV_MATS.cmp)[0].split(" (")[0].toLowerCase()}`], ["Length", fmtLen(k.L)]];
+  if (k.fall == null) { r.push(["Max flow", "Set both bottom elevations"]); return r; }
+  r.push(["Fall end to end", (k.fall < 0 ? "−" : "") + fmtRise(Math.abs(k.fall))], ["Slope", (k.S * 100).toFixed(2) + "%"]);
+  r.push(["Max flow (running full)", k.Q > 0 ? fmtFlow(k.Q) : "None: it runs uphill"]);
+  if (k.Q > 0) r.push(["Water speed when full", fmtSpeed(k.V)]);
+  if (k.area > 0) {
+    r.push(["Land draining to it", fmtLand(k.area)], [`Water arriving (${s.rain || 2} in/hr rain)`, fmtFlow(k.Qin)]);
+    r.push(["Big enough?", k.Q >= k.Qin ? `Yes, about ${Math.round(k.Q / k.Qin * 100)}% of what it needs` : `No: it carries ${Math.round(k.Q / k.Qin * 100)}% of the water`]);
+  } else if (k.area === -1) r.push(["Land draining to it", "Little: water there drains away another way"]);
+  else if (hm) r.push(["Land draining to it", "Working it out…"]);
+  return r;
+}
+function culvertHTML(s, btn) {
+  const k = culvertCalc(s), u = state.units === "m", ev = m => m == null ? "" : (u ? m : m / FT).toFixed(2), gIn = elevAt(s.points[0]), gOut = elevAt(s.points[1]);
+  const rel = (g, inv) => g == null || inv == null ? "" : ` · pipe bottom ${fmtRise(Math.abs(g - inv))} ${inv <= g ? "below" : "above"} ground`;
+  const warn = [];
+  if (k.fall != null && k.fall <= 0) warn.push("The outlet is not lower than the inlet, so water won’t drain through. Lower the outlet bottom or swap the ends.");
+  else if (k.S != null && k.S < 0.005) warn.push("Very flat (under 0.5%): it may silt up. 1–2% is typical for a driveway culvert.");
+  if (k.Q > 0 && k.V > 3) warn.push("Fast water at the outlet: put rock (riprap) there so it doesn’t wash out a hole.");
+  if (k.Qin != null && k.Q < k.Qin) warn.push("Too small for that rain: water will back up and may go over the road. Try a bigger pipe or a steeper slope.");
+  return `<div class="field"><label>Pipe size</label><select data-prop="size">${optList(CULV_SIZES.map(d => [d, u ? `${Math.round(d * 25.4)} mm (${d}″)` : `${d}″ across`]), s.size || 18)}</select></div>
+    <div class="field"><label>Pipe material</label><select data-prop="mat">${optList(Object.entries(CULV_MATS).map(([key, v]) => [key, v[0]]), s.mat || "cmp")}</select></div>
+    <div class="pair"><div class="field"><label for="cv-in">Inlet bottom (${u ? "m" : "ft"})</label><input id="cv-in" data-prop="invIn" type="number" step="0.01" inputmode="decimal" value="${ev(s.invIn)}"></div>
+    <div class="field"><label for="cv-out">Outlet bottom (${u ? "m" : "ft"})</label><input id="cv-out" data-prop="invOut" type="number" step="0.01" inputmode="decimal" value="${ev(s.invOut)}"></div></div>
+    <p class="muted" style="margin:0 0 8px;font-size:13px">${hm ? `Ground at the inlet ${gIn != null ? fmtElev(gIn) : "–"}${rel(gIn, s.invIn)}.<br>Ground at the outlet ${gOut != null ? fmtElev(gOut) : "–"}${rel(gOut, s.invOut)}.` : "Add your terrain to see the ground height at each end."} The bottom is the inside bottom of the pipe (its “invert”).</p>
+    <div class="row" style="margin-bottom:10px">${hm ? btn("culvground", "Set both ends to ground level") : ""}${btn("culvflip", "Swap inlet and outlet")}</div>
+    <div class="field"><label>Rain to plan for</label><select data-prop="rain">${optList(CULV_RAIN, s.rain || 2)}</select></div>
+    <div class="field"><label>Land that drains to it</label><select data-prop="runoffC">${optList(CULV_LAND, s.runoffC || 0.3)}</select></div>
+    ${warn.map(t => `<p class="muted" style="margin:0 0 8px;font-size:13px;color:#B5462F">${t}</p>`).join("")}`;
+}
+function culvertProp(s, prop, v) {
+  if (prop === "size") { s.size = +v; s.thickness = s.size * IN; }
+  else if (prop === "mat") s.mat = v;
+  else if (prop === "invIn" || prop === "invOut") { const x = parseFloat(v); s[prop] = isFinite(x) ? (state.units === "m" ? x : x * FT) : null; }
+  else if (prop === "rain") s.rain = +v;
+  else if (prop === "runoffC") s.runoffC = +v;
+}
+function drawCulvert(s, sel) {
+  if (s.points.length < 2) return;
+  const a = toS(s.points[0]), b = toS(s.points[1]), k = culvertCalc(s), bad = (k.Qin != null && k.Q < k.Qin) || (k.fall != null && k.fall <= 0);
+  const lw = Math.max(5, k.D * view.s), ang = Math.atan2(b.y - a.y, b.x - a.x), L = dist(a, b);
+  ctx.save(); ctx.lineCap = "butt"; ctx.setLineDash([]);
+  ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+  ctx.strokeStyle = sel ? "#FFD400" : "#1E2326"; ctx.lineWidth = lw + 4; ctx.stroke();
+  ctx.strokeStyle = bad ? "#C8402E" : "#9AA3A8"; ctx.lineWidth = lw; ctx.stroke();
+  ctx.strokeStyle = "rgba(0,0,0,.3)"; ctx.lineWidth = lw; ctx.setLineDash([1.5, Math.max(3, lw * 0.5)]); ctx.stroke(); ctx.setLineDash([]);   // corrugation
+  // inlet ring, outlet arrow
+  ctx.beginPath(); ctx.arc(a.x, a.y, lw / 2 + 3, 0, Math.PI * 2); ctx.fillStyle = "#1E2326"; ctx.fill();
+  ctx.beginPath(); ctx.arc(a.x, a.y, lw / 2, 0, Math.PI * 2); ctx.fillStyle = "#2F6FB0"; ctx.fill();
+  const t = lw / 2 + 6; ctx.translate(b.x, b.y); ctx.rotate(ang);
+  ctx.beginPath(); ctx.moveTo(t, 0); ctx.lineTo(-2, -t); ctx.lineTo(-2, t); ctx.closePath(); ctx.fillStyle = "#1E2326"; ctx.fill();
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.restore();
+  if (L > 70) label(`${s.size || 18}″ culvert`, (a.x + b.x) / 2, (a.y + b.y) / 2 - lw / 2 - 9, ang, 12);
+}
+function culvertCells() {
+  if (!hm) return [];
+  const c = cellM(), w = hm.w, h = hm.h, out = [], r = Math.max(1, Math.round(1 / c));
+  const cell = p => {   // the lowest ground within about a meter, so a tap near the ditch lands in it
+    const i = Math.floor(p.x / c), j = Math.floor(p.y / c); if (i < 0 || j < 0 || i >= w || j >= h) return -1;
+    let best = j * w + i;
+    for (let dj = -r; dj <= r; dj++) for (let di = -r; di <= r; di++) { const x = i + di, y = j + dj; if (x >= 0 && y >= 0 && x < w && y < h && hm.z[y * w + x] < hm.z[best]) best = y * w + x; }
+    return best;
+  };
+  for (const s of state.shapes) if (s.kind === "culvert" && s.points.length === 2) {
+    const ci = cell(s.points[0]), co = cell(s.points[1]); if (ci < 0 || co < 0 || ci === co) continue;
+    out.push({ id: s.id, i: ci, o: co, inv: s.invIn != null ? s.invIn : -1e9 });
+  }
+  return out;
+}
+// Called from save(): when a culvert is added, moved or changed, work the water out again.
+function culvertWatch() {
+  const sig = JSON.stringify(state.shapes.filter(s => s.kind === "culvert").map(s => [s.id, s.points, s.invIn, s.invOut]));
+  if (sig === culvertSig) return;
+  const was = culvertSig; culvertSig = sig;
+  if (!hm || (was === "" && sig === "[]")) return;
+  clearTimeout(waterTimer); waterTimer = setTimeout(runWater, 400);
+}
+
+/* ---------- dirt moved (cut and fill) ---------- */
+// Compares the reshaped ground with the original heightmap (hm0raw, kept from the first brush stroke and saved as
+// PK("heightmap0")). Every patch of ground that changed by 2 cm or more is one "area" (touching cells, corners count):
+// how much was dug out of it (cut) and piled onto it (fill), in the ground. Overlay: red = dug, green = piled.
+let hm0raw = null, dirt = null, dirtCanvas = null, dirtTimer = 0;
+function fmtVol(m3) { return state.units === "m" ? (m3 < 10 ? m3.toFixed(1) : Math.round(m3).toLocaleString()) + " m³" : (m3 / CUYD < 10 ? (m3 / CUYD).toFixed(1) : Math.round(m3 / CUYD).toLocaleString()) + " cu yd"; }
+function dirtCompute() {
+  clearTimeout(dirtTimer); dirt = null; dirtCanvas = null;
+  if (hm && hm0raw && hm0raw.length === hm.raw.length) {
+    const { w, h, raw } = hm, k = state.zrange / 65535, c = cellM(), A = c * c, n = w * h, TH = Math.max(1, Math.round(0.02 / k));
+    const lab = new Int32Array(n), stack = new Int32Array(n), regions = [];
+    let cut = 0, fill = 0, any = false;
+    const cv2 = document.createElement("canvas"); cv2.width = w; cv2.height = h;
+    const g = cv2.getContext("2d"), id = g.createImageData(w, h), px = id.data;
+    for (let s0 = 0; s0 < n; s0++) {
+      if (lab[s0] || Math.abs(raw[s0] - hm0raw[s0]) < TH) continue;
+      const r = { cut: 0, fill: 0, cells: 0, x0: w, y0: h, x1: 0, y1: 0, sx: 0, sy: 0, deep: 0, high: 0 }, rid = regions.length + 1;
+      let sp = 0; stack[sp++] = s0; lab[s0] = rid;
+      while (sp) {
+        const i = stack[--sp], x = i % w, y = (i - x) / w, d = (raw[i] - hm0raw[i]) * k, o = i * 4;
+        if (d < 0) { r.cut -= d * A; if (-d > r.deep) r.deep = -d; px[o] = 214; px[o + 1] = 64; px[o + 2] = 46; }
+        else { r.fill += d * A; if (d > r.high) r.high = d; px[o] = 52; px[o + 1] = 150; px[o + 2] = 70; }
+        px[o + 3] = 70 + 150 * Math.min(1, Math.abs(d) / 1.5);
+        r.cells++; r.sx += x; r.sy += y; if (x < r.x0) r.x0 = x; if (x > r.x1) r.x1 = x; if (y < r.y0) r.y0 = y; if (y > r.y1) r.y1 = y;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+          const j = ny * w + nx; if (!lab[j] && Math.abs(raw[j] - hm0raw[j]) >= TH) { lab[j] = rid; stack[sp++] = j; }
+        }
+      }
+      cut += r.cut; fill += r.fill; any = true;
+      if (r.cut + r.fill >= 0.05) regions.push(r);
+    }
+    if (any) {
+      g.putImageData(id, 0, 0); dirtCanvas = cv2;
+      regions.sort((a, b) => (b.cut + b.fill) - (a.cut + a.fill));
+      regions.forEach((r, i) => { r.n = i + 1; r.c = { x: (r.sx / r.cells + 0.5) * c, y: (r.sy / r.cells + 0.5) * c }; r.box = { x0: r.x0 * c, y0: r.y0 * c, x1: (r.x1 + 1) * c, y1: (r.y1 + 1) * c }; });
+      dirt = { regions, cut, fill };
+    }
+  }
+  renderDirt(); requestDraw();
+}
+function dirtLine(r) { return [r.cut >= 0.05 ? "dug " + fmtVol(r.cut) : "", r.fill >= 0.05 ? "piled " + fmtVol(r.fill) : ""].filter(Boolean).join(" · "); }
+function renderDirt() {
+  const box = $("dirt-box"), row = $("row-dirt"); if (!box) return;
+  row.classList.toggle("off", !dirt); $("l-dirt").disabled = !dirt; $("l-dirt").checked = !!(state.layers.dirt && state.layers.dirt.on);
+  if (tool === "terrain") renderTB();
+  if (!dirt) { box.innerHTML = ""; return; }
+  const net = dirt.cut - dirt.fill, loads = Math.ceil(Math.abs(net) * 1.25 / (10 * CUYD));
+  box.innerHTML = `<p class="dirt-tot"><span class="dug">Dug out ${fmtVol(dirt.cut)}</span><span class="piled">Piled up ${fmtVol(dirt.fill)}</span></p>
+    <p class="note">${Math.abs(net) < 0.5 ? "Balanced: what you dug about covers what you piled." : net > 0
+      ? `${fmtVol(net)} more dug than piled: haul it away or spread it somewhere (about ${loads} dump-truck load${loads === 1 ? "" : "s"}; dug dirt fluffs up about 25%).`
+      : `${fmtVol(-net)} more piled than dug: bring it in (about ${loads} dump-truck load${loads === 1 ? "" : "s"}).`} Measured in the ground, against your original terrain.</p>
+    ${dirt.regions.length ? `<ol class="dirt-list">${dirt.regions.slice(0, 15).map(r => `<li><button class="ghost small" data-dirt="${r.n}">Area ${r.n}</button> ${dirtLine(r)}${r.deep >= 0.05 ? ` · up to ${fmtRise(r.deep)} deep` : ""}${r.high >= 0.05 ? ` · up to ${fmtRise(r.high)} high` : ""}</li>`).join("")}</ol>` : ""}
+    ${dirt.regions.length > 15 ? `<p class="note">And ${dirt.regions.length - 15} smaller areas.</p>` : ""}`;
+}
+function drawDirt() {
+  if (!dirtCanvas || !hm || !(state.layers.dirt && state.layers.dirt.on)) return;
+  ctx.globalAlpha = 0.8; ctx.drawImage(dirtCanvas, view.x, view.y, state.imageWidthM * view.s, state.imageWidthM * hm.h / hm.w * view.s); ctx.globalAlpha = 1;
+  for (const r of dirt.regions) {
+    const span = Math.max(r.box.x1 - r.box.x0, r.box.y1 - r.box.y0) * view.s; if (span < 26) continue;
+    const q = toS(r.c); label(`Area ${r.n}: ${dirtLine(r)}`, q.x, q.y, 0, 12);
+  }
 }
 
 /* ---------- view ---------- */
@@ -1955,7 +2146,7 @@ function drawAll() {
   const sel0 = state.shapes.find(x => x.id === selected);
   const vis = state.shapes.filter(visible), lvl = vis.filter(s => s.level);
   const planB = new Set(lvl.map(s => s.bid).filter(Boolean));
-  const rank = { pad: 0, road: 1, deck: 1.5, building: 2, addon: 2.2, shape: 2.4, vehicle: 3 };
+  const rank = { pad: 0, road: 1, culvert: 1.3, deck: 1.5, building: 2, addon: 2.2, shape: 2.4, vehicle: 3 };
   const base = vis.filter(s => !s.level && !ANNO.has(s.kind)).sort((a, b) => (rank[a.kind] ?? 3) - (rank[b.kind] ?? 3));
   for (const s of base) {
     const sel = s.id === selected;
@@ -1965,6 +2156,7 @@ function drawAll() {
     else if (s.kind === "vehicle") drawVehicle(s, sel);
     else if (s.kind === "addon") drawAddon(s, sel);
     else if (s.kind === "shape") drawBaseShape(s, sel);
+    else if (s.kind === "culvert") drawCulvert(s, sel);
     else if (s.kind === "building" && planB.has(s.id)) drawPlanBuilding(s, sel);
     else if (s.kind === "room") drawRoom(s, sel);
     else if (s.kind === "stair") drawStair(s, sel);
@@ -2029,7 +2221,7 @@ function hitOne(s, w, sp) {
   }
 }
 function hitShape(w) {
-  const sp = toS(w), RANK = { underlay: 9, note: 0, dim: 1, vehicle: 1.5, opening: 2, stair: 3, wall: 4, road: 5, deck: 5.5, addon: 5.4, shape: 5.3, pad: 6, room: 7, building: 8 };
+  const sp = toS(w), RANK = { underlay: 9, note: 0, dim: 1, vehicle: 1.5, opening: 2, stair: 3, wall: 4, road: 5, deck: 5.5, addon: 5.4, culvert: 4.9, shape: 5.3, pad: 6, room: 7, building: 8 };
   let best = null, br = 99;
   for (const s of state.shapes) { if (!visible(s) || (s.kind === "dim" && !state.showDims) || !hitOne(s, w, sp)) continue; const r = RANK[s.kind] ?? 5; if (r <= br) { best = s; br = r; } }
   return best;
@@ -2243,6 +2435,8 @@ function extraHTML(s) {
       <p class="sublabel" style="margin:4px 0 6px;font-size:13px;color:var(--muted);font-weight:500">Turn</p>
       <div class="row" style="margin-bottom:10px">${btn("rot", "⟲ 90°", -90)}${btn("rot", "⟳ 90°", 90)}${btn("rot", "−15°", -15)}${btn("rot", "+15°", 15)}${btn("rot", "−1°", -1)}${btn("rot", "+1°", 1)}</div>
       <p class="muted" style="margin:0 0 12px;font-size:13px">Body length, width and wheelbase are the manufacturer’s published specs. Wheel, glass and bed placement are drawn approximately.</p>`;
+  } else if (s.kind === "culvert") {
+    h += culvertHTML(s, btn);
   } else if (s.kind === "deck") {
     const bv = s.boards === "v";
     h += `<div class="field"><label>Type</label><select data-prop="kind">${optList([["building", "Building"], ["deck", "Deck"]], "deck")}</select></div>
@@ -2277,6 +2471,7 @@ function extraHTML(s) {
   return h;
 }
 function statsFor(s) {
+  if (s.kind === "culvert") return culvertStats(s);
   if (s.kind === "opening") return [["Width", fmtLen(dist(s.points[0], s.points[1]))], ["Type", OTYPES[s.otype] || "Door"]];
   if (s.kind === "shape") {
     if (isCircle(s)) { const r = circR(s); return [["Diameter", fmtLen(r * 2)], ["Radius", fmtLen(r)], ["Area", fmtArea(Math.PI * r * r)], ["Around the edge", fmtLen(2 * Math.PI * r)]]; }
@@ -2310,6 +2505,7 @@ function touches(a, b) {
   return false;
 }
 function applyProp(s, prop, v) {
+  if (s.kind === "culvert" && ["size", "mat", "invIn", "invOut", "rain", "runoffC"].includes(prop)) { culvertProp(s, prop, v); return; }
   if (prop === "attach") { if (v === "") { delete s.bid; delete s.free; } else s.bid = +v; return; }
   if (prop === "attachOther") { const t = state.shapes.find(x => x.id === +v); if (t) t.bid = s.id; return; }
   if (prop === "opacity") { s.opacity = parseFloat(v); return; }
@@ -2360,6 +2556,12 @@ $("d-extra").addEventListener("change", e => {
 $("d-extra").addEventListener("click", e => {
   const b = e.target.closest("button[data-act]"), s = state.shapes.find(x => x.id === selected); if (!b || !s) return;
   const act = b.dataset.act; b.blur();
+  if (act === "culvground" || act === "culvflip") {
+    pushUndo();
+    if (act === "culvground") { s.invIn = elevAt(s.points[0]); s.invOut = elevAt(s.points[1]); }
+    else { s.points.reverse(); [s.invIn, s.invOut] = [s.invOut, s.invIn]; }
+    $("d-extra").innerHTML = ""; afterChange(); return;
+  }
   if (act === "addcorner") { addCorner = addCorner === s.id ? null : s.id; $("hint").textContent = addCorner ? "Tap a side of " + (s.name || "it") + " where the new corner goes." : ""; $("d-extra").innerHTML = ""; renderPanel(); requestDraw(); return; }
   if (act === "delcorner") {
     if (!selCorner || selCorner.id !== s.id || s.points.length <= (s.closed ? 3 : 2)) return;
@@ -4102,9 +4304,10 @@ function updateUI() {
   if (tool === "note") h = draft.length ? hints.note1 : hints.note0;
   if (tool === "wall" && draft.length && buildingAt(draft[0])) h = hints.wallIn;
   if (tool === "terrain") h = tbHint();
+  if (tool === "culvert") h = draft.length ? "Now tap the outlet end, where the water comes out (downhill)." : "Tap the inlet end of the culvert: the uphill side, where water goes in.";
   $("hint").textContent = h;
   const polyB = (tool === "rect" && state.bldShape === "poly") || (tool === "shape" && state.shapeType === "poly");
-  const drafting = (tool in MULTI || ["rect", "room", "stair", "note", "deck", "addon", "shape"].includes(tool)) && draft.length > 0;
+  const drafting = (tool in MULTI || ["rect", "room", "stair", "note", "deck", "addon", "shape", "culvert"].includes(tool)) && draft.length > 0;
   $("actions").hidden = !drafting; renderSelbar();
   $("done").hidden = !(((tool in MULTI && draft.length >= MULTI[tool]) || (polyB && draft.length >= 3)) && !dimPhase);
   $("tbpick").hidden = tool !== "terrain"; if (tool === "terrain") renderTB();
@@ -4136,7 +4339,7 @@ function setTool(t) {
   document.querySelectorAll(".tool").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.tool === t)));
   updateUI();
 }
-const KIND_NAMES = { deck: "Deck ", building: "Building ", wall: "Wall ", road: "Road ", pad: "Paved area ", room: "Room ", stair: "Stairs ", opening: "Door ", dim: "Dimension ", note: "Note " };
+const KIND_NAMES = { culvert: "Culvert ", deck: "Deck ", building: "Building ", wall: "Wall ", road: "Road ", pad: "Paved area ", room: "Room ", stair: "Stairs ", opening: "Door ", dim: "Dimension ", note: "Note " };
 function addShape(points, closed, kind, extra) {
   pushUndo();
   const n = state.shapes.filter(s => s.kind === kind).length + 1;
@@ -4187,6 +4390,14 @@ function tap(sx, sy) {
     selected = s ? s.id : null; renderPanel(); requestDraw();
     if (s && h && s !== h) $("hint").textContent = `Tap again to pick just this ${({ wall: "wall", room: "room", opening: "door or window", stair: "stairs" })[h.kind] || "piece"} inside ${s.name}.`;
     else if (s && s !== root) $("hint").textContent = `Picked ${s.name || "this"} inside ${root.name}. Tap empty space to let go.`;
+    return;
+  }
+  if (tool === "culvert") {
+    if (!draft.length) { draft = [w]; updateUI(); return; }
+    if (dist(toS(draft[0]), { x: sx, y: sy }) < 8) return;
+    const a = draft[0], gi = elevAt(a), go = elevAt(w);
+    addShape([a, w], false, "culvert", { size: 18, mat: "cmp", thickness: 18 * IN, invIn: gi, invOut: go, rain: 2, runoffC: 0.3 });
+    $("hint").textContent = "Culvert placed. Set its size and the bottom elevation at each end in the side panel.";
     return;
   }
   if (tool === "measure") { const mp = snapDimPoint(w); if (measure.length !== 1) measure = [mp]; else measure.push(mp); requestDraw(); return; }
@@ -4406,7 +4617,7 @@ function groupKeyOf(id) {
   const s = state.shapes.find(x => x.id === id); if (!s) return null;
   if (s.kind === "building") return "b" + s.id;
   if (s.bid) return "b" + s.bid;
-  return s.kind === "road" ? "roads" : s.kind === "deck" || s.kind === "addon" ? "decks" : s.kind === "vehicle" ? "vehicles" : s.kind === "shape" ? "shapes" : "site";
+  return s.kind === "road" ? "roads" : s.kind === "culvert" ? "culverts" : s.kind === "deck" || s.kind === "addon" ? "decks" : s.kind === "vehicle" ? "vehicles" : s.kind === "shape" ? "shapes" : "site";
 }
 function goTo(s) {
   if (!s || !s.points.length) return;
@@ -4457,7 +4668,7 @@ function renderList() {
   let shown = 0;
   // Site items, split into Roads, Decks, and everything else
   const site = state.shapes.filter(s => !s.bid && !s.level && s.kind !== "building" && !ANNO.has(s.kind) && s.kind !== "opening");
-  for (const [key, title, test] of [["roads", "Roads & driveways", x => x.kind === "road"], ["decks", "Decks & add-ons (not attached)", x => x.kind === "deck" || x.kind === "addon"], ["vehicles", "Vehicles", x => x.kind === "vehicle"], ["shapes", "Shapes", x => x.kind === "shape"], ["site", "Paving & other site items", x => !["road", "deck", "addon", "vehicle", "shape"].includes(x.kind)]]) {
+  for (const [key, title, test] of [["roads", "Roads & driveways", x => x.kind === "road"], ["culverts", "Culverts", x => x.kind === "culvert"], ["decks", "Decks & add-ons (not attached)", x => x.kind === "deck" || x.kind === "addon"], ["vehicles", "Vehicles", x => x.kind === "vehicle"], ["shapes", "Shapes", x => x.kind === "shape"], ["site", "Paving & other site items", x => !["road", "deck", "addon", "vehicle", "shape", "culvert"].includes(x.kind)]]) {
     const list = site.filter(test).filter(match);
     if (list.length) { group(key, title, String(list.length), list.map(x => item(x))); shown += list.length; }
   }
@@ -4529,7 +4740,7 @@ function renderPanel() {
   const isRoad = s.kind === "road", isPad = s.kind === "pad", isPlan = PLANKINDS.has(s.kind);
   $("f-name").hidden = s.kind === "note" || s.kind === "dim";
   if (!$("d-extra").contains(document.activeElement)) $("d-extra").innerHTML = extraHTML(s);
-  $("f-wall").hidden = isRoad || isPad || isPlan || ["deck", "vehicle", "underlay", "addon", "shape"].includes(s.kind);
+  $("f-wall").hidden = isRoad || isPad || isPlan || ["deck", "vehicle", "underlay", "addon", "shape", "culvert"].includes(s.kind);
   $("f-road").hidden = !isRoad; $("f-width").hidden = !isRoad;
   $("f-surface").hidden = !(isRoad || isPad); $("f-depth").hidden = !(isRoad || isPad);
   if (isRoad || isPad) {
@@ -4545,7 +4756,7 @@ function renderPanel() {
     $("d-depth").value = String(Math.round(s.depth / IN));
   }
   let rows;
-  if (isPlan || ["deck", "vehicle", "underlay", "addon", "shape"].includes(s.kind)) rows = statsFor(s);
+  if (isPlan || ["deck", "vehicle", "underlay", "addon", "shape", "culvert"].includes(s.kind)) rows = statsFor(s);
   else if (isRoad || isPad) {
     const L = perim(s.points, !isRoad), A = isRoad ? L * s.width : area(s.points);
     rows = isRoad ? [["Length", fmtLen(L)], ["Width", fmtLen(s.width)], ["Surface area", fmtArea(A)]]
@@ -4557,7 +4768,7 @@ function renderPanel() {
   } else rows = s.closed
     ? [["Footprint", fmtArea(area(s.points))], ["Perimeter", fmtLen(perim(s.points, true))], ["Corners", String(s.points.length)]]
     : [["Total length", fmtLen(perim(s.points, false))], ["Segments", String(s.points.length - 1)]];
-  if (hm && !isPlan && !s.level) {
+  if (hm && !isPlan && !s.level && s.kind !== "culvert") {
     const samples = [];
     const n2 = s.closed ? s.points.length : s.points.length - 1;
     for (let i = 0; i < n2; i++) { const a = s.points[i], b = s.points[(i + 1) % s.points.length]; for (let t = 0; t < 1; t += 0.125) samples.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }); }
@@ -4788,6 +4999,7 @@ document.addEventListener("keydown", e => {
   else if (k === "d") setTool("door"); else if (k === "o") setTool("room"); else if (k === "t") setTool("stair");
   else if (k === "i") setTool("dim"); else if (k === "n") setTool("note"); else if (k === "k") setTool("deck"); else if (k === "c") setTool("vehicle"); else if (k === "l") setTool("addon"); else if (k === "h") setTool("shape");
   else if (k === "g" && !isPhone()) setTool("terrain");
+  else if (k === "u" && !isPhone()) setTool("culvert");
   else if ((k === "[" || k === "]") && tool === "terrain") { const b = tb(); b.d = Math.max(TB_DMIN, Math.min(TB_DMAX, b.d * (k === "]" ? 1.25 : 0.8))); renderTB(); save(); requestDraw(); }
 });
 
@@ -4810,12 +5022,22 @@ $("f-terrain").onchange = async e => {
   const f = e.target.files[0]; e.target.value = ""; if (!f) return;
   lstatus("Reading terrain…");
   if (await loadTerrainBlob(f)) {
-    kvSet(PK("heightmap"), f); kvDel([PK("heightmap0")]); hmOrig = false; hmDirty = false; clearTimeout(hmSaveTimer);
+    kvSet(PK("heightmap"), f); kvDel([PK("heightmap0")]); hmOrig = false; hm0raw = null; dirtCompute(); hmDirty = false; clearTimeout(hmSaveTimer);
     undoStack = undoStack.filter(x => !x.terrain); redoStack = redoStack.filter(x => !x.terrain); updateHistory();   // brush steps belong to the old terrain
     state.layers.contour.on = true; save(); renderLayers(); requestDraw();
   }
 };
 $("w-calc").onclick = () => { waterShow = true; runWater(); };
+$("l-dirt").onchange = e => { state.layers.dirt.on = e.target.checked; save(); requestDraw(); };
+$("dirt-box").addEventListener("click", e => {   // zoom the map to that area
+  const b = e.target.closest("button[data-dirt]"); if (!b || !dirt) return;
+  const r = dirt.regions.find(x => x.n === +b.dataset.dirt); if (!r) return;
+  const pad = Math.max(5, 0.4 * Math.max(r.box.x1 - r.box.x0, r.box.y1 - r.box.y0));
+  fit([{ x: r.box.x0 - pad, y: r.box.y0 - pad }, { x: r.box.x1 + pad, y: r.box.y1 + pad }]);
+  if (!state.layers.dirt.on) { state.layers.dirt.on = true; renderDirt(); }
+  if (isPhone()) { $("layers").hidden = true; $("open-layers").setAttribute("aria-expanded", "false"); }
+  requestDraw();
+});
 $("t-dl").onclick = async () => {
   if (!hm) return; lstatus("Packing heightmap.png…");
   const blob = new Blob([await encodePNG16(hm.w, hm.h, hm.raw)], { type: "image/png" });
@@ -4934,11 +5156,13 @@ function v3Build() {
   far.rotateX(-Math.PI / 2); far.scale.set(eW * 12, eH * 12, 1); far.position.set(ext.x0 + eW / 2, -0.4, ext.y0 + eH / 2); grp.add(far);
   // buildings
   const wallM = new T.MeshLambertMaterial({ color: 0xE6E0D2, side: T.DoubleSide }), roofM = new T.MeshLambertMaterial({ color: 0x5A5550, side: T.DoubleSide });
-  let nb = 0;
+  let nb = 0; const bmap = new Map();
   for (const b of site.filter(s => s.kind === "building" && s.closed && s.points.length >= 3)) {
-    const m = v3Building(b, H); if (!m) continue; nb++;
+    const m = v3Building(b, H); if (!m) continue; nb++; bmap.set(b.id, m);
     grp.add(new T.Mesh(m.walls, wallM)); grp.add(new T.Mesh(m.roof, roofM));
   }
+  try { v3.extras = v3Extras(grp, site, H, bmap, base, ex); } catch (e) { v3.extras = null; console.warn("3D extras:", e); }
+  $("v3c").dataset.parts = v3.extras ? Object.entries(v3.extras).map(([k, v]) => k + ":" + v).join(" ") : "";   // for tests
   $("v3-info").textContent = `${nb} building${nb === 1 ? "" : "s"}${hm ? ` · heights ×${ex}` : " · no terrain added, so the ground is flat"}`;
   v3Render();
 }
@@ -4987,11 +5211,131 @@ function v3Building(b, H) {
     rq(v(A, y1), v(B, y1), v(Rb, yr), v(Ra, yr)); rq(v(C, y1), v(D, y1), v(Ra, yr), v(Rb, yr));   // the two roof slopes
     wp.push(...v(B, y1), ...v(C, y1), ...v(Rb, yr), ...v(D, y1), ...v(A, y1), ...v(Ra, yr));   // gable ends are wall
   } else {
-    const tri = T.ShapeUtils.triangulateShape(P.map(p => new T.Vector2(p.x, p.y)), []);
-    for (const t of tri) for (const i of t) rp.push(P[i].x, y1 + 0.15, P[i].y);
+    for (const v of v3HipRoof(P, y1, 0.5)) rp.push(v);   // any other shape: a hip roof that follows the outline
   }
   const mk = arr => { const gq = new T.BufferGeometry(); gq.setAttribute("position", new T.Float32BufferAttribute(arr, 3)); gq.computeVertexNormals(); return gq; };
-  return { walls: mk(wp), roof: mk(rp) };
+  return { walls: mk(wp), roof: mk(rp), b, top, floor0: g1 + 0.45, eave: y1 };
+}
+// Hip roof for any outline: the roof rises at `pitch` with the distance from the nearest outside wall (a hip roof on a
+// rectangle, hips and valleys on an L or T). Built from small squares clipped to the outline.
+function v3ClipRect(P, x0, y0, x1, y1) {
+  let out = P;
+  for (const [ax, lim, keepHi] of [["x", x0, true], ["x", x1, false], ["y", y0, true], ["y", y1, false]]) {
+    const inp = out; out = []; if (!inp.length) break;
+    for (let i = 0; i < inp.length; i++) {
+      const a = inp[i], b = inp[(i + 1) % inp.length], ia = keepHi ? a[ax] >= lim : a[ax] <= lim, ib = keepHi ? b[ax] >= lim : b[ax] <= lim;
+      if (ia) out.push(a);
+      if (ia !== ib) { const t = (lim - a[ax]) / (b[ax] - a[ax]); out.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }); }
+    }
+  }
+  return out;
+}
+function v3HipRoof(P, y1, pitch) {
+  const T = v3.T, B = bbox(P), span = Math.max(B.x1 - B.x0, B.y1 - B.y0), st = Math.max(span / 110, 0.15), out = [];
+  // Each wall owns the part of the roof between the corner bisectors at its two ends (a straight-skeleton roof):
+  // height = distance to that wall's line there, so hips and valleys come out as straight lines.
+  const nP = P.length; let A2 = 0; for (let i = 0; i < nP; i++) { const p = P[i], q = P[(i + 1) % nP]; A2 += p.x * q.y - q.x * p.y; }
+  const E = P.map((p, i) => { const q = P[(i + 1) % nP], L = dist(p, q) || 1, d = { x: (q.x - p.x) / L, y: (q.y - p.y) / L }; return { p, q, n: A2 > 0 ? { x: -d.y, y: d.x } : { x: d.y, y: -d.x } }; });
+  const cr = (u, v) => u.x * v.y - u.y * v.x;
+  E.forEach((e, i) => {
+    const pr = E[(i + nP - 1) % nP], nx = E[(i + 1) % nP];
+    e.ua = { x: pr.n.x + e.n.x, y: pr.n.y + e.n.y }; e.ub = { x: e.n.x + nx.n.x, y: e.n.y + nx.n.y };
+    e.sa = Math.sign(cr(e.ua, { x: e.q.x - e.p.x, y: e.q.y - e.p.y })); e.sb = Math.sign(cr(e.ub, { x: e.p.x - e.q.x, y: e.p.y - e.q.y }));
+  });
+  const hz = q => {
+    let m = Infinity;
+    for (const e of E) {
+      const d = (q.x - e.p.x) * e.n.x + (q.y - e.p.y) * e.n.y; if (d < -1e-6 || d >= m) continue;
+      if (Math.sign(cr(e.ua, { x: q.x - e.p.x, y: q.y - e.p.y })) === -e.sa || Math.sign(cr(e.ub, { x: q.x - e.q.x, y: q.y - e.q.y })) === -e.sb) continue;
+      m = d;
+    }
+    if (m === Infinity) { for (let i = 0; i < nP; i++) m = Math.min(m, segDist(q, P[i], P[(i + 1) % nP])); }
+    return y1 + pitch * Math.max(0, m);
+  };
+  for (let x = B.x0; x < B.x1 - 1e-6; x += st) for (let y = B.y0; y < B.y1 - 1e-6; y += st) {
+    const xb = Math.min(x + st, B.x1), yb = Math.min(y + st, B.y1), C = [{ x, y }, { x: xb, y }, { x: xb, y: yb }, { x, y: yb }];
+    let poly = C.concat([{ x: (x + xb) / 2, y: (y + yb) / 2 }]), tri = [[0, 1, 4], [1, 2, 4], [2, 3, 4], [3, 0, 4]];   // a center point keeps hips and valleys straighter
+    if (!(C.every(q => inPoly(q, P)) && !P.some(q => q.x > x && q.x < xb && q.y > y && q.y < yb))) {
+      poly = v3ClipRect(P, x, y, xb, yb); if (poly.length < 3) continue;
+      try { tri = T.ShapeUtils.triangulateShape(poly.map(q => new T.Vector2(q.x, q.y)), []); } catch (e) { continue; }
+    }
+    for (const t of tri) for (const i of t) { const q = poly[i]; out.push(q.x, hz(q), q.y); }
+  }
+  return out;
+}
+// Doors and windows, decks, add-ons and culverts.
+function v3Extras(grp, site, H, bmap, base, ex) {
+  const T = v3.T, M = (color, o) => new T.MeshLambertMaterial(Object.assign({ color, side: T.DoubleSide }, o || {}));
+  const add = (geo, mat) => { const m = new T.Mesh(geo, mat); grp.add(m); return m; };
+  const box = (len, hgt, dep, x, y, z, rotY, mat) => { const m = add(new T.BoxGeometry(len, hgt, dep), mat); m.position.set(x, y, z); m.rotation.y = rotY; return m; };
+  const beam = (p, q, y, size, mat) => { const L = dist(p, q); if (L > 0.01) box(L, size, size, (p.x + q.x) / 2, y, (p.y + q.y) / 2, -Math.atan2(q.y - p.y, q.x - p.x), mat); };
+  const post = (p, y0, y1, size, mat) => { if (y1 - y0 > 0.05) box(size, y1 - y0, size, p.x, (y0 + y1) / 2, p.y, 0, mat); };
+  const slab = (P, top, thick, mat) => { const g = new T.ExtrudeGeometry(new T.Shape(P.map(q => new T.Vector2(q.x, q.y))), { depth: thick, bevelEnabled: false }); g.rotateX(Math.PI / 2); add(g, mat).position.y = top; };
+  const lerp = (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+  const glass = M(0x3F5B6B), door = M(0x7A5232), garage = M(0xDAD6CC), trim = M(0xF4F1EA), wood = M(0xA8835A), postM = M(0x8A6A48), conc = M(0xC9C5BC), pipe = M(0x5E666B);
+  let nOpen = 0, nDeck = 0, nAdd = 0, nCulv = 0;
+  for (const o of state.shapes) {
+    if (o.kind !== "opening" || !o.bid || !(o.level >= GROUND) || o.otype === "opening" || !o.points || o.points.length < 2) continue;
+    const m = bmap.get(o.bid); if (!m || o.level > m.top) continue;
+    const b = m.b, wH = lv => (b.wallH && b.wallH[lv]) || 8;
+    let yb = m.floor0; for (let lv = GROUND; lv < o.level; lv++) yb += (wH(lv) + 1) * FT;
+    const vt = openVert(o, wH(o.level)), p = o.points[0], q = o.points[1], L = dist(p, q), hgt = (vt.head - vt.sill) * FT;
+    if (L < 0.1 || hgt < 0.1) continue;
+    const dep = Math.max(o.thickness || 0.15, 0.15) + 0.06, rot = -Math.atan2(q.y - p.y, q.x - p.x), cx = (p.x + q.x) / 2, cz = (p.y + q.y) / 2, cy = yb + vt.sill * FT + hgt / 2;
+    box(L + 0.1, hgt + (vt.sill > 0 ? 0.1 : 0.05), dep - 0.02, cx, cy - (vt.sill > 0 ? 0 : 0.025), cz, rot, trim);
+    box(L, hgt, dep, cx, cy, cz, rot, ["window", "patio"].includes(o.otype) ? glass : o.otype === "overhead" ? garage : door);
+    nOpen++;
+  }
+  for (const s of site.filter(x => x.kind === "deck" && x.closed && x.points.length >= 3)) {
+    const P = s.points, gs = P.map(H), m = s.bid && bmap.get(s.bid), top = m ? m.floor0 - 0.03 : Math.max(...gs) + 0.6;
+    slab(P, top, 0.14, wood);
+    const rail = top - Math.min(...gs) > 0.76, nearB = q => m && m.b.points.some((a, i) => segDist(q, a, m.b.points[(i + 1) % m.b.points.length]) < 0.4);
+    for (let i = 0; i < P.length; i++) {
+      const a = P[i], b = P[(i + 1) % P.length], n = Math.max(1, Math.ceil(dist(a, b) / 2.4)), railed = rail && !(nearB(a) && nearB(b));
+      for (let k = 0; k < n; k++) { const p = lerp(a, b, k / n); post(p, H(p) - 0.1, top + (railed ? 0.95 : -0.14), 0.12, postM); }
+      if (railed) { beam(a, b, top + 0.92, 0.07, wood); beam(a, b, top + 0.12, 0.05, wood); }
+    }
+    nDeck++;
+  }
+  for (const s of site.filter(x => x.kind === "addon" && x.points.length === 4)) {
+    const A = ADDONS[s.addonType] || ADDONS.leanto, rk = s.roof || A.roof, R = ROOFS[rk] || ROOFS.metal, P = s.points, gs = P.map(H), floor = Math.max(...gs) + 0.1, m = s.bid && bmap.get(s.bid);
+    const D = dist(P[0], P[3]), flat = !A.slope || rk === "none";
+    let hi = m ? Math.min(m.eave - 0.15, floor + 10 * FT) : floor + 9 * FT; hi = Math.max(hi, floor + 7.5 * FT);
+    const lo = flat ? hi : Math.max(floor + 7 * FT, hi - D * (rk === "shingle" ? 4 / 12 : 2 / 12));
+    if (["porch", "screened"].includes(s.addonType)) slab(P, floor, 0.12, conc);
+    const nP = Math.max(1, Math.ceil(dist(P[3], P[2]) / (10 * FT))) + 1;
+    for (let k = 0; k < nP; k++) { const p = lerp(P[3], P[2], k / (nP - 1)); post(p, H(p) - 0.1, lo, 0.14, postM); }
+    if (!m) for (let k = 0; k < nP; k++) { const p = lerp(P[0], P[1], k / (nP - 1)); post(p, H(p) - 0.1, hi, 0.14, postM); }
+    beam(P[3], P[2], lo - 0.09, 0.18, postM);
+    if (rk === "none" || A.beams) {
+      const L = dist(P[0], P[1]);
+      for (let a = 0.3; a < L; a += 0.6) { const t = a / L; beam(lerp(P[0], P[1], t), lerp(P[3], P[2], t), hi + 0.12, 0.06, wood); }
+      beam(P[0], P[1], hi, 0.18, postM);
+    } else {
+      const mm = /rgba?\(([^)]+)\)/.exec(R[1]); let col, op = 1;
+      if (mm) { const v = mm[1].split(",").map(parseFloat); col = new T.Color(v[0] / 255, v[1] / 255, v[2] / 255); op = v[3] != null ? v[3] : 1; } else col = new T.Color(R[1]);
+      const v = (p, y) => [p.x, y, p.y], pos = [...v(P[0], hi), ...v(P[1], hi), ...v(P[2], lo), ...v(P[0], hi), ...v(P[2], lo), ...v(P[3], lo)];
+      const g = new T.BufferGeometry(); g.setAttribute("position", new T.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
+      add(g, new T.MeshLambertMaterial({ color: col, side: T.DoubleSide, transparent: op < 1, opacity: op }));
+    }
+    if (A.screen) {
+      const sc = new T.MeshLambertMaterial({ color: 0x2A2E30, side: T.DoubleSide, transparent: true, opacity: 0.35 });
+      for (const [a, b, ya, yb] of [[P[1], P[2], hi, lo], [P[2], P[3], lo, lo], [P[3], P[0], lo, hi]]) {
+        const pos = [a.x, floor, a.y, b.x, floor, b.y, b.x, yb, b.y, a.x, floor, a.y, b.x, yb, b.y, a.x, ya, a.y];
+        const g = new T.BufferGeometry(); g.setAttribute("position", new T.Float32BufferAttribute(pos, 3)); g.computeVertexNormals(); add(g, sc);
+      }
+    }
+    nAdd++;
+  }
+  for (const s of site.filter(x => x.kind === "culvert" && x.points.length === 2)) {
+    const r = (s.size || 18) * IN / 2, a = s.points[0], b = s.points[1];
+    const ya = s.invIn != null && hm ? (s.invIn - base) * ex : H(a) - 2 * r, yb = s.invOut != null && hm ? (s.invOut - base) * ex : H(b) - 2 * r;
+    const A3 = new T.Vector3(a.x, ya + r, a.y), B3 = new T.Vector3(b.x, yb + r, b.y), dir = B3.clone().sub(A3), L = dir.length(); if (L < 0.1) continue;
+    const mesh = add(new T.CylinderGeometry(r, r, L, 20, 1, true), pipe);
+    mesh.position.copy(A3).add(B3).multiplyScalar(0.5); mesh.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), dir.normalize());
+    nCulv++;
+  }
+  return { nOpen, nDeck, nAdd, nCulv };
 }
 function v3Home() {
   const site = state.shapes.filter(s => s.kind === "building" && !s.level), o = v3.o, ext = v3.ext;
@@ -5070,14 +5414,18 @@ new ResizeObserver(resize).observe(stage);
   const blob = await kvGet(PK("image"));
   if (blob) await loadImageBlob(blob, false);
   const hblob = await kvGet(PK("heightmap"));
-  if (hblob) { await loadTerrainBlob(hblob); hmOrig = !!(await kvGet(PK("heightmap0"))); }
+  if (hblob) {
+    await loadTerrainBlob(hblob);
+    const h0 = await kvGet(PK("heightmap0")); hmOrig = !!h0;
+    if (h0 && hm) { try { const o = await decodePNG16(await h0.arrayBuffer()); if (o.w === hm.w && o.h === hm.h) hm0raw = o.raw; } catch (e) {} dirtCompute(); }
+  }
   const wblob = await kvGet(PK("water"));
   if (wblob) await loadWaterBlob(wblob);
   renderLayers();
   if (img || hm || waterImg) { $("empty").hidden = true; if (state.shapes.length) fit(state.shapes.flatMap(s => s.points)); else fit(); }
   else if (state.skipPhoto) { view.s = 4; view.x = W / 2; view.y = H / 2; }
   else $("empty").hidden = false;
-  renderPanel(); updateHistory(); updateUI();
+  renderPanel(); updateHistory(); updateUI(); culvertWatch(); renderDirt();
   cleanStorage(loaded);
 })();
 })();
