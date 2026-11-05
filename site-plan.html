@@ -286,6 +286,8 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
 .ps-sym{display:inline-block;min-width:16px;height:16px;line-height:14px;text-align:center;font:700 8pt "Barlow Condensed",sans-serif;border:1.4px solid;box-sizing:border-box;padding:0 2px}
 .ps-sym.e{color:#B86E00;border-radius:50%}.ps-sym.p{color:#1F5FBF}.ps-run{display:inline-block;width:22px;border-top:2.5px solid;vertical-align:middle}
 .ps-svg .bm{stroke:#17231F;stroke-width:.03;stroke-dasharray:.12 .04}.ps-svg .tl2{stroke:#7C8582;stroke-width:.005}.ps-svg .rg{stroke:#17231F;stroke-width:.018}.ps-svg .na{fill:#17231F}
+.ps-svg .dt{stroke:#17231F;stroke-width:.007}.ps-svg .dt0{stroke:none}.ps-svg .gr2{stroke:#17231F;stroke-width:.018;fill:none}.ps-svg .vb{stroke:#17231F;stroke-width:.008;stroke-dasharray:.03 .015;fill:none}
+.ps-svg .ab2{stroke:#17231F;stroke-width:.014;fill:none}.ps-svg .dp{stroke:#17231F;stroke-width:.02;fill:none}.ps-svg .brk{stroke:#17231F;stroke-width:.007;fill:#FFFFFF}.ps-svg .dbox{fill:none;stroke:#B7BFBB;stroke-width:.008}
 #printroot{display:none}
 @media print{
   html.printing,html.printing body{height:auto!important;overflow:visible!important;background:#FFFFFF!important}
@@ -3400,6 +3402,132 @@ function psSectionSVG(b, x0, y0, aw, ah) {
   return g.join("");
 }
 
+// A to-scale cut through the edge of the foundation (a builder's "stem wall detail") for the chosen foundation,
+// drawn into the box (bx, by, bw, bh) page inches. x = feet in from the outside face of the foundation, y = feet up from
+// the top of the foundation / floor slab.
+const PS_DEFS = `<defs>
+<pattern id="ps-pe" patternUnits="userSpaceOnUse" width=".09" height=".09"><rect width=".09" height=".09" fill="#F1ECE2"/><path d="M0 .09L.09 0M-.02 .02L.02 -.02M.07 .11L.11 .07" stroke="#9C8F77" stroke-width=".005"/><path d="M0 0L.09 .09" stroke="#9C8F77" stroke-width=".004"/></pattern>
+<pattern id="ps-pc" patternUnits="userSpaceOnUse" width=".11" height=".11"><rect width=".11" height=".11" fill="#E7E8E6"/><circle cx=".02" cy=".03" r=".006" fill="#6F7471"/><circle cx=".07" cy=".08" r=".005" fill="#6F7471"/><path d="M.06 .015l.015 .02h-.025z" fill="none" stroke="#6F7471" stroke-width=".004"/><circle cx=".095" cy=".045" r=".004" fill="#6F7471"/></pattern>
+<pattern id="ps-pg" patternUnits="userSpaceOnUse" width=".08" height=".07"><rect width=".08" height=".07" fill="#F4F1EA"/><circle cx=".02" cy=".02" r=".013" fill="none" stroke="#7C7466" stroke-width=".004"/><circle cx=".06" cy=".05" r=".011" fill="none" stroke="#7C7466" stroke-width=".004"/></pattern>
+<pattern id="ps-pf" patternUnits="userSpaceOnUse" width=".06" height=".06"><rect width=".06" height=".06" fill="#F6C9D8"/><path d="M0 .06L.06 0" stroke="#C98AA0" stroke-width=".005"/></pattern>
+<pattern id="ps-pb" patternUnits="userSpaceOnUse" width=".16" height=".667"><rect width=".16" height=".667" fill="#E4E4E2"/><path d="M0 .665H.16M.08 0V.333M0 .333H.16" stroke="#6F7471" stroke-width=".006"/></pattern>
+</defs>`;
+function psFoundDetail(b, o, bx, by, bw, bh, num, sheetNo) {
+  const I = v => v / 12, post = o.frame === "post", type = post ? "post" : o.found;
+  if (!type || type === "none") return "";
+  const sh = [], lines = [], labs = [], dims = [], bars = [];
+  const poly = (fill, pts, cls = "dt") => sh.push([fill, pts, cls]), rect = (fill, x0, y0, x1, y1, cls) => poly(fill, [[x0, y0], [x1, y0], [x1, y1], [x0, y1]], cls);
+  const lab = (x, y, t) => labs.push([x, y, t]), dim = (x0, y0, x1, y1, t, off) => dims.push([x0, y0, x1, y1, t, off]);
+  const stud = o.stud === "2x4" ? "2×4" : "2×6", sd = I(o.stud === "2x4" ? 3.5 : 5.5);
+  const E = "url(#ps-pe)", C = "url(#ps-pc)", GV = "url(#ps-pg)", FM = "url(#ps-pf)", WD = "#F1DDB5";
+  let G = -I(8), Xb = 2.6, xl = -1.5, top, bot;
+  const sheath = { osb: "7/16\" OSB sheathing and house wrap", ply: "½\" plywood sheathing and house wrap", zip: "ZIP System sheathing, taped" }[o.wsheath] || "Sheathing and wrap";
+  const siding = { lp: "LP SmartSide lap siding", vinyl: "Vinyl siding", fc: "Fiber cement siding", bb: "Board and batten", steel: "Steel siding", cedar: "Cedar shingles" }[o.siding] || "Siding";
+  const wallAbove = (y0, treated) => {   // bottom plate, studs, sheathing and siding, cut off at the top
+    top = y0 + 1.1;
+    rect(WD, 0, y0, sd, y0 + I(1.5)); rect(WD, 0, y0 + I(1.5), sd, top); rect("#C79A5B", -I(0.5), y0 - I(1), 0, top); rect("#B8C4BE", -I(1.1), y0 - I(1.5), -I(0.5), top);
+    lab(sd / 2, y0 + I(0.75), `${treated ? "Treated " : ""}${stud} bottom plate on sill gasket`); lab(sd / 2, y0 + 0.7, `${stud} studs @ ${o.oc || 16}" o.c.`);
+    lab(-I(0.25), y0 + 0.45, sheath); lab(-I(0.8), y0 + 0.9, siding);
+  };
+  const bolt = (yTop, emb) => lines.push([[[I(2.75), yTop + I(2)], [I(2.75), yTop - emb], [I(4.5), yTop - emb]], "ab2"]);
+  const earthOut = (y) => { rect(E, xl, y, 0, G, "dt0"); lines.push([[[xl, G - 0.04], [0, G]], "gr2"]); lab(xl + 0.35, G - 0.02, "Finished grade, slope 6\" in 10 ft away"); };
+  if (type === "frost" || type === "crawl") {
+    const fb = G - 5, ft = fb + I(8); bot = fb - 0.45;
+    earthOut(bot); rect(E, 0, bot, Xb, type === "crawl" ? -2.6 : -I(10), "dt0");
+    rect(C, -I(6), fb, I(14), ft); bars.push([-I(2.5), fb + I(3)], [I(10.5), fb + I(3)]);
+    if (type === "frost") {
+      rect(C, 0, ft, I(8), 0); bars.push([I(4), -0.7], [I(4), ft + 0.7]);
+      rect(GV, I(10), -I(10), Xb, -I(4)); rect(C, I(10), -I(4), Xb, 0); rect(FM, I(8), ft, I(10), 0); lines.push([[[I(10), -I(4)], [Xb, -I(4)]], "vb"]);
+      bolt(0, I(7)); wallAbove(0, true);
+      lab(I(4), (ft + G) / 2, "8\" poured frost wall, #4 bars, 2 horizontal"); lab(I(9), ft + 1.2, "2\" XPS foam on the inside of the wall"); lab(I(4), fb + I(4), "Footing 20\" × 8\", 2 #4 bars with 3\" cover");
+      lab(2.2, -I(2), "4\" concrete slab"); lab(2.6, -I(4), "10 mil vapor barrier, lap and tape the seams"); lab(2.4, -I(7), "6\" compacted gravel (Class 5)");
+      lab(I(2.75), -I(4), "½\" × 10\" anchor bolts, 7\" into the concrete, 6 ft apart, 12\" from corners");
+      dim(0, -2, I(8), -2, "8\"", 0); dim(I(10), -I(4), I(10), 0, "4\"", 0);
+    } else {
+      rect("url(#ps-pb)", 0, ft, I(8), 0); rect(FM, I(8), -2.6, I(10), -I(2));
+      const jd = I({ "2x10": 9.25, "2x12": 11.25, ij: 11.875 }[o.joist] || 9.25), y1 = I(1.5), y2 = y1 + jd, y3 = y2 + I(0.75);
+      rect(WD, 0, 0, I(5.5), y1); rect(WD, I(0.25), y1, I(1.75), y2); rect("#F7EBD0", I(1.75), y1, Xb, y2); rect("#D9B77F", 0, y2, Xb, y3);
+      lines.push([[[I(10), -2.6], [Xb, -2.6]], "vb"]); bolt(y1, I(15)); wallAbove(y3, false);
+      lab(I(4), (ft + G) / 2, "8\" concrete block, grout the cores at the bolts"); lab(I(9), -1.4, "2\" XPS foam on the inside of the wall"); lab(I(4), fb + I(4), "Footing 20\" × 8\", 2 #4 bars with 3\" cover");
+      lab(I(2.75), y1 / 2, "Treated 2×6 sill on gasket, ½\" anchor bolts 6 ft apart"); lab(I(1), (y1 + y2) / 2, "Rim joist"); lab(2.2, (y1 + y2) / 2, `${{ "2x10": "2×10", "2x12": "2×12", ij: "11⅞\" I-joist" }[o.joist] || "2×10"} floor joists @ 16" o.c.`);
+      lab(2.4, (y2 + y3) / 2, "¾\" tongue-and-groove subfloor, glued and screwed"); lab(2.2, -2.6, "10 mil vapor barrier on the crawlspace floor, 6\" up the wall");
+    }
+    dim(-I(6), fb - 0.22, I(14), fb - 0.22, "1'-8\"", 0); dim(xl + 0.12, fb, xl + 0.12, G, "5'-0\" min.", 0); lab(1.8, fb - 0.25, "Undisturbed soil");
+  } else if (type === "slab") {
+    bot = -2.4; xl = -2.4; earthOut(bot); rect(E, 0, bot, Xb, -I(16), "dt0");
+    rect(GV, -0.1, -I(18), Xb, -I(4)); poly(C, [[0, 0], [Xb, 0], [Xb, -I(4)], [1.5, -I(4)], [1, -I(12)], [0, -I(12)]]); bars.push([I(3), -I(9)], [I(9), -I(9)]);
+    rect(FM, -I(2), -I(12), 0, 0); rect(FM, -2, -I(14), -I(2), -I(12)); rect("#8E9894", -I(2.5), G, -I(2), 0);
+    lines.push([[[1.5, -I(4)], [Xb, -I(4)]], "vb"]); bolt(0, I(7)); wallAbove(0, true);
+    lab(0.5, -I(8), "Thickened edge 12\" wide, 12\" deep, 2 #4 bars"); lab(2.3, -I(2), "4\" concrete slab"); lab(2.6, -I(4), "10 mil vapor barrier under the slab"); lab(2.3, -I(11), "Compacted gravel (Class 5)");
+    lab(-I(1), -I(6), "2\" XPS foam on the slab edge"); lab(-1, -I(13), "2\" XPS wing insulation, 24\" out (frost-protected shallow foundation)"); lab(-I(2.25), G / 2, "Cover the foam above grade (flashing or parging)");
+    lab(I(2.75), -I(4), "½\" × 10\" anchor bolts, 7\" into the concrete, 6 ft apart"); dim(-2, -I(16), -I(2), -I(16), "2'-0\"", 0); dim(1.25, -I(12), 1.25, 0, "12\"", 0);
+  } else if (type === "bsmt") {
+    G = -I(8); const ft = -8, fb = ft - I(10); bot = fb - 0.45; xl = -2;
+    rect(E, xl, bot, 0, G, "dt0"); lines.push([[[xl, G - 0.04], [0, G]], "gr2"]); lab(xl + 0.35, G - 0.02, "Finished grade, slope 6\" in 10 ft away");
+    rect(E, 0, bot, Xb, ft, "dt0"); rect(GV, -1.5, fb, -I(8), fb + 1.3); rect(C, -I(8), fb, I(16), ft); bars.push([-I(4), fb + I(3)], [I(12), fb + I(3)]);
+    rect(C, 0, ft, I(8), 0); rect(GV, I(16), fb, Xb, ft); rect(C, I(10), ft, Xb, ft + I(4)); rect(FM, I(8), ft + I(4), I(10), -I(2));
+    lines.push([[[0, G], [0, ft]], "dp"]); lines.push([[[I(16), ft], [Xb, ft]], "vb"]);
+    sh.push(["#FFFFFF", null, "dt", [-I(8) - 0.45, fb + 0.3, I(2)]]);
+    const jd = I({ "2x10": 9.25, "2x12": 11.25, ij: 11.875 }[o.joist] || 9.25), y1 = I(1.5), y2 = y1 + jd, y3 = y2 + I(0.75);
+    rect(WD, 0, 0, I(5.5), y1); rect(WD, I(0.25), y1, I(1.75), y2); rect("#F7EBD0", I(1.75), y1, Xb, y2); rect("#D9B77F", 0, y2, Xb, y3);
+    bolt(y1, I(15)); wallAbove(y3, false); bars.push([I(4), -2], [I(4), -5]);
+    lab(I(4), -4, "8\" poured basement wall, #4 bars each way"); lab(-I(0.5), -2.2, "Dampproofing on the outside of the wall"); lab(I(9), -3, "2\" XPS foam on the inside of the wall");
+    lab(-I(8) - 0.45, fb + 0.3, "4\" perforated drain tile in washed rock and filter fabric, to a sump"); lab(I(4), fb + I(5), "Footing 24\" × 10\", 2 #4 bars with 3\" cover");
+    lab(2.2, ft + I(2), "4\" basement slab"); lab(2.4, ft - 0.25, "Gravel under the slab, 10 mil vapor barrier"); lab(I(2.75), y1 / 2, "Treated 2×6 sill on gasket, ½\" anchor bolts 6 ft apart");
+    lab(2.4, (y1 + y2) / 2, "Floor joists @ 16\" o.c. with rim joist"); lab(2.4, (y2 + y3) / 2, "¾\" tongue-and-groove subfloor");
+    dim(-I(8), fb - 0.22, I(16), fb - 0.22, "2'-0\"", 0); dim(xl + 0.12, ft, xl + 0.12, 0, "8'-0\" wall", 0);
+  } else {   // post-frame
+    G = -I(4); const pb = -4.5; bot = pb - I(6) - 0.4; Xb = 2.6; xl = -1.2; top = 1.4;
+    rect(E, xl, bot, Xb, G, "dt0"); lines.push([[[xl, G - 0.03], [0, G]], "gr2"]); lab(xl + 0.3, G - 0.02, "Finished grade, slope 6\" in 10 ft away");
+    rect(C, -I(6.25), pb - I(6), I(11.75), pb);
+    if (o.pfoot === "pad") rect(C, -I(4), pb, I(9.5), pb + 1);
+    const pd = I(o.post === "3ply8" ? 7.25 : 5.5);
+    rect(WD, 0, pb, pd, top); rect(GV, pd, -I(10), Xb, -I(4)); rect(C, pd + I(2), -I(4), Xb, 0); rect(FM, pd, -1.5, pd + I(2), 0);
+    rect("#C9A46A", -I(1.5), G - I(2), 0, G + I(5.25)); for (const y of [2 - 0.67, 3.3 - 0.67]) if (y < top - 0.2) rect("#E2C99A", -I(1.5), y, 0, y + I(3.5)); rect("#B8C4BE", -I(2.1), G + I(4), -I(1.5), top);
+    lab(pd / 2, -2.6, { "3ply": "3-ply 2×6 laminated column, treated below grade", "6x6": "6×6 treated post", "3ply8": "3-ply 2×8 laminated column" }[o.post] || "Post");
+    lab(I(2.75), pb - I(3), o.pfoot === "pad" ? "Poured concrete pad, 6\" thick" : "Precast concrete pier pad"); if (o.pfoot === "pad") lab(I(2.75), pb + 0.5, "Concrete collar around the post (holds it down)");
+    lab(-I(0.75), G + I(2), "Treated 2×8 splash plank"); lab(-I(0.75), 1.5 - 0.67, "2×4 wall girts, 24\" apart"); lab(-I(1.8), 0.6, "Steel wall panels");
+    if (o.floor === "slab") { lab(1.8, -I(2), "4\" concrete slab"); lab(1.9, -I(7), "Gravel base and 10 mil vapor barrier"); lab(pd + I(1), -1, "2\" XPS foam at the slab edge"); }
+    lab(1.4, pb - 0.2, "Backfill in 8\" layers, tamped"); dim(xl + 0.1, pb, xl + 0.1, G, "4'-6\" min.", 0);
+    G = -I(4);
+  }
+  // ---- scale and layout ----
+  const xs = [xl, Xb], ys = [bot, top], fw = Xb - xl, fh = top - bot, dwIn = bw * 0.5, dhIn = bh - 0.5;
+  const k = [3, 1.5, 1, 0.75, 0.5, 0.375, 0.25, 0.1875].find(v => fw * v <= dwIn && fh * v <= dhIn) || 0.1875;
+  const kTxt = { 3: "3\" = 1'-0\"", 1.5: "1½\" = 1'-0\"", 1: "1\" = 1'-0\"", 0.75: "3/4\" = 1'-0\"", 0.5: "1/2\" = 1'-0\"", 0.375: "3/8\" = 1'-0\"", 0.25: "1/4\" = 1'-0\"", 0.1875: "3/16\" = 1'-0\"" }[k];
+  bh = Math.min(bh, Math.max(fh * k, labs.length * 0.21) + 0.75);
+  const ox = bx + 0.1, oy = by + 0.15, X = x => n2(ox + (x - xl) * k), Y = y => n2(oy + (top - y) * k), g = [`<rect x="${n2(bx)}" y="${n2(by)}" width="${n2(bw)}" height="${n2(bh)}" class="dbox"/>`];
+  for (const [fill, pts, cls, circ] of sh) {
+    if (circ) { g.push(`<circle cx="${X(circ[0])}" cy="${Y(circ[1])}" r="${n2(circ[2] * k)}" fill="#FFFFFF" class="dt"/><circle cx="${X(circ[0])}" cy="${Y(circ[1])}" r="${n2(circ[2] * k * 0.55)}" fill="none" class="dt"/>`); continue; }
+    g.push(`<polygon points="${pts.map(([x, y]) => X(x) + "," + Y(y)).join(" ")}" fill="${fill}" class="${cls}"/>`);
+  }
+  for (const [pts, cls] of lines) g.push(`<polyline points="${pts.map(([x, y]) => X(x) + "," + Y(y)).join(" ")}" class="${cls}"/>`);
+  for (const [x, y] of bars) g.push(`<circle cx="${X(x)}" cy="${Y(y)}" r="${n2(Math.max(0.022, I(0.25) * k))}" fill="#17231F"/>`);
+  // break lines where the drawing is cut off
+  const zz = (x0, y0, x1, y1) => { const mx = (x0 + x1) / 2, my = (y0 + y1) / 2, ux = x1 - x0, uy = y1 - y0, L = Math.hypot(ux, uy) || 1, nx = -uy / L * 0.12 / k, ny = ux / L * 0.12 / k;
+    g.push(`<polyline points="${[[x0, y0], [mx - ux * 0.04, my - uy * 0.04], [mx + nx, my + ny], [mx - nx, my - ny], [mx + ux * 0.04, my + uy * 0.04], [x1, y1]].map(([x, y]) => X(x) + "," + Y(y)).join(" ")}" class="brk"/>`); };
+  zz(Xb, bot, Xb, top); zz(xl - 0.02, top, Xb, top);
+  for (const [x0, y0, x1, y1, t] of dims) {
+    const a = { x: +X(x0), y: +Y(y0) }, c = { x: +X(x1), y: +Y(y1) }, vert = Math.abs(a.x - c.x) < 1e-3;
+    g.push(`<line x1="${a.x}" y1="${a.y}" x2="${c.x}" y2="${c.y}" class="dm"/>` + [a, c].map(p => `<line x1="${n2(p.x - 0.03)}" y1="${n2(p.y + 0.03)}" x2="${n2(p.x + 0.03)}" y2="${n2(p.y - 0.03)}" class="dm"/>`).join(""));
+    g.push(vert ? `<text x="${n2(a.x - 0.04)}" y="${n2((a.y + c.y) / 2)}" class="tc ts" transform="rotate(-90 ${n2(a.x - 0.04)} ${n2((a.y + c.y) / 2)})">${psE(t)}</text>` : `<text x="${n2((a.x + c.x) / 2)}" y="${n2(a.y - 0.04)}" class="tc ts">${psE(t)}</text>`);
+  }
+  // labels in a column on the right, leaders back to the spot, wrapped to fit
+  const lx = bx + bw * 0.54 + 0.05, maxC = Math.max(20, Math.floor((bx + bw - lx - 0.05) / 0.047)), wrap = t => { const w = t.split(" "), out = [""]; for (const s of w) { if ((out[out.length - 1] + " " + s).trim().length > maxC) out.push(s); else out[out.length - 1] = (out[out.length - 1] + " " + s).trim(); } return out; };
+  const ls = labs.map(([x, y, t]) => ({ px: +X(Math.min(x, Xb - 0.3)), py: +Y(y), t: wrap(t) })).sort((p, q) => p.py - q.py);
+  let cy = by + 0.2; const lh = 0.12;
+  for (const L of ls) { L.ty = Math.max(cy, L.py - (L.t.length - 1) * lh / 2); cy = L.ty + L.t.length * lh + 0.05; }
+  const over = cy - (by + bh - 0.45); if (over > 0) { const sc = (bh - 0.65) / (cy - by - 0.2 + 1e-6); let y = by + 0.2; for (const L of ls) { L.ty = y; y += (L.t.length * lh + 0.05) * Math.min(1, sc); } }
+  for (const L of ls) {
+    g.push(`<line x1="${n2(L.px)}" y1="${n2(L.py)}" x2="${n2(lx - 0.04)}" y2="${n2(L.ty - 0.03)}" class="ld"/><circle cx="${n2(L.px)}" cy="${n2(L.py)}" r=".018" class="ldd"/>`);
+    g.push(L.t.map((s, i) => `<text x="${n2(lx)}" y="${n2(L.ty + i * lh)}" class="tl ts">${psE(s)}</text>`).join(""));
+  }
+  const ty = by + bh - 0.22;
+  g.push(`<circle cx="${n2(bx + 0.3)}" cy="${n2(ty)}" r=".16" class="dm" fill="#FFFFFF"/><line x1="${n2(bx + 0.14)}" y1="${n2(ty)}" x2="${n2(bx + 0.46)}" y2="${n2(ty)}" class="dm"/><text x="${n2(bx + 0.3)}" y="${n2(ty - 0.03)}" class="tc ts">${num}</text><text x="${n2(bx + 0.3)}" y="${n2(ty + 0.11)}" class="tc ts">${psE(sheetNo)}</text>`);
+  g.push(`<text x="${n2(bx + 0.55)}" y="${n2(ty - 0.01)}" class="tl tb">${psE({ frost: "Frost wall and slab detail", slab: "Slab edge detail (frost-protected)", crawl: "Crawlspace wall detail", bsmt: "Basement wall detail", post: "Post and footing detail" }[type])}</text><text x="${n2(bx + 0.55)}" y="${n2(ty + 0.13)}" class="tl ts">Scale: ${psE(kTxt)}</text>`);
+  return g.join("");
+}
+
 // The map's own drawing of one floor (or the site), on white, at a true scale.
 function psRaster(b, lv, ext, sIn, ppi, tags, opt = {}) {
   const wIn = (ext.x1 - ext.x0) / FT * sIn, hIn = (ext.y1 - ext.y0) / FT * sIn, k = 2, cw = Math.max(2, Math.round(wIn * ppi * k)), ch = Math.max(2, Math.round(hIn * ppi * k));
@@ -3411,7 +3539,13 @@ function psRaster(b, lv, ext, sIn, ppi, tags, opt = {}) {
     if (b) {
       state.shapes = JSON.parse(JSON.stringify([b, ...state.shapes.filter(s => s.bid === b.id && s.kind !== "wallview" && s.kind !== "underlay")]));
       state.level = lv; autoDimension(state.shapes[0], lv);
-    } else { state.shapes = state.shapes.filter(s => !s.level && s.kind !== "underlay"); state.level = 99; }
+    } else {
+      state.shapes = state.shapes.filter(s => !s.level && s.kind !== "underlay"); state.level = 99;
+      if (opt.site) {
+        if (img && state.layers.photo.on) { g.globalAlpha = 0.45; g.drawImage(img, view.x, view.y, state.imageWidthM * view.s, state.imageWidthM * img.height / img.width * view.s); g.globalAlpha = 1; }
+        if (hm && imgSizeM()) { const sW = W, sH = H; W = cw / k; H = ch / k; try { g.globalAlpha = 0.8; drawContours(); } finally { W = sW; H = sH; g.globalAlpha = 1; } }
+      }
+    }
     drawAll();
     if (tags) for (const t of tags) {
       const p = toS(t.p); g.beginPath(); g.arc(p.x, p.y, 9, 0, Math.PI * 2); g.fillStyle = "#FFFFFF"; g.fill(); g.lineWidth = 1.2; g.strokeStyle = "#17231F"; g.stroke();
@@ -3443,14 +3577,54 @@ function psBuild(b) {
   // ---- cover ----
   const sheetList = [];   // filled at the end
   page("G-0", "Cover sheet and notes", "", "");
-  // ---- site plan ----
+  // ---- site plan: the building in the middle, what's around it, distances to it ----
   {
-    const site = state.shapes.filter(s => !s.level && s.points && s.points.length && s.kind !== "underlay" && s.kind !== "note");
-    const B = bbox(site.flatMap(s => s.points)), pad = 30 * FT, ext = { x0: B.x0 - pad, y0: B.y0 - pad, x1: B.x1 + pad, y1: B.y1 + pad };
-    const [sIn, sTxt] = psPick((ext.x1 - ext.x0) / FT, (ext.y1 - ext.y0) / FT, aw, ah - 0.4, PS_ENG);
-    const R = psRaster(null, 99, ext, sIn, 100);
-    const na = `<g transform="translate(${n2(ax + aw - 0.6)},${n2(ay + 0.7)})"><polygon points="0,-0.45 0.16,0.2 0,0.08 -0.16,0.2" class="na"/><text x="0" y="0.45" class="tc tb">N</text></g>`;
-    page("C-1", "Site plan", sTxt, `<img class="ps-img" src="${R.url}" style="left:${ax}in;top:${ay}in;width:${n2(R.wIn)}in;height:${n2(R.hIn)}in">` + svg(na + `<text x="${ax}" y="${n2(PH - M - 0.05)}" class="tl">Site plan, ${psE(sTxt)}. North is up. Distances on the map are from the background picture's scale; check property lines with a survey.</text>`));
+    const bp = b.points, B0 = bbox(bp), D = Math.max(B0.x1 - B0.x0, B0.y1 - B0.y0) / FT, Rft = Math.min(260, Math.max(70, D * 2.6)), dh = ah - 0.55;
+    const [sIn, sTxt] = psPick(2 * Rft, 2 * Rft, aw, dh, PS_ENG), c0 = { x: (B0.x0 + B0.x1) / 2, y: (B0.y0 + B0.y1) / 2 }, hw = aw / sIn / 2 * FT, hh = dh / sIn / 2 * FT;
+    const ext = { x0: c0.x - hw, y0: c0.y - hh, x1: c0.x + hw, y1: c0.y + hh }, inExt = p => p.x > ext.x0 && p.x < ext.x1 && p.y > ext.y0 && p.y < ext.y1;
+    const segs = P => P.map((p, i) => [p, P[(i + 1) % P.length]]), near = (p, a, c) => { const dx = c.x - a.x, dy = c.y - a.y, L = dx * dx + dy * dy; let t = L ? ((p.x - a.x) * dx + (p.y - a.y) * dy) / L : 0; t = Math.max(0, Math.min(1, t)); return { x: a.x + t * dx, y: a.y + t * dy }; };
+    // closest pair between the building outline and another shape's line or outline
+    const closest = (sh) => {
+      const P = sh.points, cl = sh.closed || ["building", "pad", "deck", "addon", "shape"].includes(sh.kind), S2 = cl ? segs(P) : P.slice(1).map((p, i) => [P[i], p]); let best = null;
+      if (!S2.length) S2.push([P[0], P[0]]);
+      for (const [a, c] of segs(bp)) for (const [p, q] of S2) for (const [u, A, C, fromB] of [[p, a, c, true], [q, a, c, true], [a, p, q, false], [c, p, q, false]]) {
+        const m = near(u, A, C), d = dist(u, m); if (!best || d < best.d) best = fromB ? { d, pb: m, po: u } : { d, pb: u, po: m };
+      }
+      if (best && sh.kind === "road" && sh.width) { const dd = best.d - sh.width / 2; if (dd <= 0.2) return null; const t = dd / best.d; best = { d: dd, pb: best.pb, po: { x: best.pb.x + (best.po.x - best.pb.x) * t, y: best.pb.y + (best.po.y - best.pb.y) * t } }; }
+      return best;
+    };
+    const others = state.shapes.filter(x => !x.level && x.id !== b.id && x.bid !== b.id && x.points && x.points.length && !["underlay", "note", "dim", "wallview", "culvert", "furn"].includes(x.kind) && !(x.kind === "shape" && x.shapeType === "circle"));
+    const meas = others.map(x => ({ x, c: closest(x) })).filter(m => m.c && m.c.d > 0.3 && m.c.d < Rft * FT * 1.1 && !inPoly(m.c.po, bp) && inExt(m.c.po)).sort((p, q) => p.c.d - q.c.d).slice(0, 6);
+    const elev = bp.map(p => elevAt(p)), hasEl = elev.some(v => v != null);
+    const extra = g => {
+      const Q = bp.map(toS);
+      g.beginPath(); Q.forEach((p, i) => i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y)); g.closePath(); g.fillStyle = "rgba(217,52,43,.16)"; g.fill(); g.lineWidth = 4; g.strokeStyle = "#D9342B"; g.lineJoin = "round"; g.stroke();
+      g.textAlign = "center"; g.textBaseline = "middle";
+      const boxes = [], hit = (x, y, w) => boxes.some(r => Math.abs(r.x - x) < (r.w + w) / 2 + 2 && Math.abs(r.y - y) < 17);
+      const tag = (t, x, y, font, col = "#17231F") => { g.font = font; const w = g.measureText(t).width + 8; g.fillStyle = "rgba(255,255,255,.9)"; g.fillRect(x - w / 2, y - 8, w, 16); g.fillStyle = col; g.fillText(t, x, y + 0.5); boxes.push({ x, y, w }); };
+      const cc = toS(centroid(bp)), top = Math.min(...Q.map(p => p.y));
+      tag((b.name || "Building").toUpperCase(), cc.x, top - 13, '700 15px "Barlow Condensed", sans-serif', "#B0231C");
+      if (hasEl) bp.forEach((p, i) => { if (elev[i] == null) return; const q = toS(p), ux = q.x - cc.x, uy = q.y - cc.y, L = Math.hypot(ux, uy) || 1; tag("EL " + fmtElev(elev[i]), q.x + ux / L * 26, q.y + uy / L * 18, '600 10px Barlow, sans-serif'); });
+      const drawn = [];
+      for (const m of meas) {
+        const a = toS(m.c.pb), c = toS(m.c.po);
+        if (drawn.some(([p, q]) => Math.hypot(p.x - a.x, p.y - a.y) < 10 && Math.hypot(q.x - c.x, q.y - c.y) < 10)) continue;
+        drawn.push([a, c]);
+        g.setLineDash([6, 4]); g.lineWidth = 1.3; g.strokeStyle = "#1F5FBF"; g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(c.x, c.y); g.stroke(); g.setLineDash([]);
+        for (const p of [a, c]) { g.beginPath(); g.arc(p.x, p.y, 2.6, 0, Math.PI * 2); g.fillStyle = "#1F5FBF"; g.fill(); }
+        const t = fmtLen(m.c.d), f = '700 11px "Barlow Condensed", sans-serif'; g.font = f; const w = g.measureText(t).width + 8, L = Math.hypot(c.x - a.x, c.y - a.y) || 1, nx = -(c.y - a.y) / L, ny = (c.x - a.x) / L;
+        let best = null;
+        pl: for (const off of [0, 18, -18, 34, -34]) for (const k of [0.5, 0.35, 0.65, 0.22, 0.78]) { const x = a.x + (c.x - a.x) * k + nx * off, y = a.y + (c.y - a.y) * k + ny * off; if (!hit(x, y, w)) { best = [x, y]; break pl; } }
+        if (!best) best = [(a.x + c.x) / 2, (a.y + c.y) / 2];
+        tag(t, best[0], best[1], f, "#1F4F9F");
+      }
+    };
+    const R = psRaster(null, 99, ext, sIn, 100, null, { site: true, extra });
+    const na = `<g transform="translate(${n2(ax + aw - 0.6)},${n2(ay + 0.8)})"><circle r=".5" fill="#FFFFFF" opacity=".85"/><polygon points="0,-0.45 0.16,0.2 0,0.08 -0.16,0.2" class="na"/><text x="0" y="0.42" class="tc tb">N</text></g>`;
+    const barFt = [10, 20, 25, 50, 100, 200].find(v => v * sIn >= 0.45) || 200, by0 = ay + dh + 0.18, bar = [0, 1, 2, 3, 4].map(i => `<rect x="${n2(ax + i * barFt * sIn)}" y="${n2(by0)}" width="${n2(barFt * sIn)}" height=".06" fill="${i % 2 ? "#FFFFFF" : "#17231F"}" stroke="#17231F" stroke-width=".006"/>`).join("") + [0, 2, 4].map(i => `<text x="${n2(ax + i * barFt * sIn)}" y="${n2(by0 - 0.04)}" class="tc ts">${i * barFt}'</text>`).join("");
+    const Lft = Math.max(dist(bp[0], bp[1] || bp[0]), bp.length > 2 ? dist(bp[1], bp[2]) : 0) / FT, Sft = bp.length > 2 ? Math.min(dist(bp[0], bp[1]), dist(bp[1], bp[2])) / FT : 0;
+    const info = `${psE(b.name || "Building")} (red): ${bp.length === 4 ? psE(fmtLen(Lft * FT)) + " × " + psE(fmtLen(Sft * FT)) + ", " : ""}${Math.round(area(bp) / FT / FT).toLocaleString()} sq ft footprint. Blue dashed lines: shortest distance from the building to what's around it${others.some(x => x.kind === "road") ? " (roads to their edge)" : ""}.${hasEl ? " EL: ground elevation at each corner." : ""}${hm ? " Thin lines: ground contours." : ""}`;
+    page("C-1", "Site plan", sTxt, `<div class="ps-img" style="left:${ax}in;top:${ay}in;width:${n2(aw)}in;height:${n2(dh)}in;overflow:hidden;border:.01in solid #B7BFBB"><img src="${R.url}" style="width:${n2(R.wIn)}in;height:${n2(R.hIn)}in;display:block"></div>` + svg(na + bar + `<text x="${n2(ax + 5 * barFt * sIn + 0.15)}" y="${n2(by0 + 0.06)}" class="tl ts">${psE(sTxt)}</text><text x="${ax}" y="${n2(by0 + 0.26)}" class="tl ts">${info}</text><text x="${ax}" y="${n2(PH - M - 0.03)}" class="tl ts">North is up. Distances come from the background picture's scale; check property lines and setbacks with a survey before you build.</text>`));
   }
   // ---- foundation plan ----
   {
@@ -3471,8 +3645,10 @@ function psBuild(b) {
     for (let i = 0; i < P.length; i++) { const a = P[i], c = P[(i + 1) % P.length], u = unit(a, c), nn = { x: u.y, y: -u.x }; let m = { x: (a.x + c.x) / 2 + nn.x * 2.5, y: (a.y + c.y) / 2 + nn.y * 2.5 }; if (inPoly(m, P)) m = { x: (a.x + c.x) / 2 - nn.x * 2.5, y: (a.y + c.y) / 2 - nn.y * 2.5 }; g.push(`<text x="${X(m.x)}" y="${Y(m.y)}" class="tc tb">${psE(fmtLen(dist(a, c) * FT))}</text>`); }
     const { S } = matList(b), fsec = S.find(x => x.title === (post ? "Posts and footings" : "Foundation"));
     const notes = (fsec ? fsec.rows : []).map(r => `${r[0]}${r[3] ? " — " + r[3] : ""}`);
-    const nx = ax + aw * 0.7;
-    page("A-1", post ? "Post and footing plan" : "Foundation plan", sTxt, svg(g.join("") + `<text x="${n2(nx)}" y="${n2(ay + 0.3)}" class="tl tb">${post ? "Posts and footings" : "Foundation"}</text>` + notes.slice(0, 16).map((t, i) => `<text x="${n2(nx)}" y="${n2(ay + 0.6 + i * 0.27)}" class="tl">• ${psE(t.length > Math.floor(aw * 0.29 / 0.05) ? t.slice(0, Math.floor(aw * 0.29 / 0.05) - 1) + "…" : t)}</text>`).join("") + (post ? "" : `<text x="${n2(nx)}" y="${n2(ay + 0.6 + Math.min(16, notes.length) * 0.27 + 0.2)}" class="tl">Dots: ½" anchor bolts about 6 ft apart and near each corner. Dashed: footing edges.</text>`)));
+    const nx = ax + aw * 0.7, big = PW > 12, nMax = big ? Math.max(6, Math.floor((ah * 0.42 - 0.6) / 0.27)) : 16, nN = Math.min(nMax, notes.length);
+    const dY = ay + 0.6 + nN * 0.27 + (post ? 0.15 : 0.45), detA = big ? psFoundDetail(b, o, nx - 0.15, dY, ax + aw - nx + 0.15, ay + ah - dY, 1, "A-1") : "";
+    page("A-1", post ? "Post and footing plan" : "Foundation plan", sTxt, svg(g.join("") + `<text x="${n2(nx)}" y="${n2(ay + 0.3)}" class="tl tb">${post ? "Posts and footings" : "Foundation"}</text>` + notes.slice(0, nN).map((t, i) => `<text x="${n2(nx)}" y="${n2(ay + 0.6 + i * 0.27)}" class="tl">• ${psE(t.length > Math.floor(aw * 0.29 / 0.05) ? t.slice(0, Math.floor(aw * 0.29 / 0.05) - 1) + "…" : t)}</text>`).join("") + (post ? "" : `<text x="${n2(nx)}" y="${n2(ay + 0.6 + nN * 0.27 + 0.2)}" class="tl">Dots: ½" anchor bolts about 6 ft apart and near each corner. Dashed: footing edges.</text>`) + (detA ? PS_DEFS + detA : "")));
+    if (!big) { const d = psFoundDetail(b, o, ax, ay + 0.1, aw, ah - 0.2, 1, "A-1.1"); if (d) page("A-1.1", "Foundation detail", "As noted", svg(PS_DEFS + d)); }
   }
   // ---- floor plans ----
   fpPages.forEach(([f, R, sTxt, WL], i) => page("A-" + (2 + i), levelName(f.lv) + " plan", sTxt, `<img class="ps-img" src="${R.url}" style="left:${ax}in;top:${ay}in;width:${n2(R.wIn)}in;height:${n2(R.hIn)}in">` + svg(`<text x="${ax}" y="${n2(PH - M - 0.05)}" class="tl">${psE(levelName(f.lv))}: ${Math.round(f.area).toLocaleString()} sq ft. Circled tags (E1, I1…) match the wall framing sheets. Wall height ${psE(fmtLen(f.H * FT))}.</text>`)));
@@ -3516,7 +3692,8 @@ function psBuild(b) {
     }
   }
   // ---- wall sections ----
-  page("A-" + an++, "Typical wall section", "Not to scale", svg(psSectionSVG(b, ax + 0.1, ay + 0.4, aw - 0.1, ah - 0.45) + `<text x="${n2(ax + 0.1)}" y="${n2(ay + 0.25)}" class="tl tb">Typical outside wall section</text>` + (post ? "" : `<g>${(() => { const x = ax + aw * 0.5, y = ay + ah - 1.4; return `<text x="${n2(x)}" y="${n2(y - 0.15)}" class="tl tb">Typical inside wall</text><rect x="${n2(x)}" y="${n2(y)}" width="0.9" height="0.04" class="dw"/><rect x="${n2(x)}" y="${n2(y + 0.04)}" width="0.9" height="0.29" class="st"/><rect x="${n2(x)}" y="${n2(y + 0.33)}" width="0.9" height="0.04" class="dw"/><text x="${n2(x + 1.05)}" y="${n2(y + 0.22)}" class="tl ts">2×4 studs @ 16" o.c., single bottom plate, double top plate, ½" drywall both sides (plan view)</text>`; })()}</g>`)));
+  const bigW = PW > 12, secW = bigW ? aw * 0.6 : aw - 0.1, detW = bigW ? psFoundDetail(b, o, ax + aw * 0.62, ay + 0.4, aw * 0.38, ah - 1.9, 2, "A-" + an) : "";
+  page("A-" + an++, "Typical wall section", "Not to scale", svg((detW ? PS_DEFS + detW : "") + psSectionSVG(b, ax + 0.1, ay + 0.4, secW, ah - 0.45) + `<text x="${n2(ax + 0.1)}" y="${n2(ay + 0.25)}" class="tl tb">Typical outside wall section</text>` + (post ? "" : `<g>${(() => { const x = bigW ? ax + aw * 0.62 : ax + aw * 0.5, y = ay + ah - 1.1; return `<text x="${n2(x)}" y="${n2(y - 0.15)}" class="tl tb">Typical inside wall</text><rect x="${n2(x)}" y="${n2(y)}" width="0.9" height="0.04" class="dw"/><rect x="${n2(x)}" y="${n2(y + 0.04)}" width="0.9" height="0.29" class="st"/><rect x="${n2(x)}" y="${n2(y + 0.33)}" width="0.9" height="0.04" class="dw"/><text x="${n2(x + 1.05)}" y="${n2(y + 0.14)}" class="tl ts">2×4 studs @ 16" o.c., single bottom plate, double top plate,</text><text x="${n2(x + 1.05)}" y="${n2(y + 0.27)}" class="tl ts">½" drywall both sides (plan view)</text>`; })()}</g>`)));
   // ---- schedules ----
   {
     const od = new Map(); let wn = 0, dn = 0;
