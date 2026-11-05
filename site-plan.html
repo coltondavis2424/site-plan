@@ -232,6 +232,16 @@ dialog.dz{width:100vw;height:100vh;height:100dvh;max-width:none;max-height:none;
 #wv-tools .dz-presets{margin-bottom:8px}
 .dz-zoom button{box-shadow:0 2px 10px rgba(0,0,0,.25)}
 .dz-wrap{display:flex;flex-direction:column;height:100%}
+.zoom .z3d{font-family:"Barlow Condensed",sans-serif;font-size:16px;font-weight:700;letter-spacing:.02em}
+.v3-stage{position:relative;flex:1;min-height:0;background:#BFD4E6;overflow:hidden}
+.v3-stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+.v3-stage canvas:active{cursor:grabbing}
+.v3-hint{position:absolute;top:10px;left:50%;transform:translateX(-50%);margin:0;max-width:calc(100% - 24px);text-align:center;background:rgba(13,23,20,.86);color:#EEF3F1;padding:6px 14px;border-radius:999px;font-size:13px;pointer-events:none}
+.v3-hint:empty{display:none}
+.v3-info{position:absolute;left:12px;bottom:12px;margin:0;background:rgba(13,23,20,.86);color:#EEF3F1;padding:6px 12px;border-radius:8px;font-family:"Barlow Condensed",sans-serif;font-size:15px;font-weight:600;pointer-events:none}
+.v3-info:empty{display:none}
+.v3-opt{display:flex;align-items:center;gap:6px;font-size:14px}
+.v3-opt select{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px}
 .dz-head{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
 .dz-head h2{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:22px;margin:0;flex:1;min-width:180px}
 .dz-head select{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 10px}
@@ -474,6 +484,7 @@ dialog.dz{width:100vw;height:100vh;height:100dvh;max-width:none;max-height:none;
       <button id="zin" aria-label="Zoom in">+</button>
       <button id="zout" aria-label="Zoom out">−</button>
       <button id="zfit" aria-label="Show whole photo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+      <button id="z3d" class="z3d" aria-label="3D view" title="3D aerial view">3D</button>
     </div>
     <div class="empty" id="empty" hidden>
       <div class="empty-card" id="drop">
@@ -668,6 +679,20 @@ dialog.dz{width:100vw;height:100vh;height:100dvh;max-width:none;max-height:none;
   </div>
 </dialog>
 
+<dialog id="v3d" class="dz" aria-labelledby="v3-title">
+  <div class="dz-wrap">
+    <div class="dz-head">
+      <h2 id="v3-title">3D view</h2>
+      <label class="v3-opt">Heights <select id="v3-ex" aria-label="Stretch heights"><option value="1">true to life</option><option value="2">×2</option><option value="3">×3</option><option value="5">×5</option></select></label>
+      <label class="v3-opt"><input type="checkbox" id="v3-photo" checked> Photo</label>
+      <label class="v3-opt"><input type="checkbox" id="v3-water" checked> Water</label>
+      <button class="ghost" id="v3-top">From above</button>
+      <button class="ghost" id="v3-home">Reset view</button>
+      <button class="primary" id="v3-close">Close</button>
+    </div>
+    <div class="v3-stage" id="v3-stage"><canvas id="v3c" aria-label="3D view of the property"></canvas><p class="v3-hint" id="v3-hint"></p><p class="v3-info" id="v3-info"></p></div>
+  </div>
+</dialog>
 <dialog id="projdlg" aria-labelledby="proj-title">
   <div class="dlg">
     <h2 id="proj-title">Projects</h2>
@@ -723,7 +748,8 @@ dialog.dz{width:100vw;height:100vh;height:100dvh;max-width:none;max-height:none;
 "use strict";
 const FT = 0.3048, IN = 0.0254, SQFT = 10.7639;
 const $ = id => document.getElementById(id);
-const cv = $("cv"), ctx = cv.getContext("2d"), stage = $("stage");
+const cv = $("cv"), stage = $("stage");
+let ctx = cv.getContext("2d");   // the 3D view borrows it for a moment to paint roads and paving onto the ground picture
 
 let state = { shapes: [], imageWidthM: 2017, units: "ft", snap: true, grid: true, snapCorners: true, angleStep: 45, lenStep: 6 * 0.0254, nextId: 1, skipPhoto: false,
   zmin: 350.88, zrange: 37.22, roadPreset: "drive_gravel",
@@ -3839,6 +3865,7 @@ document.addEventListener("keydown", e => {
   if ($("wallview").open && wv) wvStep(back);
   else if ($("designer").open && dz) dzStep(back);
   else if ($("projdlg").open) { if (back && !$("proj-undo").hidden) $("proj-undo").click(); }
+  else if ($("v3d").open) { /* nothing to undo in the 3D view */ }
   else if (back) undo(); else redo();
 }, true);
 
@@ -4750,7 +4777,7 @@ $("panel-toggle").onclick = () => {
   if (o) { $("layers").hidden = true; $("open-layers").setAttribute("aria-expanded", "false"); }
 };
 document.addEventListener("keydown", e => {
-  if (e.target.matches("input, textarea, select") || $("dlg").open || $("designer").open) return;
+  if (e.target.matches("input, textarea, select") || $("dlg").open || $("designer").open || $("v3d").open) return;
   const k = e.key.toLowerCase();
   if (k === "escape") { if (draft.length) { draft = []; dimPhase = false; updateUI(); } else { measure = []; selected = null; renderPanel(); requestDraw(); } }
   else if (k === "enter" && (tool in MULTI || (tool === "rect" && state.bldShape === "poly") || (tool === "shape" && state.shapeType === "poly"))) finishWall(false);
@@ -4811,6 +4838,211 @@ for (const id of ["zmin", "zrange"]) $(id).onchange = e => {
   if (!isFinite(v) || (id === "zrange" && v <= 0)) { lstatus("Enter the number from unreal_settings.txt."); renderLayers(); return; }
   state[id] = v; save(); rebuildTerrainLayers();
 };
+
+/* ---------- 3D view ---------- */
+// A 3D look at the property: the terrain as a surface (heights can be stretched so gentle slopes show), with the aerial
+// photo (or shaded relief), the water map, roads, paving, decks and add-ons painted on it, and buildings standing up at
+// their wall heights with roofs. three.js r128 from cdnjs (allowed in the claude.ai artifact too). Opened from the "3D"
+// button by the zoom buttons. Scene units are meters: map x = east -> 3D x, map y (south) -> 3D z, height -> 3D y.
+const THREE_URL = "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js";
+let v3 = null, threeP = null;
+function loadThree() {
+  if (window.THREE) return Promise.resolve(window.THREE);
+  return threeP || (threeP = new Promise((res, rej) => {
+    const s = document.createElement("script"); s.src = THREE_URL; s.onload = () => res(window.THREE);
+    s.onerror = () => { threeP = null; s.remove(); rej(new Error("load")); }; document.head.appendChild(s);
+  }));
+}
+const v3Ex = () => parseFloat($("v3-ex").value) || 1;
+const V3_HINT_MOUSE = "Drag to turn · Right-drag or Shift+drag to slide · Scroll to zoom · Double-click a spot to look at it";
+const V3_HINT_TOUCH = "One finger turns · Two fingers slide and zoom · Double-tap a spot to look at it";
+async function open3D() {
+  $("v3d").showModal(); $("v3-hint").textContent = "Loading 3D…"; $("v3-info").textContent = "";
+  let T; try { T = await loadThree(); } catch (e) { $("v3-hint").textContent = "The 3D library couldn’t load. Check your internet connection, then try again."; return; }
+  try { if (!v3) v3Init(T); } catch (e) { $("v3-hint").textContent = "This browser can’t show 3D (WebGL is turned off or not supported)."; v3 = null; return; }
+  $("v3-photo").disabled = !img; $("v3-water").disabled = !waterImg;
+  v3Build(); v3Home(); v3Resize();
+  $("v3-hint").textContent = matchMedia("(pointer:coarse)").matches ? V3_HINT_TOUCH : V3_HINT_MOUSE;
+}
+function v3Init(T) {
+  const r = new T.WebGLRenderer({ canvas: $("v3c"), antialias: true, preserveDrawingBuffer: true });
+  r.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+  const scene = new T.Scene(), sky = 0xBFD4E6; scene.background = new T.Color(sky); scene.fog = new T.Fog(sky, 3000, 12000);
+  const cam = new T.PerspectiveCamera(45, 1, 0.5, 30000);
+  scene.add(new T.HemisphereLight(0xF2F6FF, 0x6B5A44, 0.72));
+  const sun = new T.DirectionalLight(0xFFF2DC, 0.7); sun.position.set(-0.45, 1, 0.55); scene.add(sun);   // afternoon sun from the south-west
+  v3 = { T, r, scene, cam, group: null, o: { th: 0, ph: 0.95, r: 300, x: 0, z: 0 }, ptrs: new Map(), raf: 0, H: () => 0 };
+  new ResizeObserver(v3Resize).observe($("v3-stage"));
+  v3Controls();
+}
+function v3Resize() {
+  if (!v3 || !$("v3d").open) return;
+  const st = $("v3-stage").getBoundingClientRect(); if (!st.width || !st.height) return;
+  v3.r.setSize(st.width, st.height, false); v3.cam.aspect = st.width / st.height; v3.cam.updateProjectionMatrix(); v3Render();
+}
+function v3Render() {
+  if (!v3 || v3.raf) return;
+  v3.raf = requestAnimationFrame(() => {
+    v3.raf = 0; const { o, cam } = v3, ty = v3.H({ x: o.x, y: o.z });
+    cam.position.set(o.x + o.r * Math.sin(o.ph) * Math.sin(o.th), ty + o.r * Math.cos(o.ph), o.z + o.r * Math.sin(o.ph) * Math.cos(o.th));
+    cam.near = Math.max(0.2, o.r / 500); cam.far = Math.max(30000, o.r * 20); cam.updateProjectionMatrix();
+    cam.lookAt(o.x, ty, o.z); v3.r.render(v3.scene, cam);
+  });
+}
+// Everything the scene shows, built fresh from the plan (on open, and when a setting at the top changes).
+function v3Build() {
+  const { T, scene } = v3;
+  if (v3.group) { scene.remove(v3.group); v3.group.traverse(m => { if (m.geometry) m.geometry.dispose(); if (m.material) { if (m.material.map) m.material.map.dispose(); m.material.dispose(); } }); }
+  const grp = new T.Group(); v3.group = grp; scene.add(grp);
+  const ex = v3Ex(), base = hm ? state.zmin : 0, c = hm ? cellM() : 1, tW = hm ? hm.w * c : 0, tH = hm ? hm.h * c : 0;
+  const H = p => { if (!hm) return 0; const q = { x: Math.max(c * 0.5, Math.min(tW - c * 0.5, p.x)), y: Math.max(c * 0.5, Math.min(tH - c * 0.5, p.y)) }; return ((elevAt(q) ?? state.zmin) - base) * ex; };
+  v3.H = H;
+  const site = state.shapes.filter(s => !s.level && s.kind !== "wallview" && s.kind !== "underlay" && s.points && s.points.length);
+  const sz = imgSizeM();
+  let ext;
+  if (sz) ext = { x0: 0, y0: 0, x1: sz.w, y1: sz.h };
+  else {
+    const P = site.flatMap(s => s.points); if (!P.length) P.push({ x: -50, y: -50 }, { x: 50, y: 50 });
+    const B = bbox(P), pad = Math.max(30, 0.3 * Math.max(B.x1 - B.x0, B.y1 - B.y0));
+    ext = { x0: B.x0 - pad, y0: B.y0 - pad, x1: B.x1 + pad, y1: B.y1 + pad };
+  }
+  v3.ext = ext;
+  const tex = v3Texture(ext, site), eW = ext.x1 - ext.x0, eH = ext.y1 - ext.y0;
+  const uv = (x, y) => [(x - ext.x0) / eW, 1 - (y - ext.y0) / eH];
+  // the ground
+  let geo;
+  if (hm) {
+    const step = Math.max(1, Math.ceil(Math.max(hm.w, hm.h) / 512)), xs = [], ys = [];
+    for (let i = 0; i < hm.w; i += step) xs.push(i); if (xs[xs.length - 1] !== hm.w - 1) xs.push(hm.w - 1);
+    for (let j = 0; j < hm.h; j += step) ys.push(j); if (ys[ys.length - 1] !== hm.h - 1) ys.push(hm.h - 1);
+    const nx = xs.length, ny = ys.length, pos = new Float32Array(nx * ny * 3), uvs = new Float32Array(nx * ny * 2), idx = new Uint32Array((nx - 1) * (ny - 1) * 6);
+    let k = 0, q = 0;
+    for (let b = 0; b < ny; b++) for (let a = 0; a < nx; a++) {
+      const x = (xs[a] + 0.5) * c, y = (ys[b] + 0.5) * c, t = uv(x, y);
+      pos[k++] = x; pos[k++] = (hm.z[ys[b] * hm.w + xs[a]] - base) * ex; pos[k++] = y; uvs[q++] = t[0]; uvs[q++] = t[1];
+    }
+    k = 0;
+    for (let b = 0; b < ny - 1; b++) for (let a = 0; a < nx - 1; a++) { const i = b * nx + a; idx[k++] = i; idx[k++] = i + nx; idx[k++] = i + 1; idx[k++] = i + 1; idx[k++] = i + nx; idx[k++] = i + nx + 1; }
+    geo = new T.BufferGeometry(); geo.setAttribute("position", new T.BufferAttribute(pos, 3)); geo.setAttribute("uv", new T.BufferAttribute(uvs, 2)); geo.setIndex(new T.BufferAttribute(idx, 1));
+    geo.computeVertexNormals();
+  } else {
+    geo = new T.PlaneGeometry(eW, eH); geo.rotateX(-Math.PI / 2); geo.translate(ext.x0 + eW / 2, 0, ext.y0 + eH / 2);
+  }
+  const ground = new T.Mesh(geo, new T.MeshLambertMaterial({ map: tex })); ground.name = "ground"; grp.add(ground);
+  // a plain field beyond the map edges
+  const far = new T.Mesh(new T.PlaneGeometry(1, 1), new T.MeshLambertMaterial({ color: 0x8C9870 }));
+  far.rotateX(-Math.PI / 2); far.scale.set(eW * 12, eH * 12, 1); far.position.set(ext.x0 + eW / 2, -0.4, ext.y0 + eH / 2); grp.add(far);
+  // buildings
+  const wallM = new T.MeshLambertMaterial({ color: 0xE6E0D2, side: T.DoubleSide }), roofM = new T.MeshLambertMaterial({ color: 0x5A5550, side: T.DoubleSide });
+  let nb = 0;
+  for (const b of site.filter(s => s.kind === "building" && s.closed && s.points.length >= 3)) {
+    const m = v3Building(b, H); if (!m) continue; nb++;
+    grp.add(new T.Mesh(m.walls, wallM)); grp.add(new T.Mesh(m.roof, roofM));
+  }
+  $("v3-info").textContent = `${nb} building${nb === 1 ? "" : "s"}${hm ? ` · heights ×${ex}` : " · no terrain added, so the ground is flat"}`;
+  v3Render();
+}
+// The ground picture: photo (or shaded relief), water, then the map's own drawing of roads, paving, decks and add-ons.
+function v3Texture(ext, site) {
+  const T = v3.T, max = Math.min(4096, v3.r.capabilities.maxTextureSize), eW = ext.x1 - ext.x0, eH = ext.y1 - ext.y0, k = max / Math.max(eW, eH);
+  const cv2 = document.createElement("canvas"); cv2.width = Math.max(2, Math.round(eW * k)); cv2.height = Math.max(2, Math.round(eH * k));
+  const g = cv2.getContext("2d"), px = x => (x - ext.x0) * k, py = y => (y - ext.y0) * k, Wm = state.imageWidthM;
+  g.fillStyle = "#8C9870"; g.fillRect(0, 0, cv2.width, cv2.height);
+  if (img && $("v3-photo").checked) g.drawImage(img, px(0), py(0), Wm * k, Wm * img.height / img.width * k);
+  else if (hm && shadeCanvas) {
+    g.globalCompositeOperation = "multiply"; g.globalAlpha = 0.6; g.drawImage(shadeCanvas, px(0), py(0), Wm * k, Wm * hm.h / hm.w * k);
+    g.globalCompositeOperation = "source-over"; g.globalAlpha = 1;
+  }
+  if (waterImg && $("v3-water").checked) { g.globalAlpha = state.layers.water.op; g.drawImage(waterImg, px(0), py(0), Wm * k, Wm * waterImg.height / waterImg.width * k); g.globalAlpha = 1; }
+  g.fillText = g.strokeText = () => {};   // no names or measurements on the 3D ground (they read backwards from some sides)
+  const saveCtx = ctx, saveView = { ...view };
+  ctx = g; view.s = k; view.x = -ext.x0 * k; view.y = -ext.y0 * k;
+  try {
+    for (const s of site) {
+      if (s.kind === "road") drawRoad(s.points, s, false);
+      else if (s.kind === "pad" && s.points.length >= 3) drawPad(s.points, s.closed, s.surface, false);
+      else if (s.kind === "deck") drawDeck(s, false);
+      else if (s.kind === "addon") drawAddon(s, false);
+    }
+  } catch (e) { /* a drawing problem shouldn't stop the 3D view */ }
+  finally { ctx = saveCtx; Object.assign(view, saveView); }
+  const t = new T.CanvasTexture(cv2); t.anisotropy = v3.r.capabilities.getMaxAnisotropy(); t.minFilter = T.LinearMipmapLinearFilter;
+  return t;
+}
+// Walls up to the top floor that has anything drawn on it (each floor's wall height + 1 ft of floor framing), on a
+// foundation that reaches the highest ground under the building. A rectangle gets a 6-in-12 gable along its long side.
+function v3Building(b, H) {
+  const T = v3.T, P = b.points, gs = P.map(H), g0 = Math.min(...gs), g1 = Math.max(...gs);
+  let top = GROUND; for (const x of state.shapes) if (x.bid === b.id && x.level > top && x.level <= 4 && ["wall", "room", "opening", "stair"].includes(x.kind)) top = x.level;
+  let hFt = 0; for (let lv = GROUND; lv <= top; lv++) hFt += ((b.wallH && b.wallH[lv]) || 8) + (lv > GROUND ? 1 : 0);
+  const y0 = g0 - 0.3, y1 = g1 + 0.45 + hFt * FT, wp = [];
+  const quad = (a, b2, c2, d) => wp.push(...a, ...b2, ...c2, ...a, ...c2, ...d);
+  for (let i = 0; i < P.length; i++) { const p = P[i], q = P[(i + 1) % P.length]; quad([p.x, y0, p.y], [q.x, y0, q.y], [q.x, y1, q.y], [p.x, y1, p.y]); }
+  const rp = [];
+  const rect = P.length === 4 && [0, 1, 2, 3].every(i => { const a = P[i], m = P[(i + 1) % 4], n = P[(i + 2) % 4]; const u = { x: a.x - m.x, y: a.y - m.y }, v = { x: n.x - m.x, y: n.y - m.y }; return Math.abs(u.x * v.x + u.y * v.y) < 0.02 * Math.hypot(u.x, u.y) * Math.hypot(v.x, v.y); });
+  if (rect) {
+    let [A, B, C, D] = P; if (dist(A, B) < dist(B, C)) [A, B, C, D] = [B, C, D, A];   // A-B along the ridge
+    const rise = dist(B, C) / 2 * 0.5, mid = (p, q) => ({ x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 }), Ra = mid(D, A), Rb = mid(B, C), yr = y1 + rise;
+    const v = (p, y) => [p.x, y, p.y], rq = (a, b2, c2, d) => rp.push(...a, ...b2, ...c2, ...a, ...c2, ...d);
+    rq(v(A, y1), v(B, y1), v(Rb, yr), v(Ra, yr)); rq(v(C, y1), v(D, y1), v(Ra, yr), v(Rb, yr));   // the two roof slopes
+    wp.push(...v(B, y1), ...v(C, y1), ...v(Rb, yr), ...v(D, y1), ...v(A, y1), ...v(Ra, yr));   // gable ends are wall
+  } else {
+    const tri = T.ShapeUtils.triangulateShape(P.map(p => new T.Vector2(p.x, p.y)), []);
+    for (const t of tri) for (const i of t) rp.push(P[i].x, y1 + 0.15, P[i].y);
+  }
+  const mk = arr => { const gq = new T.BufferGeometry(); gq.setAttribute("position", new T.Float32BufferAttribute(arr, 3)); gq.computeVertexNormals(); return gq; };
+  return { walls: mk(wp), roof: mk(rp) };
+}
+function v3Home() {
+  const site = state.shapes.filter(s => s.kind === "building" && !s.level), o = v3.o, ext = v3.ext;
+  if (site.length) {
+    const B = bbox(site.flatMap(s => s.points)); o.x = (B.x0 + B.x1) / 2; o.z = (B.y0 + B.y1) / 2; o.r = Math.max(60, 2.2 * Math.max(B.x1 - B.x0, B.y1 - B.y0));
+  } else { o.x = (ext.x0 + ext.x1) / 2; o.z = (ext.y0 + ext.y1) / 2; o.r = 0.9 * Math.max(ext.x1 - ext.x0, ext.y1 - ext.y0); }
+  o.th = 0; o.ph = 0.95; v3Render();
+}
+function v3Controls() {
+  const cvs = $("v3c"), o = v3.o, P = v3.ptrs;
+  const at = e => { const r = cvs.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+  const panBy = (dx, dy) => {
+    const s = 2 * o.r * Math.tan(v3.cam.fov * Math.PI / 360) / cvs.clientHeight, c = Math.cos(o.th), n = Math.sin(o.th), f = 1 / Math.max(0.35, Math.cos(o.ph));
+    o.x += (-dx * c - dy * n * f) * s; o.z += (dx * n - dy * c * f) * s;
+    const e = v3.ext, mx = (e.x1 - e.x0) * 2, mz = (e.y1 - e.y0) * 2;
+    o.x = Math.max(e.x0 - mx, Math.min(e.x1 + mx, o.x)); o.z = Math.max(e.y0 - mz, Math.min(e.y1 + mz, o.z));
+  };
+  let drag = null, pinch = null;
+  cvs.addEventListener("pointerdown", e => {
+    cvs.setPointerCapture(e.pointerId); P.set(e.pointerId, at(e));
+    if (P.size === 2) { const [a, b] = [...P.values()]; pinch = { d: dist(a, b), r: o.r, m: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } }; drag = null; return; }
+    drag = { pan: e.button === 2 || e.button === 1 || e.shiftKey || e.ctrlKey };
+  });
+  cvs.addEventListener("pointermove", e => {
+    if (!P.has(e.pointerId)) return;
+    const p = at(e), prev = P.get(e.pointerId); P.set(e.pointerId, p);
+    if (pinch && P.size >= 2) {
+      const [a, b] = [...P.values()], m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      o.r = Math.max(4, Math.min(20000, pinch.r * pinch.d / Math.max(1, dist(a, b)))); panBy(m.x - pinch.m.x, m.y - pinch.m.y); pinch.m = m; v3Render(); return;
+    }
+    if (!drag) return;
+    const dx = p.x - prev.x, dy = p.y - prev.y;
+    if (drag.pan) panBy(dx, dy); else { o.th -= dx * 0.006; o.ph = Math.max(0.02, Math.min(1.5, o.ph - dy * 0.006)); }
+    v3Render();
+  });
+  const end = e => { P.delete(e.pointerId); if (P.size < 2) pinch = null; if (!P.size) drag = null; };
+  cvs.addEventListener("pointerup", end); cvs.addEventListener("pointercancel", end);
+  cvs.addEventListener("contextmenu", e => e.preventDefault());
+  cvs.addEventListener("wheel", e => { e.preventDefault(); o.r = Math.max(4, Math.min(20000, o.r * Math.exp(e.deltaY * 0.0012))); v3Render(); }, { passive: false });
+  cvs.addEventListener("dblclick", e => {   // look at the spot under the pointer
+    const p = at(e), T = v3.T, rc = new T.Raycaster();
+    rc.setFromCamera(new T.Vector2(p.x / cvs.clientWidth * 2 - 1, -(p.y / cvs.clientHeight) * 2 + 1), v3.cam);
+    const hit = rc.intersectObjects(v3.group.children, false)[0]; if (!hit) return;
+    o.x = hit.point.x; o.z = hit.point.z; v3Render();
+  });
+}
+$("z3d").onclick = () => open3D();
+$("v3-close").onclick = () => $("v3d").close();
+$("v3-home").onclick = () => { if (v3) v3Home(); };
+$("v3-top").onclick = () => { if (v3) { v3.o.ph = 0.02; v3.o.th = 0; v3Render(); } };
+for (const id of ["v3-ex", "v3-photo", "v3-water"]) $(id).onchange = () => { if (v3) v3Build(); };
 
 /* ---------- start ---------- */
 new ResizeObserver(resize).observe(stage);
