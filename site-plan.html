@@ -5049,7 +5049,7 @@ const DZ_HINTS = {
   rect: "Drag from one corner to the opposite corner to draw a rectangle, then name it.",
   wall: "Point at a wall to see how far you are from the walls and openings along it; click to start a new wall on its face. Type a number + Enter to start it exactly that far (clear) from the orange end. After the start, type the wall's length + Enter, or click its end. Shift: any angle, no snapping.",
   open: "Click any wall, inside or outside, to add the opening. Then drag it along the wall to position it.",
-  dim: "Click where the dimension starts, then each point along it (they snap to wall faces and corners). Click the last point again or press Enter, then click to set how far out the line sits. Click a dimension to pick it; Delete removes it.",
+  dim: "Click where the dimension starts, then each point along it (they snap to wall faces and corners). Right-click (or Enter, or click the last point again) to end it, then move to slide the line out and click. Drag a dimension to move its line; Delete removes it.",
 };
 const OPEN_DEFAULT_W = { door: 36, double: 60, window: 48, overhead: 120, patio: 72, opening: 36, slider: 72 };
 function polyArea(P) { let A = 0; for (let i = 0; i < P.length; i++) { const p = P[i], q = P[(i + 1) % P.length]; A += p.x * q.y - q.x * p.y; } return A / 2; }
@@ -5474,7 +5474,7 @@ function dzDimTap(p, free) {
   const d = dz.ddraft, q = dzSnapPt(p, null, free);
   if (!d) {
     if (dz.sel != null) { dz.sel = null; dzSelFields(); }
-    const m = dzDimHit(p); if (m) { dz.dsel = m.id; dzDraw(); $("dz-hint").textContent = "Dimension picked. Press Delete to remove it, or click empty space to start a new one."; return; }
+    const m = dzDimHit(p); if (m) { dz.dsel = m.id; dDrag = { mode: "dimoff", m }; dzDraw(); $("dz-hint").textContent = "Dimension picked. Drag it to slide the line in or out; Delete removes it; click empty space to start a new one."; return; }
     dz.dsel = null; dz.ddraft = { pts: [q] }; dzDraw(); return;
   }
   if (d.off) {   // set how far out the line sits, and keep it
@@ -5548,7 +5548,10 @@ dzc.addEventListener("pointerdown", e => {
   if (dzPtrs.size > 2) return;
   if (e.button === 1 || dzSpace) { e.preventDefault(); dDrag = { mode: "pan", last: dzScreen(e) }; return; }
   const p = dzLocal(e);
-  if (dz.tool === "dim") { dzDimTap(p, e.shiftKey); return; }
+  if (dz.tool === "dim") {
+    if (e.button === 2) { const d = dz.ddraft; if (d && !d.off && d.pts.length >= 2) { d.off = true; $("dz-hint").textContent = "Move to slide the dimension line out, then click to set it."; dzDraw(); } else if (d && !d.off) { dz.ddraft = null; dzSetHint(); dzDraw(); } return; }
+    dzDimTap(p, e.shiftKey); return;
+  }
   if (dz.tool === "rect") { const s = dzSnapPt(p, null, e.shiftKey); dDrag = { mode: "rect", start: s }; dz.rdraft = { x: s.x, y: s.y, w: 0, h: 0 }; return; }
   if (dz.tool === "wall") {
     if (dz.wdraft && dz.wdraft.waiting) { const end = dzWallEnd({ x: dz.wdraft.x1, y: dz.wdraft.y1 }, p, e.shiftKey); dz.wdraft.x2 = end.x; dz.wdraft.y2 = end.y; dzCommitWall(); return; }
@@ -5591,7 +5594,10 @@ dzc.addEventListener("pointermove", e => {
   if (dDrag && dDrag.mode === "pan") { const s = dzScreen(e); dzPanBy(s.x - dDrag.last.x, s.y - dDrag.last.y); dDrag.last = s; return; }
   const p = dzLocal(e);
   dz.ptr = p;
-  if (dz.tool === "dim") { if (dz.ddraft) dzDraw(); return; }
+  if (dz.tool === "dim") {
+    if (dDrag && dDrag.mode === "dimoff") { const m = dDrag.m, G = dzDimGeom(m.pts, 0); m.off = (p.x - m.pts[0].x) * G.n.x + (p.y - m.pts[0].y) * G.n.y; dzDraw(); return; }
+    if (dz.ddraft) dzDraw(); return;
+  }
   if (dz.tool === "wall" && !dz.wdraft && !dDrag) { const hv = e.shiftKey ? null : dzWallHover(p); if (hv || dz.whover) { dz.whover = hv; dzc.dataset.hover = hv ? fl(hv.lo - hv.prev) + "|" + fl(hv.next - hv.hi) + "|" + hv.near : ""; dzDraw(); } return; }
   if (dz.tool === "wall" && dz.wdraft && (dDrag || dz.wdraft.waiting)) { const end = dzWallEnd({ x: dz.wdraft.x1, y: dz.wdraft.y1 }, p, e.shiftKey); dz.wdraft.x2 = end.x; dz.wdraft.y2 = end.y; dzDraw(); return; }
   if (dz.tool === "open" && !dDrag) {
@@ -5648,6 +5654,7 @@ dzc.addEventListener("pointerup", e => {
   dzPtrs.delete(e.pointerId);
   if (dzPinch) { if (!dzPtrs.size) dzPinch = null; dDrag = null; return; }   // lifting after a pinch never places anything
   if (!dz || !dDrag) { dDrag = null; return; }
+  if (dDrag.mode === "dimoff") { dDrag = null; dzDraw(); return; }
   if (dDrag.mode === "rect") {
     const d = dz.rdraft; dz.rdraft = null; dDrag = null;
     if (d && d.w >= 1 && d.h >= 1) {
@@ -7328,6 +7335,7 @@ cv.addEventListener("pointercancel", e => { if (fplace && fplace.phase === "pres
 cv.addEventListener("pointerleave", e => { if (e.pointerType === "mouse" && !pointers.size) { cursor = null; requestDraw(); } });
 cv.addEventListener("wheel", e => { e.preventDefault(); const p = local(e); zoomAt(Math.exp(-e.deltaY * 0.0015), p.x, p.y); }, { passive: false });
 cv.addEventListener("contextmenu", e => e.preventDefault());
+dzc.addEventListener("contextmenu", e => { if (dz && dz.tool === "dim") e.preventDefault(); });
 
 /* ---------- panel ---------- */
 let openGroups = new Set(), lastAutoSel = null, filterText = "";
