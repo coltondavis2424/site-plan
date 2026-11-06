@@ -242,6 +242,7 @@ dialog.dz{width:100vw;height:100vh;height:100dvh;max-width:none;max-height:none;
 a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inherit}
 .mat-opts{width:300px;flex:none;overflow:auto;padding:4px 16px 16px;border-right:1px solid var(--line)}
 .mat-g{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:18px;margin:14px 0 8px}
+.loft-chk{grid-column:1/-1;font-size:13px;background:var(--panel2,rgba(127,127,127,.08));border-radius:8px;padding:6px 10px;margin:6px 0 4px}.loft-chk p{margin:4px 0}.loft-chk button{margin-left:6px}
 .mat-main{flex:1;overflow:auto;padding:12px 20px 20px;min-width:0}
 .mat-sum{margin:4px 0 8px;font-size:14px}
 .mat-tabs{margin:2px 0 8px}
@@ -275,7 +276,8 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
 .ps-svg .tc{text-anchor:middle}.ps-svg .tl{text-anchor:start}.ps-svg .ts{font-size:.09px}.ps-svg .tb{font-weight:700;font-size:.13px;font-family:"Barlow Condensed",sans-serif}
 .ps-svg .pl{fill:#E2C99A;stroke:#5B4A2E;stroke-width:.006}.ps-svg .st{fill:#F1DDB5;stroke:#5B4A2E;stroke-width:.006}.ps-svg .hd{fill:#C9A46A;stroke:#5B4A2E;stroke-width:.008}
 .ps-svg .op{fill:none;stroke:#2E6FA8;stroke-width:.008;stroke-dasharray:.04 .03}
-.ps-svg .dm{stroke:#17231F;stroke-width:.007;fill:none}.ps-svg .ld{stroke:#5F6B67;stroke-width:.005;fill:none}.ps-svg .ldd{fill:#17231F}
+.ps-svg .dm{stroke:#17231F;stroke-width:.007;fill:none}.ps-svg .lc{stroke:#17231F;stroke-width:.02;fill:none}.ps-svg .lw{stroke:#17231F;stroke-width:.04}
+.ps-svg .hr7{stroke:#2E6FA8;stroke-width:.01;stroke-dasharray:.06 .04}.ps-svg .hr5{stroke:#C0532B;stroke-width:.008;stroke-dasharray:.04 .04}.ps-svg .hrt{fill:#2E6FA8}.ps-svg .tr2{text-anchor:end}.ps-svg .ld{stroke:#5F6B67;stroke-width:.005;fill:none}.ps-svg .ldd{fill:#17231F}
 .ps-svg .fd{fill:#E9ECEA;stroke:#7C8582;stroke-width:.006;stroke-dasharray:.05 .03}.ps-svg .wl{fill:#FFFFFF;stroke:#17231F;stroke-width:.012}.ps-svg .sd{stroke:#B7BFBB;stroke-width:.004}
 .ps-svg .ow{fill:#DCE9F4;stroke:#17231F;stroke-width:.01}.ps-svg .rf{fill:#C9CFCC;stroke:#17231F;stroke-width:.012}.ps-svg .gr{stroke:#17231F;stroke-width:.02}
 .ps-svg .cn{fill:#D5D8D6;stroke:#17231F;stroke-width:.008}.ps-svg .fm{fill:#F3C7D8;stroke:#17231F;stroke-width:.005}.ps-svg .jo{fill:#F1DDB5;stroke:#5B4A2E;stroke-width:.006}
@@ -1925,9 +1927,14 @@ const MAT_OPTS = [
   ["Floors", [
     ["joist", "Floor joists", [["2x10", "2×10 @ 16\""], ["2x12", "2×12 @ 16\""], ["ij", "I-joists 11⅞\" @ 16\""]]],
   ]],
+  ["Loft", [
+    ["loft", "Top floor", [["full", "A full floor"], ["loft", "A loft in the roof (half story)"]]],
+    ["knee", "Loft side walls (knee walls)", [["0", "None, the roof starts at the loft floor"], ["2", "2 ft"], ["3", "3 ft"], ["4", "4 ft"], ["5", "5 ft"]]],
+    ["lceil", "Loft ceiling", [["8", "Flat at 8 ft, sloped at the sides"], ["7.5", "Flat at 7'-6\", sloped at the sides"], ["9", "Flat at 9 ft, sloped at the sides"], ["open", "Open, sloped up to the ridge"]]],
+  ]],
   ["Roof", [
     ["roof", "Roof shape", [["gable", "Gable"], ["hip", "Hip"], ["shed", "Shed (one slope)"], ["flat", "Flat / low slope"]]],
-    ["pitch", "Roof pitch", [3, 4, 5, 6, 7, 8, 9, 10, 12].map(n => [String(n), n + " in 12"])],
+    ["pitch", "Roof pitch", [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14].map(n => [String(n), n + " in 12"])],
     ["over", "Overhang", [["12", "12\""], ["18", "18\""], ["24", "24\""], ["0", "None"]]],
     ["rframe", "Roof framing", [["truss", "Trusses @ 24\""], ["rafter", "Rafters 2×10 @ 16\""]]],
     ["rsheath", "Roof sheathing", [["osb716", "7/16\" OSB"], ["osb12", "1/2\" OSB"], ["ply58", "5/8\" plywood"]]],
@@ -2253,10 +2260,15 @@ function structCost(s) {
   return { tot, nP, nAll };
 }
 
+// The highest floor of a building that has anything drawn on it.
+function topLv(b) { let top = GROUND; for (const x of state.shapes) if (x.bid === b.id && x.level > top && x.level <= 4 && ["wall", "room", "opening", "stair"].includes(x.kind)) top = x.level; return top; }
+// The floor that is a loft in the roof (a half story), or 0: only the top floor, only above the ground floor, only stick-framed.
+function loftLv(b, o = matOpt(b)) { if (b.kind !== "building" || o.frame === "post" || o.loft !== "loft") return 0; const t = topLv(b); return t > GROUND ? t : 0; }
+const fName = f => f.loft ? "Loft" : levelName(f.lv);
 // What the building is made of, in feet: one entry per floor with its outline, wall height, openings and inside walls.
+// A loft's H is its knee wall height; ceil is its flat ceiling (Infinity when it's open to the ridge).
 function matGeom(b) {
-  const F = buildingFrame(b), o = matOpt(b);
-  let top = GROUND; for (const x of state.shapes) if (x.bid === b.id && x.level > top && x.level <= 4 && ["wall", "room", "opening", "stair"].includes(x.kind)) top = x.level;
+  const F = buildingFrame(b), o = matOpt(b), top = topLv(b);
   const base = orientPoly(b.points.map(F.toL)), floors = [];
   for (let lv = GROUND; lv <= top; lv++) floors.push(matFloor(b, F, lv, base));
   const bsmt = o.found === "bsmt" ? matFloor(b, F, BASEMENT, base) : null;
@@ -2265,11 +2277,12 @@ function matGeom(b) {
 function matFloor(b, F, lv, base) {
   const ext = state.shapes.find(s => s.bid === b.id && s.level === lv && s.kind === "wall" && s.closed);
   const P = (ext && ext.points.length >= 3 ? offsetPoly(orientPoly(ext.points.map(F.toL)), -(ext.thickness || 0) / FT / 2) : base).map(q => ({ x: Math.round(q.x * 1000) / 1000, y: Math.round(q.y * 1000) / 1000 }));   // to 1/1000 ft so 32 ft is 32
-  const H = (b.wallH && b.wallH[lv]) || 8, n = P.length, edges = [];
+  const o = matOpt(b), loft = lv === loftLv(b, o), ceil = loft ? (o.lceil === "open" ? Infinity : +o.lceil || 8) : 0;
+  const H = loft ? +o.knee || 0 : (b.wallH && b.wallH[lv]) || 8, Hv = loft ? Math.min(ceil, 12) : H, n = P.length, edges = [];
   for (let i = 0; i < n; i++) edges.push([P[i], P[(i + 1) % n]]);
   const nearOut = q => edges.some(([a, c]) => segDist(q, a, c) < 1.2);
   const opens = state.shapes.filter(s => s.bid === b.id && s.level === lv && s.kind === "opening" && s.points && s.points.length >= 2).map(s => {
-    const a = F.toL(s.points[0]), c = F.toL(s.points[1]), w = dist(a, c), vt = openVert(s, H);
+    const a = F.toL(s.points[0]), c = F.toL(s.points[1]), w = dist(a, c), vt = openVert(s, Hv);
     return { s, w, sill: vt.sill, head: vt.head, h: vt.head - vt.sill, out: nearOut({ x: (a.x + c.x) / 2, y: (a.y + c.y) / 2 }), win: s.otype === "window" };
   }).filter(q => q.w > 0.3 && q.s.otype !== "opening");
   let inLF = 0, inEnds = 0, inTees = 0;
@@ -2281,7 +2294,34 @@ function matFloor(b, F, lv, base) {
   let convex = 0, concave = 0;
   for (let i = 0; i < n; i++) { const a = P[(i + n - 1) % n], p = P[i], c = P[(i + 1) % n], z = (p.x - a.x) * (c.y - p.y) - (p.y - a.y) * (c.x - p.x); if (Math.abs(z) < 1e-6) continue; if (z > 0) convex++; else concave++; }
   const Bx = bbox(P);
-  return { lv, P, H, perim: perim(P, true), area: Math.abs(polyArea(P)), opens, inLF, inEnds, inTees, convex, concave, L: Bx.x1 - Bx.x0, W: Bx.y1 - Bx.y0 };
+  return { lv, P, H, Hv, loft, ceil: loft ? ceil : H, perim: perim(P, true), area: Math.abs(polyArea(P)), opens, inLF, inEnds, inTees, convex, concave, L: Bx.x1 - Bx.x0, W: Bx.y1 - Bx.y0 };
+}
+// Headroom in a loft: sampled every 6" over its rooms (or the whole floor if it has none), feet above the loft floor to the
+// finished ceiling (under the roof, no higher than the flat ceiling). o can try a different pitch.
+function loftHeads(b, o = matOpt(b)) {
+  const R = psRoofs(b, o), i = R.fl.length - 1, f = R.fl[i], rf = R.roofs.find(r => r.i === i); if (!f || !f.loft || !rf) return null;
+  const base = R.bases[i], Fr = R.G.F, rooms = state.shapes.filter(s => s.bid === b.id && s.level === f.lv && s.kind === "room" && s.closed && s.points.length >= 3).map(s => ({ s, P: s.points.map(Fr.toL) }));
+  const roofAt = q => rf.fn(q)[0] - base - 0.1, head = q => Math.min(f.ceil, roofAt(q));
+  const area = rooms.length ? rooms.map(r => r.P) : [f.P], B = bbox(area.flat()), st = 0.5, hs = [];
+  for (let x = B.x0 + st / 2; x < B.x1; x += st) for (let y = B.y0 + st / 2; y < B.y1; y += st) { const q = { x, y }; if (inPoly(q, f.P) && area.some(P => inPoly(q, P))) hs.push(head(q)); }
+  let lo = hs.length ? Math.min(...hs) : 0;   // right at the room walls too
+  for (const P of area) for (let j = 0; j < P.length; j++) { const p = P[j], q = P[(j + 1) % P.length], nS = Math.max(1, Math.ceil(dist(p, q) / 0.25)); for (let k = 0; k <= nS; k++) { const e = { x: p.x + (q.x - p.x) * k / nS, y: p.y + (q.y - p.y) * k / nS }; if (inPoly(e, f.P)) lo = Math.min(lo, head(e)); } }
+  const n = hs.length || 1, a5 = hs.filter(h => h >= 5 - 1e-6).length, a7 = hs.filter(h => h >= 7 - 1e-6).length;
+  return { R, f, rf, base, rooms, head, roofAt, hs, cell: st * st, min: lo, max: hs.length ? Math.max(...hs) : 0, p7: a7 / n,
+    code: a5 > 0 && a7 >= 0.5 * a5, walls: hs.length > 0 && lo >= 7 - 0.01, flat: hs.filter(h => h >= f.ceil - 1e-6).length * st * st, avg: hs.reduce((a2, h) => a2 + h, 0) / n };
+}
+// What the headroom is at the current pitch and which pitches fit (for the material dialog).
+function loftCheckHTML(b, o) {
+  const L = loftHeads(b, o); if (!L) return "";
+  if (["flat", "shed"].includes(o.roof)) return `<p class="loft-chk">A loft needs a gable or hip roof to have room up there.</p>`;
+  const pitches = MAT_OPTS.flatMap(g => g[1]).find(x => x[0] === "pitch")[2].map(x => x[0]), tries = pitches.map(p => [p, loftHeads(b, { ...o, pitch: p })]);
+  const pc = (tries.find(([, t]) => t && t.code) || [])[0], pw = (tries.find(([, t]) => t && t.walls) || [])[0];
+  const where = L.rooms.length ? L.rooms.map(r => r.s.name || "Room").join(", ") : "the whole loft floor (draw its rooms to check them)";
+  const btn = p => p && p !== o.pitch ? ` <button type="button" class="ghost small" data-pitch="${p}">Use ${p}/12</button>` : "";
+  return `<div class="loft-chk" id="loft-chk"><p><b>Loft headroom at ${esc(o.pitch)}/12</b> over ${esc(where)}: 7 ft or more over <b>${Math.round(L.p7 * 100)}%</b> of the floor, lowest ${esc(fmtLen(Math.max(0, L.min) * FT))}, highest ${esc(fmtLen(L.max * FT))}.</p>
+    <p>${L.code ? "✔ Meets the usual code rule" : "✘ Short of the usual code rule"} (at least half of a room 7 ft tall; under 5 ft doesn't count as floor).</p>
+    <p>${pc ? `<b>${pc}/12</b> is the lowest pitch that meets it.${btn(pc)}` : "No pitch on the list meets it: try knee walls or a narrower room."}</p>
+    <p>${pw ? `<b>${pw}/12</b> gives 7 ft right out to the room's walls.${pw !== pc ? btn(pw) : ""}` : "No pitch on the list gives 7 ft at the room's walls; knee walls would help."}</p></div>`;
 }
 const matRect = P => P.length === 4 && P.every((p, i) => { const a = P[(i + 3) % 4], c = P[(i + 1) % 4]; const u = { x: a.x - p.x, y: a.y - p.y }, v = { x: c.x - p.x, y: c.y - p.y }; return Math.abs(u.x * v.x + u.y * v.y) < 0.02 * Math.hypot(u.x, u.y) * Math.hypot(v.x, v.y); });
 
@@ -2365,6 +2405,7 @@ function stickList(b) {
   const rise = roofShape === "shed" ? RW * pitch : roofShape === "flat" ? 0 : RW / 2 * pitch;
   const gableA = roofShape === "gable" ? RW * rise : roofShape === "shed" ? RW * rise + RL * rise : 0;   // two gable triangles; shed: two side triangles + the high wall
   let wallHtot = 0; fl.forEach(f => { wallHtot += f.H + (joistBelow(f.lv) ? jd + 0.125 : 0); });
+  const LH = fl[fl.length - 1].loft ? loftHeads(b, o) : null;   // the loft's headroom, for its ceilings and walls
 
   // Summary
   const sum = { stories, floorArea: fl.reduce((a, f) => a + f.area, 0) + (G.bsmt ? G.bsmt.area : 0) };
@@ -2419,12 +2460,13 @@ function stickList(b) {
     for (const f of floorsJ) {
       const span = Math.min(f.L, f.W), run = Math.max(f.L, f.W), fill = f.area / Math.max(1, f.L * f.W), rows = Math.ceil((Math.ceil(run * 12 / 16) + 1) * fill);
       const parts = span > jMax ? 2 : 1, len = stockFor(span / parts + (parts > 1 ? 0.5 : 0), [8, 10, 12, 14, 16, 18, 20, 22, 24]);
-      const nm = levelName(f.lv);
-      row(`${nm}: floor joists, ${jName} × ${len} ft`, Math.ceil(rows * parts * waste), "pcs", `${rows} rows across ${fmtLen(span * FT)}${parts > 1 ? ", lapped over a center beam or wall" : ""}`);
-      row(`${nm}: rim board, ${o.joist === "ij" ? "1⅛\" × 11⅞\" LVL rim" : jName}`, pcs(f.perim), "pcs 16 ft", lf(f.perim));
+      const nm = fName(f);
+      if (f.loft && o.rframe === "truss") row(`${nm}: floor framing`, "—", "", "The attic trusses' bottom chords are the loft floor joists");
+      else row(`${nm}: floor joists, ${jName} × ${len} ft`, Math.ceil(rows * parts * waste), "pcs", `${rows} rows across ${fmtLen(span * FT)}${parts > 1 ? ", lapped over a center beam or wall" : ""}`);
+      if (!(f.loft && o.rframe === "truss")) row(`${nm}: rim board, ${o.joist === "ij" ? "1⅛\" × 11⅞\" LVL rim" : jName}`, pcs(f.perim), "pcs 16 ft", lf(f.perim));
       row(`${nm}: subfloor, ¾\" tongue-and-groove OSB 4×8`, Math.ceil(f.area * waste / 32), "sheets", sf(f.area));
       row(`${nm}: subfloor glue, 28 oz`, Math.ceil(f.area / 32 / 2), "tubes");
-      if (o.joist !== "ij") row(`${nm}: joist hangers and blocking`, "as needed", "", "Only where joists hang off a beam or header");
+      if (o.joist !== "ij" && !(f.loft && o.rframe === "truss")) row(`${nm}: joist hangers and blocking`, "as needed", "", "Only where joists hang off a beam or header");
     }
   }
 
@@ -2433,7 +2475,8 @@ function stickList(b) {
   let studsAll = 0, plateLF = 0, extNet = 0, extGross = 0, openPer = 0, headLF = {};
   const hdrPly = stud === "2x6" ? 3 : 2;
   for (const f of fl) {
-    const nm = levelName(f.lv), ext = f.opens.filter(q => q.out), base = Math.ceil(f.perim / oc) + f.convex + f.concave;
+    const nm = fName(f), ext = f.opens.filter(q => q.out), base = Math.ceil(f.perim / oc) + f.convex + f.concave;
+    if (f.H < 1) { row(`${nm}: outside walls`, "—", "", "None: the roof starts at the loft floor. The gable ends are framed with the gable end framing below."); continue; }
     let extra = 0, crip = 0, inl = 0;
     for (const q of ext) {
       extra += 2 + (q.w > 6 ? 4 : 2) - Math.floor(q.w / oc);
@@ -2464,9 +2507,9 @@ function stickList(b) {
     section("Inside wall framing");
     for (const f of fl.concat(G.bsmt ? [G.bsmt] : [])) {
       if (!f.inLF) continue;
-      const nm = levelName(f.lv), ins = f.opens.filter(q => !q.out), n = Math.ceil((Math.ceil(f.inLF / (16 / 12)) + f.inEnds + 2 * ins.length) * waste);
+      const nm = fName(f), ins = f.opens.filter(q => !q.out), n = Math.ceil((Math.ceil(f.inLF / (16 / 12)) + f.inEnds + 2 * ins.length) * waste);
       ins.forEach(q => inOpen += q.w * q.h);
-      row(`${nm}: studs, ${studName(f.H, "2×4")}`, n, "pcs", `${lf(f.inLF)} of inside walls at 16" on center`);
+      row(`${nm}: studs, ${studName(f.loft ? Math.min(f.ceil, 12) : f.H, "2×4")}`, n, "pcs", `${lf(f.inLF)} of inside walls at 16" on center${f.loft ? ", cut to the roof slope where they meet it" : ""}`);
       const pt = (f.lv === GROUND && ["slab", "frost"].includes(o.found)) || f.lv === BASEMENT;
       row(`${nm}: bottom plate, ${pt ? "treated " : ""}2×4`, pcs(f.inLF), "pcs 16 ft", lf(f.inLF));
       row(`${nm}: double top plate, 2×4`, pcs(f.inLF * 2), "pcs 16 ft");
@@ -2530,7 +2573,11 @@ function stickList(b) {
   if (o.rframe === "truss") {
     const n = rect ? Math.floor(RL / 2 + 1e-6) + 1 : Math.ceil(topF.area / (2 * Math.max(RW, 1))) + 2 * topF.convex;
     const kind = roofShape === "gable" ? "common trusses (2 are gable-end trusses)" : roofShape === "hip" ? "hip truss package (girders and jacks included)" : roofShape === "shed" ? "mono (one-slope) trusses" : "flat trusses";
-    row(`Roof trusses, ${fmtLen(RW * FT)} span, ${roofShape === "flat" ? "flat" : o.pitch + "/12"}`, n, "each", kind + (rect ? "" : " (estimate)"));
+    if (LH) {
+      const rw = LH.rooms.length ? Math.max(...LH.rooms.map(r => { const B = bbox(r.P); return Math.min(B.x1 - B.x0, B.y1 - B.y0); })) : RW / 2;
+      row(`Attic (room-in-attic) trusses, ${fmtLen(RW * FT)} span, ${o.pitch}/12, about ${fmtLen(rw * FT)} room`, n, "each", "The truss maker sizes them for the loft room and its floor load (2 are gable-end trusses)");
+      if (RW > 32) row("Note", "—", "", `${fmtLen(RW * FT)} is a wide span for attic trusses: ask the truss maker if they need a bearing wall or beam under the loft floor.`);
+    } else row(`Roof trusses, ${fmtLen(RW * FT)} span, ${roofShape === "flat" ? "flat" : o.pitch + "/12"}`, n, "each", kind + (rect ? "" : " (estimate)"));
     row("Hurricane ties (H2.5A)", n * 2, "each");
     row("Truss bracing / lateral 2×4 × 16 ft", Math.ceil(RL / 16 * 3 + 2), "pcs");
     if (o.rsheath === "osb716") row("Plywood clips (H-clips) 7/16\"", Math.ceil(roofA * waste / 32), "each", "Between sheets at 24\" spacing");
@@ -2596,8 +2643,13 @@ function stickList(b) {
     const bag = o.insul === "mw" ? (stud === "2x6" ? 39.8 : 59.7) : (stud === "2x6" ? 77.5 : 88), rv = o.insul === "mw" ? (stud === "2x6" ? "R-23" : "R-15") : (stud === "2x6" ? "R-21" : "R-15");
     row(`${o.insul === "mw" ? "Mineral wool" : "Fiberglass"} batts ${rv}, ${o.oc === "24" ? "23\"" : "15\""} wide`, Math.ceil(wallIns * waste / bag), "bags", `${sf(wallIns)} of wall, about ${bag} sq ft a bag`);
   }
-  if (o.attic !== "none" && roofShape !== "flat") {
-    const ca = topF.area, cov = o.attic === "r60" ? 32 : 40;
+  const finA = LH ? LH.hs.length * LH.cell : 0, flatA = LH ? (LH.f.ceil === Infinity ? 0 : LH.flat) : 0, slopeA = LH ? (finA - flatA) * k : 0;
+  if (LH) {
+    row("Loft: sloped ceiling insulation, R-49 high-density batts or closed-cell foam", Math.ceil(slopeA * waste), "sq ft", `${sf(slopeA)} of sloped ceiling over the loft rooms, with a vent baffle in each bay`);
+    if (LH.f.area - finA > 20) row("Loft: floor insulation behind the knee walls, R-38 batts", Math.ceil((LH.f.area - finA) * waste), "sq ft", "Or insulate the roof all the way down to the eave instead");
+  }
+  if (o.attic !== "none" && roofShape !== "flat" && (!LH || flatA > 0)) {
+    const ca = LH ? flatA : topF.area, cov = o.attic === "r60" ? 32 : 40;
     row(`Blown-in fiberglass, ${o.attic === "r60" ? "R-60" : "R-49"}`, Math.ceil(ca * 1.05 / cov), "bags", `${sf(ca)} of attic floor, about ${cov} sq ft a bag`);
     row("Attic baffles (rafter vents)", Math.ceil(eave / (o.rframe === "truss" ? 2 : 16 / 12)), "each", "One per bay at the eaves");
   }
@@ -2608,7 +2660,7 @@ function stickList(b) {
   section("Drywall");
   const dwSheet = +o.dw * 4;
   let dwWall = 0, dwCeil = 0;
-  for (const f of fl) { dwWall += f.perim * f.H - f.opens.filter(q => q.out).reduce((a, q) => a + q.w * q.h, 0) + f.inLF * f.H * 2 - f.opens.filter(q => !q.out).reduce((a, q) => a + q.w * q.h * 2, 0); dwCeil += f.area; }
+  for (const f of fl) { const hi = f.loft && LH ? LH.avg : f.H; dwWall += f.perim * f.H - f.opens.filter(q => q.out).reduce((a, q) => a + q.w * q.h, 0) + f.inLF * hi * 2 - f.opens.filter(q => !q.out).reduce((a, q) => a + q.w * q.h * 2, 0); dwCeil += f.loft && LH ? flatA + slopeA : f.area; }
   if (G.bsmt && G.bsmt.inLF) { dwWall += G.bsmt.inLF * G.bsmt.H * 2; }
   row(`Drywall ½\", 4×${o.dw} (walls)`, Math.ceil(dwWall * waste / dwSheet), "sheets", sf(dwWall));
   row(`Drywall ⅝\" ceiling board, 4×${o.dw}`, Math.ceil(dwCeil * waste / dwSheet), "sheets", sf(dwCeil));
@@ -2647,11 +2699,12 @@ function renderMat() {
   const b = state.shapes.find(s => s.id === matB && ["building", "deck", "addon"].includes(s.kind)); if (!b) { if ($("matdlg").open) $("matdlg").close(); return; }
   const { S, sum, o } = matList(b), OPTS = matOptsFor(b);
   $("mat-title").textContent = (matTab === "order" ? "Build order · " : "Material list · ") + b.name;
-  $("mat-opts").innerHTML = OPTS.map(([g, L]) => `<p class="mat-g">${esc(g)}</p>` + L.map(([k, t, opts]) => `<div class="field"><label for="mo-${k}">${esc(t)}</label><select id="mo-${k}" data-mo="${k}">${optList(opts, o[k])}</select></div>`).join("")).join("")
+  const upper = b.kind === "building" && topLv(b) > GROUND;
+  $("mat-opts").innerHTML = OPTS.filter(([g]) => g !== "Loft" || upper).map(([g, L]) => `<p class="mat-g">${esc(g)}</p>` + L.filter(([k]) => !["knee", "lceil"].includes(k) || o.loft === "loft").map(([k, t, opts]) => `<div class="field"><label for="mo-${k}">${esc(t)}</label><select id="mo-${k}" data-mo="${k}">${optList(opts, o[k])}</select></div>`).join("") + (g === "Loft" && o.loft === "loft" ? loftCheckHTML(b, o) : "")).join("")
     + `<p class="muted" style="font-size:13px;margin-top:12px">Your choices are saved with this ${b.kind === "building" ? "building" : b.kind === "deck" ? "deck" : "structure"}.${b.kind === "building" && o.frame !== "post" ? " Wall heights come from the floor plan designer (each floor can differ)." : ""}</p>`;
   document.querySelectorAll("#mat-tabs button").forEach(t => t.setAttribute("aria-pressed", String(t.dataset.mtab === matTab)));
   let text = sum.text;
-  if (!text) { const fl = matGeom(b).floors; text = `<b>${fl.length} floor${fl.length === 1 ? "" : "s"}</b> · ${Math.round(sum.floorArea).toLocaleString()} sq ft of floor · walls ${fl.map(f => fmtLen(f.H * FT)).join(" / ")} · roof ${(sum.roofA / 100).toFixed(1)} squares (${sum.roofShape}) · ${sum.studs.toLocaleString()} studs`; }
+  if (!text) { const fl = matGeom(b).floors; text = `<b>${fl.length} floor${fl.length === 1 ? "" : "s"}</b> · ${Math.round(sum.floorArea).toLocaleString()} sq ft of floor · walls ${fl.map(f => f.loft ? "loft" : fmtLen(f.H * FT)).join(" / ")} · roof ${(sum.roofA / 100).toFixed(1)} squares (${sum.roofShape}) · ${sum.studs.toLocaleString()} studs`; }
   if (!$("mat-store").options.length) $("mat-store").innerHTML = optList(["homedepot", "lowes", "menards"].map(k => [k, STORES[k][0]]), "menards");
   const st = STORES[state.shopStore] ? state.shopStore : "menards", pr = (b.build && b.build.prices) || {}; $("mat-store").value = st;
   let tot = 0, nP = 0, nAll = 0;
@@ -2676,7 +2729,7 @@ function renderMat() {
   $("mat-sum").innerHTML = text + priced;
 }
 $("mat-tabs").addEventListener("click", e => { const t = e.target.closest("button[data-mtab]"); if (!t) return; matTab = t.dataset.mtab; renderMat(); $("mat-main").scrollTop = 0; });
-function matKey(item) { return String(item).replace(/^(Ground|1st|2nd|3rd) floor: |^Basement: /, ""); }
+function matKey(item) { return String(item).replace(/^(Ground|1st|2nd|3rd) floor: |^Basement: |^Loft: /, ""); }
 // Store search words for a list item: drop the floor, make × and fractions plain, drop notes in brackets.
 function matQuery(item) {
   const fr = { "½": " 1/2", "¼": " 1/4", "¾": " 3/4", "⅛": " 1/8", "⅜": " 3/8", "⅝": " 5/8", "⅞": " 7/8" };
@@ -2693,6 +2746,10 @@ $("mat-list").addEventListener("change", e => {
   pushUndo(); b.build = Object.assign({}, b.build, { prices }); afterChange(); renderMat();
 });
 $("mat-store").addEventListener("change", e => { state.shopStore = e.target.value; save(); renderMat(); });
+$("mat-opts").addEventListener("click", e => {
+  const t = e.target.closest("button[data-pitch]"), b = state.shapes.find(s => s.id === matB); if (!t || !b) return;
+  pushUndo(); b.build = Object.assign({}, b.build, { pitch: t.dataset.pitch }); afterChange(); renderMat();
+});
 $("mat-opts").addEventListener("change", e => {
   const k = e.target.dataset.mo, b = state.shapes.find(s => s.id === matB); if (!k || !b) return;
   pushUndo(); b.build = Object.assign({}, b.build, { [k]: e.target.value }); afterChange(); renderMat();
@@ -3074,7 +3131,7 @@ function psWalls(b, lv) {
   const recs = state.shapes.filter(s => s.bid === b.id && s.level === lv && s.kind === "wallview" && s.points && s.points.length >= 2 && s.data).map(s => ({ ...s.data, p1: F.toL(s.points[0]), p2: F.toL(s.points[1]) }));
   const take = (a, c, near) => {
     const u = unit(a, c), L = dist(a, c), res = [];
-    for (const o2 of opens) { const p = F.toL(o2.points[0]), q = F.toL(o2.points[1]), m = { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 }; if (segDist(m, a, c) > near) continue; const w = dist(p, q), t = (m.x - a.x) * u.x + (m.y - a.y) * u.y; if (t < -0.5 || t > L + 0.5) continue; const vt = openVert(o2, f.H); res.push({ o: o2, t, w, sill: vt.sill, head: vt.head, win: o2.otype === "window" }); }
+    for (const o2 of opens) { const p = F.toL(o2.points[0]), q = F.toL(o2.points[1]), m = { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 }; if (segDist(m, a, c) > near) continue; const w = dist(p, q), t = (m.x - a.x) * u.x + (m.y - a.y) * u.y; if (t < -0.5 || t > L + 0.5) continue; const vt = openVert(o2, f.Hv); res.push({ o: o2, t, w, sill: vt.sill, head: vt.head, win: o2.otype === "window" }); }
     return res.sort((x, y) => x.t - y.t);
   };
   // the wall view record on this wall line, turned into this wall's own direction (t from a toward c)
@@ -3101,6 +3158,17 @@ function psWalls(b, lv) {
   for (const w of state.shapes.filter(s => s.bid === b.id && s.level === lv && s.kind === "wall" && s !== ext && s.points.length >= 2)) {
     const Lp = w.points.map(F.toL), m = w.closed ? Lp.length : Lp.length - 1, th = (w.thickness || 0) / FT;
     for (let i = 0; i < m; i++) { const a = Lp[i], c = Lp[(i + 1) % Lp.length]; if (dist(a, c) < 0.75) continue; out.push({ tag: "I" + (++k), ext: false, a, c, L: dist(a, c), H: f.H, th, inSide: 0, opens: take(a, c, 0.8), ...view(a, c, Math.max(0.35, th / 2 + 0.1), false), F, thin: th < 5 / 12 }); }
+  }
+  if (f.loft) {   // loft walls: outside ones run up to the roof (gable ends) or are knee walls; inside ones stop at the ceiling
+    const LH = loftHeads(b, o);
+    if (LH) {
+      for (const w of out) {
+        const u = unit(w.a, w.c), at = t => ({ x: w.a.x + u.x * t, y: w.a.y + u.y * t });
+        w.top = w.ext ? t => Math.max(0, LH.roofAt(at(t)) + 0.1) : t => Math.max(0, Math.min(f.ceil, LH.roofAt(at(t)) + 0.1));
+        let mx = 0; for (let j = 0; j <= 40; j++) mx = Math.max(mx, w.top(w.L * j / 40)); w.H = mx;
+      }
+      return { walls: out.filter(w => w.H >= 0.75), f, F };
+    }
   }
   return { walls: out, f, F };
 }
@@ -3133,9 +3201,13 @@ let psClip = 0;
 function psFrameSVG(w, plies, s, x0, y0, studName) {
   const t = 1.5 / 12, L = w.L, H = w.H, X = v => n2(x0 + v * s), Y = v => n2(y0 - v * s), g = [];
   const R = (xa, xb, ya, yb, cls) => { if (xb - xa > 1e-4 && yb - ya > 1e-4) g.push(`<rect x="${X(xa)}" y="${Y(yb)}" width="${n2((xb - xa) * s)}" height="${n2((yb - ya) * s)}" class="${cls}"/>`); };
-  const fr = framingAlong(w.vw, 0, L, H, w.opens);
+  const fr = framingAlong(w.vw, 0, L, H, w.opens, w.top);
   for (const r of fr) R(r.t0, r.t1, r.y, r.y + r.h, r.kind === "plate" || r.kind === "sill" ? "pl" : r.kind === "header" ? "hd" : r.kind === "added" ? "st sa" : "st");
-  if (w.ext) { R(t, 2 * t, t, H - 2 * t, "st"); R(L - 2 * t, L - t, t, H - 2 * t, "st"); }   // corner studs (3-stud corners)
+  if (w.top) {   // double top plate following the roof slope
+    const ts = []; for (let j = 0; j <= 48; j++) ts.push(L * j / 48);
+    g.push(`<polygon points="${ts.map(v => X(v) + "," + Y(w.top(v))).concat(ts.slice().reverse().map(v => X(v) + "," + Y(Math.max(0, w.top(v) - 2 * t)))).join(" ")}" class="pl"/>`);
+    for (const v of [1.5 * t, L - 1.5 * t]) { const hv = w.top(v) - 3 * t; if (w.ext && hv > 0.3) R(v - t / 2, v + t / 2, t, hv, "st"); }
+  } else if (w.ext) { R(t, 2 * t, t, H - 2 * t, "st"); R(L - 2 * t, L - t, t, H - 2 * t, "st"); }   // corner studs (3-stud corners)
   for (const q of w.opens) {
     const a = Math.max(0, q.t - q.w / 2), b2 = Math.min(L, q.t + q.w / 2), hb = q.head, hd = hdrSize(q.w);
     g.push(`<rect x="${X(a)}" y="${Y(hb)}" width="${n2((b2 - a) * s)}" height="${n2((hb - (q.win ? q.sill : t)) * s)}" class="op"/>`);
@@ -3316,7 +3388,7 @@ function psElevSVG(b, R, n, s, x0, y0) {
   });
   g.push(`<line x1="${X(A0 - 3)}" y1="${Y(0)}" x2="${X(A1 + 3)}" y2="${Y(0)}" class="gr"/>`);
   const marks = [], mark = (y, t) => marks.push([y, t]);
-  mark(0, "Floor / grade"); R.fl.forEach((f, i) => { if (i) mark(R.bases[i], levelName(f.lv)); }); R.roofs.forEach(rf => mark(rf.E, R.roofs.length > 1 ? `Top of wall (${levelName(R.fl[rf.i].lv)})` : "Top of wall"));
+  mark(0, "Floor / grade"); R.fl.forEach((f, i) => { if (i) mark(R.bases[i], fName(f)); }); R.roofs.forEach(rf => { const lf2 = R.fl[rf.i]; if (lf2.loft) { if (lf2.H > 0) mark(rf.E, "Top of knee wall"); } else mark(rf.E, R.roofs.length > 1 ? `Top of wall (${fName(lf2)})` : "Top of wall"); });
   if (R.roofs.some(rf => !rf.flat)) mark(R.maxY, "Top of roof");
   marks.sort((p, q) => p[0] - q[0]); let lastTy = Infinity;
   for (const [y, t] of marks) { const ty = Math.min(+Y(y) + 0.04, lastTy - 0.12); lastTy = ty; g.push(`<line x1="${X(A1 + 0.6)}" y1="${Y(y)}" x2="${X(A1 + 2.6)}" y2="${Y(y)}" class="dm"/><text x="${X(A1 + 2.7)}" y="${n2(ty)}" class="tl ts">${psE(t)} ${psE(fmtLen(y * FT))}</text>`); }
@@ -3385,6 +3457,7 @@ function psSectionSVG(b, x0, y0, aw, ah) {
     // walls, floor by floor
     let y = ["crawl", "bsmt"].includes(o.found) ? fh + 0.125 + ({ "2x10": 9.25, "2x12": 11.25, ij: 11.875 }[o.joist] / 12) + 0.0625 : fh;
     G.floors.forEach((f, i) => {
+      if (f.loft && f.H < 0.5) { lab(3, y + 0.1, "Loft floor; the roof starts here (no knee wall)"); return; }
       const H = f.H, yb = y, yt = y + H;
       R(0.04, 0.04 + sd, yb, yb + 0.125, "pl"); if (!i) lab(0.04 + sd / 2, yb + 0.06, (o.found === "slab" || o.found === "frost") ? `Treated ${o.stud.replace("x", "×")} bottom plate, ½" anchor bolts @ 6'` : `${o.stud.replace("x", "×")} bottom plate`);
       R(0.04, 0.04 + sd, yb + 0.125, yt - 0.25, "st"); R(0.04, 0.04 + sd, yt - 0.25, yt, "pl");
@@ -3397,8 +3470,9 @@ function psSectionSVG(b, x0, y0, aw, ah) {
       if (i < G.floors.length - 1) { const jd = { "2x10": 9.25, "2x12": 11.25, ij: 11.875 }[o.joist] / 12; R(0.04, span, y, y + jd, "jo"); if (!i) lab(3, y + jd / 2, `Floor: ${{ "2x10": "2×10", "2x12": "2×12", ij: "11⅞\" I-joist" }[o.joist]} @ 16", rim board, ¾" subfloor`); y += jd + 0.0625; }
     });
     Ht = y;
-    R(0.04 + sd, span, Ht - 0.05, Ht, "dw"); lab(3, Ht - 0.02, "⅝\" ceiling drywall");
-    if (o.attic !== "none" && o.roof !== "flat") { R(0.6, span, Ht, Ht + (o.attic === "r60" ? 1.7 : 1.4), "at"); lab(3.5, Ht + 0.7, `Blown-in insulation ${o.attic === "r60" ? "R-60" : "R-49"}, baffle at the eave`); }
+    const isLoft = G.floors[G.floors.length - 1].loft;
+    if (!isLoft) R(0.04 + sd, span, Ht - 0.05, Ht, "dw"), lab(3, Ht - 0.02, "⅝\" ceiling drywall");
+    if (o.attic !== "none" && o.roof !== "flat" && !isLoft) { R(0.6, span, Ht, Ht + (o.attic === "r60" ? 1.7 : 1.4), "at"); lab(3.5, Ht + 0.7, `Blown-in insulation ${o.attic === "r60" ? "R-60" : "R-49"}, baffle at the eave`); }
   }
   // roof
   const yr = Ht + 0.1, rl = x => yr + (x + 0.3) * pitch;
@@ -3667,7 +3741,7 @@ function psBuild(b) {
     if (!big) { const d = psFoundDetail(b, o, ax, ay + 0.1, aw, ah - 0.2, 1, "A-1.1"); if (d) page("A-1.1", "Foundation detail", "As noted", svg(PS_DEFS + d)); }
   }
   // ---- floor plans ----
-  fpPages.forEach(([f, R, sTxt, WL], i) => page("A-" + (2 + i), levelName(f.lv) + " plan", sTxt, `<img class="ps-img" src="${R.url}" style="left:${ax}in;top:${ay}in;width:${n2(R.wIn)}in;height:${n2(R.hIn)}in">` + svg(psBar(ax + 0.05, PH - M - 0.32, R.sIn, sTxt) + `<text x="${ax}" y="${n2(PH - M - 0.05)}" class="tl">${psE(levelName(f.lv))}: ${Math.round(f.area).toLocaleString()} sq ft. Circled tags (E1, I1…) match the wall framing sheets. Wall height ${psE(fmtLen(f.H * FT))}.</text>`)));
+  fpPages.forEach(([f, R, sTxt, WL], i) => page("A-" + (2 + i), fName(f) + " plan", sTxt, `<img class="ps-img" src="${R.url}" style="left:${ax}in;top:${ay}in;width:${n2(R.wIn)}in;height:${n2(R.hIn)}in">` + svg(psBar(ax + 0.05, PH - M - 0.32, R.sIn, sTxt) + `<text x="${ax}" y="${n2(PH - M - 0.05)}" class="tl">${psE(fName(f))}: ${Math.round(f.area).toLocaleString()} sq ft. Circled tags (E1, I1…) match the wall framing sheets. Wall height ${psE(fmtLen(f.H * FT))}.</text>`)));
   let an = 2 + fpPages.length;
   // ---- roof plan ----
   const RF = psRoofs(b, o);
@@ -3721,6 +3795,55 @@ function psBuild(b) {
   }
   // ---- wall sections ----
   const bigW = PW > 13, secW = bigW ? aw * 0.6 : aw - 0.1, detW = bigW ? psFoundDetail(b, o, ax + aw * 0.62, ay + 0.4, aw * 0.38, ah - 1.9, 2, "A-" + an) : "";
+  // ---- loft section: a cut across the roof through the loft, with the headroom ----
+  const LHs = G.floors[G.floors.length - 1].loft ? loftHeads(b, o) : null;
+  if (LHs && !["flat", "shed"].includes(o.roof)) {
+    const { R: RL, f: lf, rf, base } = LHs, P = lf.P, L01 = dist(P[0], P[1]), L12 = dist(P[1], P[2]), uR = L01 >= L12 ? unit(P[0], P[1]) : unit(P[1], P[2]), cd = { x: -uR.y, y: uR.x };
+    const area = LHs.rooms.length ? LHs.rooms.map(r => r.P) : [P], m = centroid(area[0].map(q => ({ ...q }))), at = v => ({ x: m.x + cd.x * v, y: m.y + cd.y * v });
+    const span = Poly => { const vs = []; for (let j = 0; j < Poly.length; j++) { const p = Poly[j], q = Poly[(j + 1) % Poly.length], e = { x: q.x - p.x, y: q.y - p.y }, den = cd.x * e.y - cd.y * e.x; if (Math.abs(den) < 1e-9) continue; const w = { x: p.x - m.x, y: p.y - m.y }, v = (w.x * e.y - w.y * e.x) / den, u = (w.x * cd.y - w.y * cd.x) / den; if (u >= -1e-9 && u <= 1 + 1e-9) vs.push(v); } return vs.length >= 2 ? [Math.min(...vs), Math.max(...vs)] : null; };   // where the cut crosses an outline
+    const W0 = Math.max(0, ...rf.out.map(q => Math.abs((q.x - m.x) * cd.x + (q.y - m.y) * cd.y))) + 1, sOut = span(rf.out), sIn = span(P);
+    if (sOut && sIn) {
+      const H0 = RL.tops[0], top = RL.maxY + 1, wFt = sOut[1] - sOut[0] + 4, hFt = top + 1.5;
+      const dw = aw - 0.2, dh = ah - 1.9, [k, sTxt] = psFit(wFt, hFt, dw, dh), x0 = ax + (aw - wFt * k) / 2 + 2 * k, yb = ay + 0.5 + (dh + hFt * k) / 2 - 0.5 * k;
+      const X = v => n2(x0 + (v - sOut[0]) * k), Y = h => n2(yb - h * k), g = [], roofH = v => rf.fn(at(v))[0];
+      const th = (state.shapes.find(x => x.bid === b.id && x.kind === "wall" && x.closed && x.level === GROUND) || {}).thickness / FT || 0.5;
+      g.push(`<line x1="${X(sOut[0] - 2)}" y1="${Y(0)}" x2="${X(sOut[1] + 2)}" y2="${Y(0)}" class="gr"/>`);
+      // ground floor walls, the loft floor, knee walls
+      for (const [a2, d] of [[sIn[0], 1], [sIn[1], -1]]) { const xa = Math.min(a2, a2 + d * th), xb = Math.max(a2, a2 + d * th); g.push(`<rect x="${X(xa)}" y="${Y(H0)}" width="${n2(th * k)}" height="${n2(H0 * k)}" class="st"/>`); if (lf.H > 0) g.push(`<rect x="${X(xa)}" y="${Y(base + lf.H)}" width="${n2(th * k)}" height="${n2(lf.H * k)}" class="st"/>`); }
+      g.push(`<rect x="${X(sIn[0])}" y="${Y(base)}" width="${n2((sIn[1] - sIn[0]) * k)}" height="${n2((base - H0) * k)}" class="jo"/>`);
+      // the roof: from its underside up by the rafter and roofing
+      const vs = []; for (let v = sOut[0]; v <= sOut[1] + 1e-6; v += (sOut[1] - sOut[0]) / 120) vs.push(v);
+      g.push(`<polygon points="${vs.map(v => X(v) + "," + Y(roofH(v) + 0.85)).concat(vs.slice().reverse().map(v => X(v) + "," + Y(roofH(v)))).join(" ")}" class="rs"/>`);
+      // rooms along the cut: walls up to the ceiling, the finished ceiling, room names
+      const ceilY = v => base + Math.min(lf.ceil, roofH(v) - base - 0.1), tags = [];
+      for (const r of LHs.rooms) {
+        const sp = span(r.P); if (!sp) continue;
+        const cv = []; for (let v = sp[0]; v <= sp[1] + 1e-6; v += 0.1) cv.push(v);
+        g.push(`<polyline points="${cv.map(v => X(v) + "," + Y(ceilY(v))).join(" ")}" class="lc"/>`);
+        tags.push([(sp[0] + sp[1]) / 2, r.s.name || "Room", sp[1] - sp[0]]);
+        for (const v of sp) { const hh = ceilY(v) - base; g.push(`<line x1="${X(v)}" y1="${Y(base)}" x2="${X(v)}" y2="${Y(base + hh)}" class="lw"/><text x="${n2(+X(v) + (v === sp[0] ? 0.05 : -0.05))}" y="${n2(+Y(base + hh / 2))}" class="${v === sp[0] ? "tl" : "tr2"} ts">${psE(fmtLen(hh * FT))}</text>`); }
+      }
+      if (!LHs.rooms.length) { const cv = []; for (let v = sIn[0]; v <= sIn[1]; v += 0.1) cv.push(v); g.push(`<polyline points="${cv.map(v => X(v) + "," + Y(ceilY(v))).join(" ")}" class="lc"/>`); }
+      // 7 ft and 5 ft headroom lines, only where the roof is above them
+      for (const [hh, t2] of [[7, "7 ft headroom"], [5, "5 ft"]]) {
+        const ok = vs.filter(v => v > sIn[0] && v < sIn[1] && ceilY(v) - base >= hh); if (ok.length < 2) continue;
+        g.push(`<line x1="${X(ok[0])}" y1="${Y(base + hh)}" x2="${X(ok[ok.length - 1])}" y2="${Y(base + hh)}" class="hr${hh}"/><text x="${n2(+X(ok[0]) + 0.05)}" y="${n2(+Y(base + hh) - 0.03)}" class="tl ts hrt">${t2}</text>`);
+      }
+      const sorted = tags.sort((p, q) => q[2] - p[2]); let used = [];
+      for (const [v, nm, wd] of sorted) { let y = base + 3; while (used.some(([u2, y2]) => Math.abs(u2 - v) < 6 && Math.abs(y2 - y) < 1)) y += 1.2; used.push([v, y]); g.push(`<text x="${X(v)}" y="${Y(y)}" class="tc tb">${psE(nm)}</text><text x="${X(v)}" y="${n2(+Y(y) + 0.15)}" class="tc ts">${psE(fmtLen(wd * FT))} wide</text>`); }
+      // heights on the right, width along the bottom
+      const rx = sOut[1] + 1, marks = [[0, "Ground floor / grade"], [H0, "Top of ground floor wall"], [base, "Loft floor"], [RL.maxY, "Top of roof"]];
+      if (lf.H > 0) marks.push([base + lf.H, "Top of knee wall"]);
+      let lastY = Infinity; for (const [hh, t2] of marks.sort((p, q) => p[0] - q[0])) { const ty = Math.min(+Y(hh) + 0.04, lastY - 0.12); lastY = ty; g.push(`<line x1="${X(rx - 0.6)}" y1="${Y(hh)}" x2="${X(rx + 0.6)}" y2="${Y(hh)}" class="dm"/><text x="${X(rx + 0.8)}" y="${n2(ty)}" class="tl ts">${psE(t2)} ${psE(fmtLen(hh * FT))}</text>`); }
+      const dy = +Y(0) + 0.3; g.push(`<line x1="${X(sIn[0])}" y1="${n2(dy)}" x2="${X(sIn[1])}" y2="${n2(dy)}" class="dm"/><text x="${X((sIn[0] + sIn[1]) / 2)}" y="${n2(dy - 0.04)}" class="tc">${psE(fmtLen((sIn[1] - sIn[0]) * FT))} outside of walls</text>`);
+      const pv = sIn[0] + (sIn[1] - sIn[0]) * 0.2; g.push(`<text x="${X(pv)}" y="${n2(+Y(roofH(pv) + 0.85) - 0.08)}" class="tc tb">${psE(o.pitch)}/12</text>`);
+      g.push(psBar(ax + 0.05, PH - M - 0.32, k, sTxt));
+      const nt = [`Cut across the roof through the middle of the loft, looking along the ridge. Loft ceiling: ${lf.ceil === Infinity ? "open, sloped up to the ridge" : "flat at " + fmtLen(lf.ceil * FT) + ", sloped at the sides"}; knee walls ${lf.H > 0 ? fmtLen(lf.H * FT) : "none"}.`,
+        `7 ft or more over ${Math.round(LHs.p7 * 100)}% of the loft rooms; lowest ${fmtLen(Math.max(0, LHs.min) * FT)}. ${LHs.code ? "Meets" : "Does not meet"} the usual rule: at least half of a room 7 ft tall, and parts under 5 ft don't count as floor.`,
+        "Heights are to the finished ceiling (about 1\" of drywall under the roof framing). Stairs need 6'-8\" of headroom all the way up; check where they land."];
+      page("A-" + an++, "Loft section", sTxt, svg(g.join("") + nt.map((t2, i) => `<text x="${n2(ax + 0.05)}" y="${n2(ay + 0.25 + i * 0.17)}" class="tl${i ? "" : " tb"}">${psE(t2)}</text>`).join("")));
+    }
+  }
   page("A-" + an++, "Typical wall section", "Not to scale", svg((detW ? PS_DEFS + detW : "") + psSectionSVG(b, ax + 0.1, ay + 0.4, secW, ah - 0.45) + `<text x="${n2(ax + 0.1)}" y="${n2(ay + 0.25)}" class="tl tb">Typical outside wall section</text>` + (post ? "" : `<g>${(() => { const x = bigW ? ax + aw * 0.62 : ax + aw * 0.5, y = ay + ah - 1.1; return `<text x="${n2(x)}" y="${n2(y - 0.15)}" class="tl tb">Typical inside wall</text><rect x="${n2(x)}" y="${n2(y)}" width="0.9" height="0.04" class="dw"/><rect x="${n2(x)}" y="${n2(y + 0.04)}" width="0.9" height="0.29" class="st"/><rect x="${n2(x)}" y="${n2(y + 0.33)}" width="0.9" height="0.04" class="dw"/><text x="${n2(x + 1.05)}" y="${n2(y + 0.14)}" class="tl ts">2×4 studs @ 16" o.c., single bottom plate, double top plate,</text><text x="${n2(x + 1.05)}" y="${n2(y + 0.27)}" class="tl ts">½" drywall both sides (plan view)</text>`; })()}</g>`)));
   // ---- schedules ----
   {
@@ -3728,7 +3851,7 @@ function psBuild(b) {
     for (const f of ord) for (const w of psWalls(b, f.lv).walls) for (const q of w.opens) {
       const key = `${q.o.otype}|${q.w.toFixed(2)}|${(q.head - q.sill).toFixed(2)}|${w.ext}`;
       if (!od.has(key)) od.set(key, { mark: q.win ? "W" + (++wn) : "D" + (++dn), q, ext: w.ext, n: 0, floors: new Set(), walls: [] });
-      const r = od.get(key); r.n++; r.floors.add(levelName(f.lv)); r.walls.push(w.tag);
+      const r = od.get(key); r.n++; r.floors.add(fName(f)); r.walls.push(w.tag);
     }
     const rows = [...od.values()].sort((a, c) => a.mark.localeCompare(c.mark, undefined, { numeric: true }));
     const tbl = `<table class="ps-tbl"><thead><tr><th>Mark</th><th>Type</th><th>Size (W × H)</th><th>Rough opening</th><th>Header</th><th>Sill</th><th>Qty</th><th>Where</th></tr></thead><tbody>${rows.map(r => { const q = r.q, hh = q.head - q.sill; return `<tr><td>${r.mark}</td><td>${psE(OTYPES[q.o.otype] || "Door")}${r.ext ? "" : " (inside)"}</td><td>${psE(fmtLen(q.w * FT))} × ${psE(fmtLen(hh * FT))}</td><td>${psE(fmtLen((q.w + 2 / 12) * FT))} × ${psE(fmtLen((hh + (q.win ? 2 : 2.5) / 12) * FT))}</td><td>${psE(r.ext || q.w > 3 ? (r.ext ? (o.stud === "2x6" ? 3 : 2) + "-" : "") + hdrSize(q.w)[0] : "2×4 flat")}</td><td>${q.win ? psE(fmtLen(q.sill * FT)) : "—"}</td><td>${r.n}</td><td>${psE([...r.floors].join(", "))}: ${psE(r.walls.slice(0, 8).join(", "))}${r.walls.length > 8 ? "…" : ""}</td></tr>`; }).join("") || `<tr><td colspan="8">No doors or windows drawn yet.</td></tr>`}</tbody></table>`;
@@ -3754,7 +3877,7 @@ function psBuild(b) {
         const wi = Math.max(w.L * s + 0.5, (ord.length > 1 ? 66 : 52) * 0.058 + 0.3), hi = w.H * s + 0.85;
         if (x > 0 && x + wi > aw) { x = 0; y += rowH; rowH = 0; }
         if (y + hi > ah) { flush(); }
-                pg += psFrameSVG({ ...w, lvName: ord.length > 1 ? levelName(f.lv) : "" }, plies, s, ax + x + 0.15, ay + y + 0.4 + w.H * s, w.ext ? studIn : "2×4");
+                pg += psFrameSVG({ ...w, lvName: ord.length > 1 ? fName(f) : "" }, plies, s, ax + x + 0.15, ay + y + 0.4 + w.H * s, w.ext ? studIn : "2×4");
         x += wi; rowH = Math.max(rowH, hi);
       }
       flush();
@@ -3794,7 +3917,7 @@ function psBuild(b) {
       const notes = kind === "elec" ? ["Heights are from the floor to the center of the box.", "Wires show only what is drawn in the wall views. Circuits and runs back to the panel are up to your electrician.", "Electrical work needs its own permit and inspection (in Minnesota, usually through the Department of Labor and Industry).", "GFCI outlets in bathrooms, kitchen counters, laundry, garage and outside; AFCI breakers for most living areas."]
         : ["Heights are from the floor to the center of the fixture rough-in.", "Pipes show only what is drawn in the wall views; runs back to the water heater, main and drain are up to your plumber.", "Drain lines slope ¼″ per foot toward the main drain; every fixture needs a trap and a vent.", "Plumbing needs a permit and rough-in inspection before the walls are closed."];
       const lx = ax + aw * 0.75, lw = aw * 0.25;
-      page(pre + sn++, levelName(f.lv) + " " + title, sTxt, `<img class="ps-img" src="${R.url}" style="left:${ax}in;top:${ay}in;width:${n2(R.wIn)}in;height:${n2(R.hIn)}in"><div class="ps-html" style="left:${n2(lx)}in;top:${ay}in;width:${n2(lw)}in;height:${n2(ah)}in"><h3>${kind === "elec" ? "Electrical" : "Plumbing"} legend</h3><table class="ps-tbl"><thead><tr><th></th><th>Item</th><th>Qty</th><th>Height</th></tr></thead><tbody>${rowsH}</tbody></table><ul class="ps-notes">${notes.map(t => `<li>${psE(t)}</li>`).join("")}</ul></div>`);
+      page(pre + sn++, fName(f) + " " + title, sTxt, `<img class="ps-img" src="${R.url}" style="left:${ax}in;top:${ay}in;width:${n2(R.wIn)}in;height:${n2(R.hIn)}in"><div class="ps-html" style="left:${n2(lx)}in;top:${ay}in;width:${n2(lw)}in;height:${n2(ah)}in"><h3>${kind === "elec" ? "Electrical" : "Plumbing"} legend</h3><table class="ps-tbl"><thead><tr><th></th><th>Item</th><th>Qty</th><th>Height</th></tr></thead><tbody>${rowsH}</tbody></table><ul class="ps-notes">${notes.map(t => `<li>${psE(t)}</li>`).join("")}</ul></div>`);
     }
   }
   // ---- material list ----
@@ -3814,7 +3937,7 @@ function psBuild(b) {
   // ---- cover (now that every sheet is known) ----
   {
     const area0 = G.floors.reduce((a, f) => a + f.area, 0);
-    const info = [["Project", proj], ["Structure", b.name], ["Type", post ? "Post-frame (pole barn)" : "Stick-framed"], ["Floors", G.floors.map(f => `${levelName(f.lv)} ${Math.round(f.area).toLocaleString()} sq ft`).join(" · ")], ["Total floor area", Math.round(area0).toLocaleString() + " sq ft"], ["Walls", post ? `${o.eave} ft posts @ ${o.poc} ft` : `${o.stud.replace("x", "×")} @ ${o.oc}" o.c., ${G.floors.map(f => fmtLen(f.H * FT)).join(" / ")}`], ["Foundation", post ? (o.pfoot === "pad" ? "Poured pads and collars" : "Precast pier pads") + ", 4½ ft deep" : ((MAT_OPTS.flatMap(g2 => g2[1]).find(x => x[0] === "found") || [0, 0, []])[2].find(x => x[0] === o.found) || ["", ""])[1]], ["Roof", `${o.roof}, ${o.pitch}/12, ${o.over}" overhang`]];
+    const info = [["Project", proj], ["Structure", b.name], ["Type", post ? "Post-frame (pole barn)" : "Stick-framed"], ["Floors", G.floors.map(f => `${fName(f)} ${Math.round(f.area).toLocaleString()} sq ft`).join(" · ")], ["Total floor area", Math.round(area0).toLocaleString() + " sq ft"], ["Walls", post ? `${o.eave} ft posts @ ${o.poc} ft` : `${o.stud.replace("x", "×")} @ ${o.oc}" o.c., ${G.floors.map(f => fmtLen(f.H * FT)).join(" / ")}`], ["Foundation", post ? (o.pfoot === "pad" ? "Poured pads and collars" : "Precast pier pads") + ", 4½ ft deep" : ((MAT_OPTS.flatMap(g2 => g2[1]).find(x => x[0] === "found") || [0, 0, []])[2].find(x => x[0] === o.found) || ["", ""])[1]], ["Roof", `${o.roof}, ${o.pitch}/12, ${o.over}" overhang`]];
     const notes = ["Build to the current Minnesota Residential Code (IRC) and energy code, and any county rules. These drawings don't replace an engineer or the building official.", "Check every dimension on site before cutting or ordering. Written dimensions beat scaled ones.", "Frost depth: footings at least 60\" below grade in northern Minnesota (check your county).", "Truss drawings come from the truss supplier; follow their bracing details.", "Headers shown are typical for one-story bearing walls; check them for snow load (about 60 psf ground snow in Carlton County) and anything above.", "All lumber touching concrete or the ground is pressure-treated; use hot-dip or stainless fasteners in treated wood.", "Windows: flash with tape, bottom then sides then top. Bedrooms need an egress window."];
     if (!mepCount(b).any) notes.push("No outlets, fixtures, wires or pipes are drawn yet. Add them in each wall's wall view (designer > a wall > Wall view) to get electrical and plumbing sheets and counts.");
     pages[0].body = `<div class="ps-html" style="left:${ax}in;top:${ay}in;width:${n2(aw)}in;height:${n2(ah)}in"><h1 class="ps-h1">${psE(b.name)}</h1><p class="ps-sub">${psE(proj)} · plan set printed ${psE(date)}</p>
@@ -5603,11 +5726,14 @@ function wvMoveOpening(o, t) {   // put the opening's center at t on this wall, 
 const hdrSize = w => w <= 3 ? ["2×6", 5.5] : w <= 4.5 ? ["2×8", 7.25] : w <= 6 ? ["2×10", 9.25] : w <= 8 ? ["2×12", 11.25] : ["LVL 1¾×11⅞", 11.875];
 // Studs, plates, headers, sills and cripples along one wall line, from lo to hi (feet along the line), wall height H.
 // v = wall view record ({oc, layFrom, studAdd, studDel}); ops = [{t, w, sill, head}]. Each piece: {t0, t1, y, h, kind, t?}
-function framingAlong(v, lo, hi, H, ops) {
+// topAt(t) (optional): the wall's height at t when its top follows a roof slope; then the top plates aren't in the list
+// (the plan set draws them as a sloped band) and each stud stops under them.
+function framingAlong(v, lo, hi, H, ops, topAt) {
   const P = WI(1.5), out = [], oc = WI(v.oc || 16);
   ops = ops.map(q => ({ a: q.t - q.w / 2, b: q.t + q.w / 2, ...q }));
-  const rect = (t0, t1, y0, y1, kind, t) => out.push({ t0: Math.min(t0, t1), t1: Math.max(t0, t1), y: y0, h: y1 - y0, kind, t });
-  rect(lo, hi, 0, P, "plate"); rect(lo, hi, H - 2 * P, H - P, "plate"); rect(lo, hi, H - P, H, "plate");
+  const rect0 = (t0, t1, y0, y1, kind, t) => out.push({ t0: Math.min(t0, t1), t1: Math.max(t0, t1), y: y0, h: y1 - y0, kind, t });
+  const rect = topAt ? (t0, t1, y0, y1, kind, t) => { if (kind === "plate" || kind === "sill" || kind === "header") return rect0(t0, t1, y0, y1, kind, t); const y = Math.min(y1, topAt((t0 + t1) / 2) - 2 * P); if (y - y0 > WI(3)) rect0(t0, t1, y0, y, kind, t); } : rect0;
+  rect(lo, hi, 0, P, "plate"); if (!topAt) { rect(lo, hi, H - 2 * P, H - P, "plate"); rect(lo, hi, H - P, H, "plate"); }
   const top = H - 2 * P, near = (t, list, d) => list.some(x => Math.abs(x - t) < d);
   let lay = [];
   if (v.layFrom === "hi") for (let t = hi - oc; t > lo + P; t -= oc) lay.push(t); else for (let t = lo + oc; t < hi - P; t += oc) lay.push(t);
@@ -7368,7 +7494,7 @@ function v3Texture(ext, site) {
 function v3Building(b, H) {
   const T = v3.T, P = b.points, gs = P.map(H), g0 = Math.min(...gs), g1 = Math.max(...gs);
   let top = GROUND; for (const x of state.shapes) if (x.bid === b.id && x.level > top && x.level <= 4 && ["wall", "room", "opening", "stair"].includes(x.kind)) top = x.level;
-  let hFt = 0; for (let lv = GROUND; lv <= top; lv++) hFt += ((b.wallH && b.wallH[lv]) || 8) + (lv > GROUND ? 1 : 0);
+  const lft = loftLv(b); let hFt = 0; for (let lv = GROUND; lv <= top; lv++) hFt += (lv === lft ? +matOpt(b).knee || 0 : (b.wallH && b.wallH[lv]) || 8) + (lv > GROUND ? 1 : 0);
   if (b.build && b.build.frame === "post") hFt = +matOpt(b).eave;
   const y0 = g0 - 0.3, y1 = g1 + 0.45 + hFt * FT, wp = [];
   const quad = (a, b2, c2, d) => wp.push(...a, ...b2, ...c2, ...a, ...c2, ...d);
