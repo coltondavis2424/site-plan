@@ -2302,13 +2302,14 @@ function loftHeads(b, o = matOpt(b)) {
   const R = psRoofs(b, o), i = R.fl.length - 1, f = R.fl[i], rf = R.roofs.find(r => r.i === i); if (!f || !f.loft || !rf) return null;
   const base = R.bases[i], Fr = R.G.F, rooms = state.shapes.filter(s => s.bid === b.id && s.level === f.lv && s.kind === "room" && s.closed && s.points.length >= 3).map(s => ({ s, P: s.points.map(Fr.toL) }));
   const roofAt = q => rf.fn(q)[0] - base - 0.1, head = q => Math.min(f.ceil, roofAt(q));
-  const area = rooms.length ? rooms.map(r => r.P) : [f.P], B = bbox(area.flat()), st = 0.5, hs = [];
-  for (let x = B.x0 + st / 2; x < B.x1; x += st) for (let y = B.y0 + st / 2; y < B.y1; y += st) { const q = { x, y }; if (inPoly(q, f.P) && area.some(P => inPoly(q, P))) hs.push(head(q)); }
+  const area = rooms.length ? rooms.map(r => r.P) : [f.P], B = bbox(area.flat()), st = 0.5, hs = [], per = area.map(() => [0, 0]);
+  for (let x = B.x0 + st / 2; x < B.x1; x += st) for (let y = B.y0 + st / 2; y < B.y1; y += st) { const q = { x, y }; if (!inPoly(q, f.P)) continue; let any = false; area.forEach((P, k) => { if (!inPoly(q, P)) return; any = true; const h = head(q); if (h >= 5 - 1e-6) per[k][0]++; if (h >= 7 - 1e-6) per[k][1]++; }); if (any) hs.push(head(q)); }
+  const short = rooms.filter((r, k) => !(per[k][0] > 0 && per[k][1] >= 0.5 * per[k][0])).map(r => r.s.name || "Room");
   let lo = hs.length ? Math.min(...hs) : 0;   // right at the room walls too
   for (const P of area) for (let j = 0; j < P.length; j++) { const p = P[j], q = P[(j + 1) % P.length], nS = Math.max(1, Math.ceil(dist(p, q) / 0.25)); for (let k = 0; k <= nS; k++) { const e = { x: p.x + (q.x - p.x) * k / nS, y: p.y + (q.y - p.y) * k / nS }; if (inPoly(e, f.P)) lo = Math.min(lo, head(e)); } }
   const n = hs.length || 1, a5 = hs.filter(h => h >= 5 - 1e-6).length, a7 = hs.filter(h => h >= 7 - 1e-6).length;
   return { R, f, rf, base, rooms, head, roofAt, hs, cell: st * st, min: lo, max: hs.length ? Math.max(...hs) : 0, p7: a7 / n,
-    code: a5 > 0 && a7 >= 0.5 * a5, walls: hs.length > 0 && lo >= 7 - 0.01, flat: hs.filter(h => h >= f.ceil - 1e-6).length * st * st, avg: hs.reduce((a2, h) => a2 + h, 0) / n };
+    code: a5 > 0 && a7 >= 0.5 * a5 && !short.length, short, walls: hs.length > 0 && lo >= 7 - 0.01, flat: hs.filter(h => h >= f.ceil - 1e-6).length * st * st, avg: hs.reduce((a2, h) => a2 + h, 0) / n };
 }
 // What the headroom is at the current pitch and which pitches fit (for the material dialog).
 function loftCheckHTML(b, o) {
@@ -2319,9 +2320,50 @@ function loftCheckHTML(b, o) {
   const where = L.rooms.length ? L.rooms.map(r => r.s.name || "Room").join(", ") : "the whole loft floor (draw its rooms to check them)";
   const btn = p => p && p !== o.pitch ? ` <button type="button" class="ghost small" data-pitch="${p}">Use ${p}/12</button>` : "";
   return `<div class="loft-chk" id="loft-chk"><p><b>Loft headroom at ${esc(o.pitch)}/12</b> over ${esc(where)}: 7 ft or more over <b>${Math.round(L.p7 * 100)}%</b> of the floor, lowest ${esc(fmtLen(Math.max(0, L.min) * FT))}, highest ${esc(fmtLen(L.max * FT))}.</p>
-    <p>${L.code ? "✔ Meets the usual code rule" : "✘ Short of the usual code rule"} (at least half of a room 7 ft tall; under 5 ft doesn't count as floor).</p>
+    <p>${L.code ? "✔ Meets the usual code rule" : "✘ Short of the usual code rule" + (L.short.length && L.short.length < L.rooms.length ? " in " + esc(L.short.join(", ")) : "")} (at least half of each room 7 ft tall; under 5 ft doesn't count as floor).</p>${fitHTML(b, o, L)}
     <p>${pc ? `<b>${pc}/12</b> is the lowest pitch that meets it.${btn(pc)}` : "No pitch on the list meets it: try knee walls or a narrower room."}</p>
     <p>${pw ? `<b>${pw}/12</b> gives 7 ft right out to the room's walls.${pw !== pc ? btn(pw) : ""}` : "No pitch on the list gives 7 ft at the room's walls; knee walls would help."}</p></div>`;
+}
+// Room walls that run along the roof slope, and how far each would move so its room side is 5 ft tall (rounded up to ½").
+function loftFit(b, o, L = loftHeads(b, o)) {
+  if (!L || ["flat", "shed"].includes(o.roof)) return [];
+  const Fr = L.R.G.F, f = L.f, out = [], dot = (p, q) => p.x * q.x + p.y * q.y;
+  for (const w of state.shapes.filter(s => s.bid === b.id && s.level === f.lv && s.kind === "wall" && !s.closed && s.points.length === 2)) {
+    const a = Fr.toL(w.points[0]), c = Fr.toL(w.points[1]), len = dist(a, c); if (len < 2) continue;
+    const u = { x: (c.x - a.x) / len, y: (c.y - a.y) / len }, m = { x: (a.x + c.x) / 2, y: (a.y + c.y) / 2 }, th = (w.thickness || 0.1143) / FT / 2;
+    let n = { x: -u.y, y: u.x }; const at = d => L.roofAt({ x: m.x + n.x * d, y: m.y + n.y * d });
+    if (Math.abs(L.roofAt(a) - L.roofAt(c)) > 0.05) continue;                    // not along the slope
+    if (at(1) < at(-1)) n = { x: -n.x, y: -n.y };                                // n points uphill
+    const g = at(th + 1) - at(th); if (g < 0.05 || at(th) >= f.ceil) continue;   // not under the sloped part
+    if (!L.rooms.some(r => inPoly({ x: m.x + n.x * (th + 0.5), y: m.y + n.y * (th + 0.5) }, r.P))) continue;
+    const h0 = at(th), face = Math.ceil((dot(m, n) + th + (5 - h0) / g) * 24 - 1e-6) / 24, sh = face - th - dot(m, n);
+    if (Math.abs(sh) < 1 / 48) continue;
+    out.push({ w, m, n, u, th, sh, h0, h1: at(th + sh) });
+  }
+  return out;
+}
+function fitHTML(b, o, L) {
+  const M = loftFit(b, o, L); if (!M.length) return "";
+  const way = M.every(q => q.sh > 0) ? "in" : M.every(q => q.sh < 0) ? "out" : "in or out";
+  return `<p>The room walls along the roof slope are ${M.map(q => fmtLen(Math.max(0, q.h0) * FT)).join(" and ")} tall on the room side. Moving them ${way} to where it is 5 ft tall fits the room to the roof. <button type="button" class="ghost small" data-fit="1">Fit the room to the roof</button></p>`;
+}
+// Moves those walls, the rooms' sides along them, the walls that end on them, doors in them and their dimension points.
+function loftFitApply(b) {
+  const o = matOpt(b), M = loftFit(b, o); if (!M.length) return 0;
+  const L = loftHeads(b, o), Fr = L.R.G.F, lv = L.f.lv;
+  pushUndo();
+  for (const q of M) {
+    const off = p => { const l = Fr.toL(p); return [(l.x - q.m.x) * q.n.x + (l.y - q.m.y) * q.n.y, l]; };
+    const put = (p, d) => { const [, l] = off(p), r = Fr.toW({ x: l.x + q.n.x * d, y: l.y + q.n.y * d }); p.x = r.x; p.y = r.y; };
+    for (const s of state.shapes.filter(s => s.bid === b.id && s.level === lv && s.points)) {
+      if (s === q.w) { s.points.forEach(p => put(p, q.sh)); continue; }
+      if (s.kind === "room") {
+        const cz = s.points.reduce((a, p) => a + off(p)[0], 0) / s.points.length > 0;   // room on the uphill side
+        for (const p of s.points) { const [e] = off(p); if (Math.abs(e) <= q.th + 0.5) put(p, cz ? q.sh + q.th - e : q.sh - q.th - e); }
+      } else if (["wall", "opening", "dim"].includes(s.kind) && !s.closed) for (const p of s.points) if (Math.abs(off(p)[0]) < 0.1) put(p, q.sh);
+    }
+  }
+  afterChange(); return M.length;
 }
 const matRect = P => P.length === 4 && P.every((p, i) => { const a = P[(i + 3) % 4], c = P[(i + 1) % 4]; const u = { x: a.x - p.x, y: a.y - p.y }, v = { x: c.x - p.x, y: c.y - p.y }; return Math.abs(u.x * v.x + u.y * v.y) < 0.02 * Math.hypot(u.x, u.y) * Math.hypot(v.x, v.y); });
 
@@ -2747,7 +2789,8 @@ $("mat-list").addEventListener("change", e => {
 });
 $("mat-store").addEventListener("change", e => { state.shopStore = e.target.value; save(); renderMat(); });
 $("mat-opts").addEventListener("click", e => {
-  const t = e.target.closest("button[data-pitch]"), b = state.shapes.find(s => s.id === matB); if (!t || !b) return;
+  const b = state.shapes.find(s => s.id === matB); if (b && e.target.closest("button[data-fit]")) { loftFitApply(b); renderMat(); return; }
+  const t = e.target.closest("button[data-pitch]"); if (!t || !b) return;
   pushUndo(); b.build = Object.assign({}, b.build, { pitch: t.dataset.pitch }); afterChange(); renderMat();
 });
 $("mat-opts").addEventListener("change", e => {
