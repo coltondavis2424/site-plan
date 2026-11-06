@@ -112,6 +112,7 @@ canvas.select{cursor:default}
 .panel{background:var(--surface);border-left:1px solid var(--line);overflow:auto;min-height:0;display:flex;flex-direction:column}
 .panel section{padding:16px 16px 18px;border-bottom:1px solid var(--line)}
 .panel h2{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:20px;margin:0 0 10px}
+.proj-dirty{color:var(--accent,#e8772e);font-size:10px;margin-right:2px}
 .projlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
 .projlist li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 10px;background:var(--bg);border-radius:8px}
 .projlist li small{display:block;color:var(--muted);font-size:12px}
@@ -430,7 +431,7 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
 <body>
 <header class="bar">
   <h1>Site <span>Plan</span></h1>
-  <button class="hbtn" id="open-proj" title="Projects: save, open, start new">
+  <button class="hbtn" id="open-proj" title="Projects: save, open, start new"><span id="proj-dirty" class="proj-dirty" hidden aria-label="not saved to the file yet">●</span>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg>
     <span id="proj-name" class="hide-sm" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Project</span>
   </button>
@@ -833,10 +834,18 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
     <div class="field"><label for="proj-rename">This project’s name</label><input id="proj-rename" type="text" autocomplete="off"></div>
     <div class="row">
       <button class="primary" id="proj-save"><span class="hide-sm">Save to computer</span><span class="show-sm">Save project file</span></button>
-      <label class="ghost" for="proj-openfile" style="cursor:pointer">Open a project file</label>
+      <button class="ghost" id="proj-saveas" hidden>Save as…</button>
+      <button class="ghost" id="proj-openbtn">Open a project file</button>
       <input type="file" id="proj-openfile" accept=".json,application/json" hidden>
     </div>
-    <p class="muted" style="font-size:13px;margin:8px 0 0">Saves one file with everything: drawings, plan, levels, background image, terrain and blueprints. Put it in a OneDrive, Google Drive or Dropbox folder to keep it in your cloud and open it on another computer.</p>
+    <p class="muted" id="proj-fileinfo" style="font-size:13px;margin:8px 0 0"></p>
+    <label class="muted" id="proj-autowrap" style="font-size:13px;display:flex;gap:6px;align-items:center;margin-top:6px" hidden><input type="checkbox" id="proj-auto"> Also save to the file by itself every couple of minutes while I work</label>
+    <p class="muted" style="font-size:13px;margin:8px 0 0">Every change is kept in this browser right away, so nothing is lost if you close the page. The project file holds everything (drawings, background image, terrain, blueprints): keep it in a OneDrive, Google Drive or Dropbox folder to open it on another computer. <button class="ghost small" id="proj-download" hidden>Download a copy</button></p>
+    <hr>
+    <h3 style="font-family:'Barlow Condensed',sans-serif;font-size:18px;margin:0 0 8px">Backups</h3>
+    <p class="muted" style="font-size:13px;margin:0 0 8px">Kept by themselves in this browser: one when the project opens, then one every 10 minutes while you change things (the last 15). Going back to one saves the current drawing as a backup first, so it can be undone. Backups hold the drawings and settings; the background image and terrain stay as they are.</p>
+    <ul class="projlist" id="proj-bk" style="max-height:260px;overflow:auto"></ul>
+    <div class="row" style="margin-top:6px"><button class="ghost small" id="proj-bknow">Make a backup now</button></div>
     <hr>
     <h3 style="font-family:'Barlow Condensed',sans-serif;font-size:18px;margin:0 0 8px">Start a new project</h3>
     <div class="row"><input id="proj-newname" type="text" placeholder="Project name" style="flex:1;min-width:160px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px"><button class="ghost" id="proj-new">Create</button></div>
@@ -953,7 +962,7 @@ async function cleanStorage(planLoaded) {
   await kvDel((await kvKeys(PK("bp:"))).filter(k => !keep.has(k)));
 }
 let saveTimer = 0;
-function save() { if (typeof culvertWatch === "function") culvertWatch(); clearTimeout(saveTimer); saveTimer = setTimeout(() => { kvSet(PK("plan"), JSON.stringify(state)); touchProject(); }, 300); }
+function save() { if (typeof culvertWatch === "function") culvertWatch(); clearTimeout(saveTimer); saveTimer = setTimeout(() => { const j = JSON.stringify(state); kvSet(PK("plan"), j); touchProject(); planChanged(j); }, 300); }
 
 /* ---------- geometry ---------- */
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -6423,22 +6432,104 @@ async function saveProjectToComputer() {
   try { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = filename; document.body.append(a); a.click(); a.remove(); st.textContent = `Saved ${filename}.`; }
   catch (e) { st.textContent = "Saving isn’t available here."; }
 }
-async function openProjectFile(file) {
+// ---- saving over the project file (Chrome / Edge on a computer), Save as, and backups ----
+// Where the browser lets a page write to a file it was given (File System Access), Save writes over the linked file and
+// Save as picks a new one; the link (a file handle) is kept per project at PK("fileH"). Elsewhere (phones, the claude.ai
+// artifact) Save downloads a copy as before. fileHash = hash of the plan last written to / read from the file.
+const fsOK = (() => { try { return typeof window.showSaveFilePicker === "function" && typeof window.showOpenFilePicker === "function" && window.self === window.top && !window.matchMedia("(pointer:coarse)").matches; } catch (e) { return false; } })();
+const FILE_TYPES = [{ description: "Site Plan project", accept: { "application/json": [".json"] } }];
+let fileH = null, fileHash = "", fileDirty = false, fileSavedAt = 0, fileBusy = false, lastBkT = 0, lastBkHash = "";
+const strHash = str => { let h = 2166136261; for (let i = 0; i < str.length; i++) h = Math.imul(h ^ str.charCodeAt(i), 16777619); return (h >>> 0).toString(36) + ":" + str.length; };
+const bkWhen = t => new Date(t).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+function renderDirty() {
+  const d = $("proj-dirty"); if (!d) return;
+  d.hidden = !(fileH && fileDirty); $("open-proj").title = fileH ? (fileDirty ? "Projects · changes not saved to " + fileH.name + " yet (Ctrl+S saves)" : "Projects · saved to " + fileH.name) : "Projects: save, open, start new";
+}
+function renderFileInfo() {
+  $("proj-saveas").hidden = !fsOK; $("proj-download").hidden = !fsOK; $("proj-autowrap").hidden = !(fsOK && fileH);
+  $("proj-save").innerHTML = fsOK ? (fileH ? "Save" : "Save to a file…") : `<span class="hide-sm">Save to computer</span><span class="show-sm">Save project file</span>`;
+  $("proj-fileinfo").textContent = !fsOK ? "" : fileH ? `Saving to the file “${fileH.name}”${fileSavedAt ? ", last saved " + bkWhen(fileSavedAt) : ""}. ${fileDirty ? "Some changes aren’t in the file yet." : "The file is up to date."} Save writes over it; Save as makes a new file and keeps the old one.`
+    : "This project isn’t linked to a file yet. Save picks a file to keep it in; after that, Save writes over that same file.";
+}
+async function initFile() {
+  fileH = (await kvGet(PK("fileH"))) || null; fileHash = (await kvGet(PK("fileHash"))) || "";
+  if (fileH && typeof fileH.createWritable !== "function") fileH = null;
+  $("proj-auto").checked = (await kvGet(PK("fileAuto"))) !== false;
+  const bks = await backupList(); if (bks.length) { lastBkT = bks[0].t; lastBkHash = bks[0].h; }
+}
+async function writeFile(h, blob) { const w = await h.createWritable(); await w.write(blob); await w.close(); }
+async function canWrite(h, ask) {
+  try { const o = { mode: "readwrite" }; if ((await h.queryPermission(o)) === "granted") return true; return ask && (await h.requestPermission(o)) === "granted"; } catch (e) { return false; }
+}
+// Save (asNew false: over the linked file, or pick one if there is none) / Save as (asNew true: always pick a new file).
+async function saveToFile(asNew, quiet) {
+  const st = $("proj-status"); if (fileBusy) return; fileBusy = true;
+  try {
+    let h = asNew ? null : fileH;
+    if (h && !(await canWrite(h, !quiet))) { if (quiet) return; st.textContent = "The browser didn’t allow writing to " + h.name + ". Try Save as."; return; }
+    if (!h) {
+      if (quiet) return;
+      try { h = await window.showSaveFilePicker({ suggestedName: safeName((curProject() || {}).name) + ".siteplan.json", types: FILE_TYPES }); }
+      catch (e) { st.textContent = e && e.name === "AbortError" ? "Save canceled." : "Couldn’t pick a file here."; return; }
+    }
+    if (!quiet) st.textContent = "Saving…";
+    const blob = await buildProjectFile(), j = JSON.stringify(state);
+    await writeFile(h, blob);
+    fileH = h; fileHash = strHash(j); fileDirty = false; fileSavedAt = Date.now();
+    await kvSet(PK("fileH"), h); await kvSet(PK("fileHash"), fileHash);
+    if (!quiet) st.textContent = `Saved to ${h.name} at ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}.`;
+  } catch (e) { if (!quiet) st.textContent = "Couldn’t save: " + (e.message || e); }
+  finally { fileBusy = false; renderDirty(); if ($("projdlg").open) renderFileInfo(); }
+}
+// After every change: is the file behind, and is it time for a backup?
+function planChanged(j) {
+  const h = strHash(j);
+  fileDirty = !!fileH && h !== fileHash; renderDirty();
+  if (h !== lastBkHash && Date.now() - lastBkT > 10 * 60e3) makeBackup(j, "While working", h);
+}
+setInterval(() => { if (fsOK && fileH && fileDirty && $("proj-auto").checked && !fileBusy) saveToFile(false, true); }, 120e3);
+async function backupList() {
+  const keys = (await kvKeys(PK("bk:"))).sort().reverse(), out = [];
+  for (const k of keys) { const v = await kvGet(k); if (v) out.push({ k, t: v.t, why: v.why, n: v.n, h: v.h }); }
+  return out;
+}
+async function makeBackup(j, why, h = strHash(j)) {
+  lastBkT = Date.now(); lastBkHash = h;
+  let n = 0; try { n = JSON.parse(j).shapes.length; } catch (e) {}
+  await kvSet(PK("bk:" + lastBkT), { t: lastBkT, why, n, h, plan: j });
+  const keys = (await kvKeys(PK("bk:"))).sort(); if (keys.length > 15) await kvDel(keys.slice(0, keys.length - 15));
+}
+async function renderBackups() {
+  const L = await backupList();
+  $("proj-bk").innerHTML = L.length ? L.map(b => `<li><span><strong>${esc(bkWhen(b.t))}</strong><small>${esc(b.why || "")} · ${b.n} item${b.n === 1 ? "" : "s"}</small></span><button class="ghost small" data-bk="${esc(b.k)}">Go back to this</button></li>`).join("") : `<li class="muted">No backups yet.</li>`;
+}
+async function openProjectFile(file, handle) {
   const st = $("proj-status"); st.textContent = "Opening project…";
   try {
     const d = JSON.parse(await file.text());
     if (!d || d.format !== "site-plan-project-v1" || !d.state) throw new Error("That file isn’t a Site Plan project.");
-    const id = newPid(), name = (d.name || file.name.replace(/\.siteplan\.json$|\.json$/i, "")) + (projects.some(p => p.name === d.name) ? " (copy)" : "");
-    await kvSet(`p:${id}:plan`, JSON.stringify(d.state));
+    // the same file opened again: load it into the project already linked to it (backing that one up first)
+    let same = null;
+    if (handle) for (const p of projects) { const h = await kvGet(`p:${p.id}:fileH`); try { if (h && h.isSameEntry && await h.isSameEntry(handle)) { same = p; break; } } catch (e) {} }
+    if (same) {
+      const cur = await kvGet(`p:${same.id}:plan`);
+      if (cur) { const t = Date.now(); let n = 0; try { n = JSON.parse(cur).shapes.length; } catch (e) {} await kvSet(`p:${same.id}:bk:${t}`, { t, why: "Before opening the file again", n, h: strHash(cur), plan: cur }); }
+    }
+    const id = same ? same.id : newPid(), name = (d.name || file.name.replace(/\.siteplan\.json$|\.json$/i, "")) + (projects.some(p => p.name === d.name) ? " (copy)" : "");
+    const plan = JSON.stringify(d.state);
+    if (handle) { await kvSet(`p:${id}:fileH`, handle); await kvSet(`p:${id}:fileHash`, strHash(plan)); }
+    await kvSet(`p:${id}:plan`, plan);
     for (const [k, u] of Object.entries(d.files || {})) await kvSet(`p:${id}:${k}`, await dataURLToBlob(u));
     for (const [sid, u] of Object.entries(d.blueprints || {})) await kvSet(`p:${id}:bp:${sid}`, await dataURLToBlob(u));
     for (const [pic, u] of Object.entries(d.pictures || {})) if (/^p[a-z0-9]+$/.test(pic)) await kvSet(`p:${id}:fi:${pic}`, await dataURLToBlob(u));
-    projects.push({ id, name, updated: Date.now() }); await kvSet("projects", projects);
+    if (!same) { projects.push({ id, name, updated: Date.now() }); await kvSet("projects", projects); }
+    if (same && id === pid) { clearTimeout(saveTimer); await kvSet("currentProject", id); location.reload(); return; }   // don't write the old drawing back over it
     await switchProject(id);
   } catch (e) { st.textContent = e.message || "Couldn’t open that file."; }
 }
 function renderProjects() {
   const p = curProject(); $("proj-rename").value = p ? p.name : "";
+  renderFileInfo(); renderBackups();
   const others = projects.filter(x => x.id !== pid).sort((a, b) => (b.updated || 0) - (a.updated || 0));
   $("proj-list").innerHTML = others.length ? others.map(x => `<li><span><strong>${esc(x.name)}</strong><small>${x.updated ? "Last changed " + new Date(x.updated).toLocaleDateString() : ""}</small></span><span class="row"><button class="ghost small" data-open="${x.id}">Open</button><button class="danger small" data-del="${x.id}">Delete</button></span></li>`).join("") : `<li class="muted">No other projects yet.</li>`;
 }
@@ -6461,8 +6552,24 @@ $("proj-rename").addEventListener("change", e => {
   const before = JSON.stringify(projects), old = p.name; p.name = name;
   projChanged("Undo rename", before, `Renamed “${old}” to “${name}”.`);
 });
-$("proj-save").onclick = saveProjectToComputer;
+$("proj-save").onclick = () => fsOK ? saveToFile(false) : saveProjectToComputer();
+$("proj-saveas").onclick = () => saveToFile(true);
+$("proj-download").onclick = saveProjectToComputer;
+$("proj-openbtn").onclick = async () => {
+  if (!fsOK) { $("proj-openfile").click(); return; }
+  let h; try { [h] = await window.showOpenFilePicker({ types: FILE_TYPES }); } catch (e) { return; }
+  openProjectFile(await h.getFile(), h);
+};
 $("proj-openfile").addEventListener("change", e => { const f = e.target.files[0]; e.target.value = ""; if (f) openProjectFile(f); });
+$("proj-auto").onchange = e => { kvSet(PK("fileAuto"), e.target.checked); };
+$("proj-bknow").onclick = async () => { clearTimeout(saveTimer); await makeBackup(JSON.stringify(state), "Made by hand"); renderBackups(); $("proj-status").textContent = "Backup made."; };
+$("proj-bk").addEventListener("click", async e => {
+  const t = e.target.closest("button[data-bk]"); if (!t) return;
+  const bk = await kvGet(t.dataset.bk); if (!bk) return;
+  clearTimeout(saveTimer); await makeBackup(JSON.stringify(state), "Before going back to " + bkWhen(bk.t));
+  await kvSet(PK("plan"), bk.plan); location.reload();
+});
+document.addEventListener("keydown", e => { if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === "s") { e.preventDefault(); if (fsOK) saveToFile(e.shiftKey); else { renderProjects(); if (!$("projdlg").open) $("projdlg").showModal(); saveProjectToComputer(); } } });
 $("proj-new").onclick = async () => {
   const name = $("proj-newname").value.trim() || "New project " + (projects.length + 1);
   const id = newPid(); projects.push({ id, name, updated: Date.now() }); await kvSet("projects", projects);
@@ -7804,6 +7911,9 @@ new ResizeObserver(resize).observe(stage);
   else $("empty").hidden = false;
   renderPanel(); updateHistory(); updateUI(); culvertWatch(); renderDirt();
   cleanStorage(loaded);
+  await initFile();
+  if (loaded) { const j = JSON.stringify(state), h = strHash(j); fileDirty = !!fileH && h !== fileHash; if (h !== lastBkHash) await makeBackup(j, "When the project opened", h); }
+  renderDirty();
 })();
 })();
 </script>
