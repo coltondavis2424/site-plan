@@ -711,7 +711,7 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
           <div class="field"><label for="dz-x">From building’s west edge</label><input id="dz-x" type="text" inputmode="decimal"></div>
           <div class="field"><label for="dz-y">From building’s north edge</label><input id="dz-y" type="text" inputmode="decimal"></div>
         </div>
-        <p class="muted" id="dz-shape-note" hidden style="font-size:13px;margin:0 0 6px">This building has a custom shape. Drag its outside walls to resize, or click one to type its length.</p>
+        <p class="muted" id="dz-shape-note" hidden style="font-size:13px;margin:0 0 6px">This building has a custom shape. Click an outside wall to type its length.</p>
         <p class="muted" style="font-size:13px;margin:0">Type sizes like 24'-6", 24 6, or 24.5. The position only matters for upper levels that sit over part of the building.</p>
         <h3>Rotate the whole build</h3>
         <div class="row" id="dz-rotrow"><button class="ghost small" data-k="3" title="Turn a quarter turn left">⟲ 90°</button><button class="ghost small" data-k="1" title="Turn a quarter turn right">⟳ 90°</button><button class="ghost small" data-k="2">180°</button></div>
@@ -2478,6 +2478,18 @@ function mepCount(b) {
   }
   return { n, run, bends, any, plates };
 }
+// Blocking placed in the wall views: pieces and 8 ft boards by size (each piece about one stud space long)
+function blockRows(b, section, row) {
+  const by = {};
+  for (const s of state.shapes) {
+    if (s.kind !== "wallview" || s.bid !== b.id || !s.data) continue;
+    const len = Math.max(0.5, ((s.data.oc || 16) - 1.5) / 12);
+    for (const bk of s.data.blocks || []) { const k = bk.size || "2x8"; by[k] = by[k] || { n: 0, L: 0 }; by[k].n++; by[k].L += len; }
+  }
+  const ks = Object.keys(WV_BLOCK).filter(k => by[k]); if (!ks.length) return;
+  section("Blocking");
+  for (const k of ks) row("Blocking, " + blockName(k) + " × 8 ft", Math.ceil(by[k].L / 7.5), "pcs", by[k].n + " piece" + (by[k].n > 1 ? "s" : "") + " cut to fit between studs (from the wall views)");
+}
 function mepSections(b, section, row) {
   const { n, run, bends, any, plates } = mepCount(b); if (!any) return;
   const c = k => n[k] || 0, ft = v => Math.round(v).toLocaleString() + " ft drawn", sizeName = (ty, sz) => ty === "wire" ? sz : (WV_SIZES[ty].find(x => x[0] == sz) || [0, sz + "″"])[1];
@@ -2799,6 +2811,7 @@ function stickList(b) {
   }
   if (od.size) { section("Windows and doors"); for (const [k2, n] of [...od].sort()) row(k2, n, "each", "Rough opening: add about ½\" each way"); }
 
+  blockRows(b, section, row);
   mepSections(b, section, row);
 
   // ---------- fasteners ----------
@@ -3267,7 +3280,7 @@ function psWalls(b, lv) {
       if (Math.min(ta, tc) > dist(v.p1, v.p2) + 0.5 && !(v.items || []).length) continue;
       const items = (v.items || []).filter(it => it.layer === "elec" || it.layer === "plumb").map(it => it.run ? { ...it, pts: it.pts.map(p => ({ t: W(p.t), y: p.y })) } : { ...it, t: W(it.t), face: it.face ? it.face * dir : 0 })
         .filter(it => it.run ? it.pts.some(p => p.t > -0.1 && p.t < L + 0.1) : it.t > -0.2 && it.t < L + 0.2);
-      return { vw: { oc: v.oc || 16, layFrom: dir > 0 ? v.layFrom : v.layFrom === "hi" ? "lo" : "hi", studAdd: (v.studAdd || []).map(W), studDel: (v.studDel || []).map(W) }, items, has: true };
+      return { vw: { oc: v.oc || 16, layFrom: dir > 0 ? v.layFrom : v.layFrom === "hi" ? "lo" : "hi", studAdd: (v.studAdd || []).map(W), studDel: (v.studDel || []).map(W), blocks: (v.blocks || []).map(b => ({ ...b, t: W(b.t) })) }, items, has: true };
     }
     return { vw: def, items: [], has: false };
   };
@@ -3313,7 +3326,7 @@ function psHoles(pts, fr) {
   for (let i = 1; i < pts.length; i++) {
     const a = pts[i - 1], b = pts[i];
     for (const f of fr) {
-      if (!["plate", "header", "sill"].includes(f.kind)) { const cx = (f.t0 + f.t1) / 2; if ((a.t - cx) * (b.t - cx) > 0 || a.t === b.t) continue; const y = a.y + (b.y - a.y) * (cx - a.t) / (b.t - a.t); if (y >= f.y && y <= f.y + f.h) out.push({ t: cx, y }); }
+      if (!["plate", "header", "sill", "block"].includes(f.kind)) { const cx = (f.t0 + f.t1) / 2; if ((a.t - cx) * (b.t - cx) > 0 || a.t === b.t) continue; const y = a.y + (b.y - a.y) * (cx - a.t) / (b.t - a.t); if (y >= f.y && y <= f.y + f.h) out.push({ t: cx, y }); }
       else { const cy = f.y + f.h / 2; if ((a.y - cy) * (b.y - cy) > 0 || a.y === b.y) continue; const t = a.t + (b.t - a.t) * (cy - a.y) / (b.y - a.y); if (t >= f.t0 && t <= f.t1) out.push({ t, y: cy }); }
     }
   }
@@ -3325,7 +3338,7 @@ function psFrameSVG(w, plies, s, x0, y0, studName) {
   const t = 1.5 / 12, L = w.L, H = w.H, X = v => n2(x0 + v * s), Y = v => n2(y0 - v * s), g = [];
   const R = (xa, xb, ya, yb, cls) => { if (xb - xa > 1e-4 && yb - ya > 1e-4) g.push(`<rect x="${X(xa)}" y="${Y(yb)}" width="${n2((xb - xa) * s)}" height="${n2((yb - ya) * s)}" class="${cls}"/>`); };
   const fr = framingAlong(w.vw, 0, L, H, w.opens, w.top);
-  for (const r of fr) R(r.t0, r.t1, r.y, r.y + r.h, r.kind === "plate" || r.kind === "sill" ? "pl" : r.kind === "header" ? "hd" : r.kind === "added" ? "st sa" : "st");
+  for (const r of fr) R(r.t0, r.t1, r.y, r.y + r.h, r.kind === "plate" || r.kind === "sill" ? "pl" : r.kind === "header" || r.kind === "block" ? "hd" : r.kind === "added" ? "st sa" : "st");
   if (w.top) {   // double top plate following the roof slope
     const ts = []; for (let j = 0; j <= 48; j++) ts.push(L * j / 48);
     g.push(`<polygon points="${ts.map(v => X(v) + "," + Y(w.top(v))).concat(ts.slice().reverse().map(v => X(v) + "," + Y(Math.max(0, w.top(v) - 2 * t)))).join(" ")}" class="pl"/>`);
@@ -4862,6 +4875,36 @@ function nearestWall(w) {
   }
   return best;
 }
+// The wall side a door/window sits on: [a, b] = the straight segment (of a wall or the building outline) it lies along. Null = not on one.
+function openHost(o) {
+  if (!o.points || o.points.length < 2) return null;
+  const [p, q] = o.points, uo = unit(p, q); let best = null, bs = Infinity;
+  for (const s of state.shapes) {
+    if (s === o || !visible(s)) continue;
+    const ok = s.kind === "wall" ? (o.bid ? s.bid === o.bid : !s.bid) && (s.level || 0) === (o.level || 0) : s.kind === "building" && s.id === o.bid;
+    if (!ok) continue;
+    const P = s.points, n = s.closed ? P.length : P.length - 1;
+    for (let i = 0; i < n; i++) {
+      const a = P[i], b = P[(i + 1) % P.length]; if (dist(a, b) < 1e-6) continue;
+      const u = unit(a, b); if (Math.abs(uo.x * u.y - uo.y * u.x) > 0.05) continue;
+      const d = Math.max(segDist(p, a, b), segDist(q, a, b)), tol = Math.max(0.3, (s.thickness || 0) / 2 + 0.1);
+      const sc = d + (s.kind === "building" ? 0.02 : 0);
+      if (d < tol && sc < bs) { bs = sc; best = { s, i }; }
+    }
+  }
+  return best && { s: best.s, i: best.i, points: [best.s.points[best.i], best.s.points[(best.i + 1) % best.s.points.length]], closed: false };
+}
+// Put an opening of half-width "half" on the host's segment nearest c, kept wholly on that segment. dir = +1/-1 keeps its point order.
+function openOnHost(host, c, half, uo) {
+  const P = host.points, n = host.closed ? P.length : P.length - 1; let best = null, bd = Infinity;
+  for (let i = 0; i < n; i++) {
+    const a = P[i], b = P[(i + 1) % P.length], L = dist(a, b); if (L < 1e-6) continue;
+    const u = unit(a, b), lo = Math.min(half, L / 2), hi = Math.max(L - half, L / 2);
+    const t = Math.max(lo, Math.min(hi, (c.x - a.x) * u.x + (c.y - a.y) * u.y)), m = { x: a.x + u.x * t, y: a.y + u.y * t }, d = dist(m, c);
+    if (d < bd) { bd = d; const sg = u.x * uo.x + u.y * uo.y >= 0 ? 1 : -1; best = { m, u: { x: u.x * sg, y: u.y * sg }, a, b, seg: i }; }
+  }
+  return best && [{ x: best.m.x - best.u.x * half, y: best.m.y - best.u.y * half }, { x: best.m.x + best.u.x * half, y: best.m.y + best.u.y * half }];
+}
 function openingFrom(nw) {
   const half = state.openWidthIn * IN / 2, c = nw.c, u = nw.u;
   return [{ x: c.x - u.x * half, y: c.y - u.y * half }, { x: c.x + u.x * half, y: c.y + u.y * half }];
@@ -5940,7 +5983,10 @@ dzc.addEventListener("pointerdown", e => {
   const wHit = dz.walls.filter(w => wallDist(w, p) * dk <= Math.max(7, w.th * dk / 2 + 2)).sort((a, b) => wallDist(a, p) - wallDist(b, p))[0];
   if (wHit) { dz.sel = wHit.id; dDrag = { mode: "wmove", w: wHit, start: p, o: { ...wHit } }; dzSelFields(); dzDraw(); return; }
   const eHit = extSides().find(e => wallDist(e, p) * dk <= Math.max(7, e.th * dk / 2 + 3));
-  if (eHit) { dz.sel = eHit.id; dDrag = { mode: "ext", idx: eHit.idx, o: dz.poly.map(q => ({ ...q })) }; dzSelFields(); dzDraw(); return; }
+  if (eHit) {   // outside walls are picked, not dragged: the building size is typed in the panel (dragging moves the view)
+    dz.sel = eHit.id; dDrag = { mode: "pan", last: dzScreen(e) }; dzSelFields(); dzDraw();
+    $("dz-hint").textContent = "Outside wall picked. To change the building size, type it in the panel on the left."; return;
+  }
   const hits = dz.rooms.filter(r => p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h).sort((a, b) => a.w * a.h - b.w * b.h);
   if (hits.length) { dz.sel = hits[0].id; dDrag = { mode: "move", r: hits[0], start: p, o: { ...hits[0] } }; }
   else { dz.sel = null; dDrag = { mode: "pan", last: dzScreen(e) }; }
@@ -6332,7 +6378,7 @@ function wvHoles(pts) {
   for (let i = 1; i < pts.length; i++) {
     const a = pts[i - 1], b = pts[i];
     for (const f of F) {
-      const vert = !["plate", "header", "sill"].includes(f.kind);
+      const vert = !["plate", "header", "sill", "block"].includes(f.kind);
       if (vert) { const cx = f.x + f.w / 2; if ((a.x - cx) * (b.x - cx) > 0 || a.x === b.x) continue; const y = a.y + (b.y - a.y) * (cx - a.x) / (b.x - a.x); if (y >= f.y && y <= f.y + f.h) out.push({ x: cx, y, f }); }
       else { const cy = f.y + f.h / 2; if ((a.y - cy) * (b.y - cy) > 0 || a.y === b.y) continue; const x = a.x + (b.x - a.x) * (cy - a.y) / (b.y - a.y); if (x >= f.x && x <= f.x + f.w) out.push({ x, y: cy, f }); }
     }
@@ -6437,12 +6483,25 @@ function framingAlong(v, lo, hi, H, ops, topAt) {
     if (hd > 0) rect(q.a - P, q.b + P, q.head, q.head + hd, "header");
     if (q.sill > WI(4)) rect(q.a, q.b, q.sill - P, q.sill, "sill");
   }
+  // blocking {id, t (a spot in the bay), y (bottom, ft), size}: laid flat between the studs on each side, as tall as the board is wide
+  const VERT = ["end", "stud", "added", "king", "jack", "cripple"], verts = out.filter(r => VERT.includes(r.kind));
+  for (const bk of v.blocks || []) {
+    const h = WI(WV_BLOCK[bk.size] || 7.25), y0 = bk.y, y1 = bk.y + h; if (bk.t < lo || bk.t > hi) continue;
+    if (ops.some(q => bk.t > q.a && bk.t < q.b && y1 > q.sill && y0 < q.head)) continue;   // in a door or window hole
+    const cov = verts.filter(r => r.y <= y0 + 1e-6 && r.y + r.h >= y1 - 1e-6);
+    let bt = bk.t; const on = cov.find(r => bt > r.t0 && bt < r.t1); if (on) bt = bt - on.t0 < on.t1 - bt ? on.t0 - 1e-4 : on.t1 + 1e-4;   // on a stud: the nearer space beside it
+    const t0 = Math.max(lo, ...cov.filter(r => r.t1 <= bt + 1e-6).map(r => r.t1)), t1 = Math.min(hi, ...cov.filter(r => r.t0 >= bt - 1e-6).map(r => r.t0));
+    if (t1 - t0 > WI(0.5)) out.push({ t0, t1, y: y0, h, kind: "block", t: bk.t, id: bk.id, size: bk.size });
+  }
   return out;
 }
+// Blocking sizes: actual width in inches (the face you see when it's laid flat behind the drywall)
+const WV_BLOCK = { "2x4": 3.5, "2x6": 5.5, "2x8": 7.25, "2x10": 9.25, "2x12": 11.25 };
+const blockName = k => (k || "2x8").replace("x", "×");
 // Studs, plates, headers, sills and cripples for this wall (view feet). Each: {x, y, w, h, kind, t?}
 function wvFraming() {
   const fr = wvFrame();
-  return framingAlong(wv.v, fr.lo, fr.hi, dz.wallH, wvOpenings()).map(r => { const x0 = fr.x(r.t0), x1 = fr.x(r.t1); return { x: Math.min(x0, x1), w: Math.abs(x1 - x0), y: r.y, h: r.h, kind: r.kind, t: r.t }; });
+  return framingAlong(wv.v, fr.lo, fr.hi, dz.wallH, wvOpenings()).map(r => { const x0 = fr.x(r.t0), x1 = fr.x(r.t1); return { x: Math.min(x0, x1), w: Math.abs(x1 - x0), y: r.y, h: r.h, kind: r.kind, t: r.t, id: r.id, size: r.size }; });
 }
 function wvResize() {
   const r = wvc.parentElement.getBoundingClientRect(), pr = window.devicePixelRatio || 1;
@@ -6542,6 +6601,13 @@ function wvDraw() {
   if (wv.show.framing) for (const f of wvFraming()) {
     const a = wS(f.x, f.y + f.h); g.fillStyle = { header: "#B9884B", sill: "#C9995C", plate: "#C99A5B", added: "#E3B26E" }[f.kind] || "#D8AE73";
     g.fillRect(a.x, a.y, f.w * wk, f.h * wk); g.strokeStyle = "#7A5A30"; g.lineWidth = 1; g.strokeRect(a.x, a.y, f.w * wk, f.h * wk);
+    if (f.kind === "block") {
+      g.fillStyle = "#C98E4A"; g.fillRect(a.x, a.y, f.w * wk, f.h * wk); g.strokeStyle = "#6B4A22"; g.strokeRect(a.x, a.y, f.w * wk, f.h * wk);
+      g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(a.x + f.w * wk, a.y + f.h * wk); g.stroke();   // an X marks blocking, like on framing plans
+      g.beginPath(); g.moveTo(a.x + f.w * wk, a.y); g.lineTo(a.x, a.y + f.h * wk); g.stroke();
+      if (f.h * wk >= 12 && f.w * wk >= 34) { g.save(); g.font = "600 11px Barlow, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; const tx = a.x + f.w * wk / 2, ty = a.y + f.h * wk / 2, tw = g.measureText(blockName(f.size)).width; g.fillStyle = "rgba(255,255,255,.85)"; g.fillRect(tx - tw / 2 - 2, ty - 7, tw + 4, 14); g.fillStyle = "#3A2A12"; g.fillText(blockName(f.size), tx, ty); g.restore(); }
+      if (wv.sel && wv.sel.block === f.id) { g.save(); g.strokeStyle = MARK; g.lineWidth = 2.5; g.strokeRect(a.x - 2, a.y - 2, f.w * wk + 4, f.h * wk + 4); g.restore(); }
+    }
     if (wv.sel && wv.sel.stud != null && f.t != null && Math.abs(f.t - wv.sel.stud) < 1e-6 && (f.kind === "stud" || f.kind === "added")) { g.save(); g.strokeStyle = MARK; g.lineWidth = 2.5; g.strokeRect(a.x - 2, a.y - 2, f.w * wk + 4, f.h * wk + 4); g.restore(); }
   }
   const items = wvVisibleItems(), runs = items.filter(q => q.pts), boxes = items.filter(q => !q.pts);
@@ -6728,7 +6794,10 @@ function wvTools() {
   const l = wv.layer, v = wv.v; let h = "";
   if (l === "framing") h = `<h3>Studs</h3><div class="pair"><div class="field"><label for="wv-oc">Stud spacing</label><select id="wv-oc">${optList([[12, '12″ apart'], [16, '16″ apart'], [19.2, '19.2″ apart'], [24, '24″ apart']], v.oc || 16)}</select></div>
     <div class="field"><label for="wv-from">Layout starts at</label><select id="wv-from">${optList([["lo", "Left end"], ["hi", "Right end"]], wvFrame().s > 0 ? v.layFrom || "lo" : (v.layFrom || "lo") === "lo" ? "hi" : "lo")}</select></div></div>
-    <div class="row"><button class="ghost small" id="wv-addstud" style="touch-action:none;cursor:grab" title="Drag onto the wall, or click and then tap the spot" aria-pressed="${!!(wv.tool && wv.tool.stud)}">⇕ Add a stud</button><button class="ghost small" id="wv-resetstud">Reset studs</button></div>`;
+    <div class="row"><button class="ghost small" id="wv-addstud" style="touch-action:none;cursor:grab" title="Drag onto the wall, or click and then tap the spot" aria-pressed="${!!(wv.tool && wv.tool.stud)}">⇕ Add a stud</button><button class="ghost small" id="wv-resetstud">Reset studs</button></div>
+    <h3>Blocking</h3><p class="muted" style="font-size:12px;margin:0 0 6px">Solid wood between studs to screw into: handrails, TVs, grab bars, cabinets.</p>
+    <div class="pair"><div class="field"><label for="wv-bsize">Board</label><select id="wv-bsize">${optList(Object.keys(WV_BLOCK).map(k => [k, blockName(k) + " (" + fmtInches(WV_BLOCK[k]) + " tall)"]), wv.blockSize || "2x8")}</select></div>
+    <div class="field"><label>&nbsp;</label><button class="ghost small" id="wv-addblock" aria-pressed="${!!(wv.tool && wv.tool.block)}">▭ Add blocking</button></div></div>`;
   else if (l === "openings") h = `<h3>Add a door or window</h3><div class="dz-presets">${Object.entries(OTYPES).map(([k, n]) => `<button data-addopen="${k}"><span>${esc(n)}</span><small>${esc(fl(OPEN_DEFAULT_W[k] / 12))} wide</small></button>`).join("")}</div>`;
   else if (l === "drywall" && wvOut()) { const sd = wvSideOf(); h = `<h3>Siding on this side</h3><div class="field"><label for="wv-sidetype">Siding</label><select id="wv-sidetype">${optList(WV_SIDING.map(r => [r[0], r[1]]), sd.type)}</select></div>
     <div class="field"><label for="wv-sidecol">Color</label><input id="wv-sidecol" type="color" value="${esc(sd.color)}" style="height:40px;padding:2px"></div><p class="muted" style="font-size:12px;margin:4px 0 0">Covers the gable too. The material list still counts the siding chosen for the whole building.</p>`; }
@@ -6745,7 +6814,7 @@ function wvTools() {
     }
   }
   $("wv-tools").innerHTML = h;
-  $("wv-hint").textContent = wv.tool && wv.tool.run ? `Tap to start the ${WV_RUNS[wv.tool.run][0].toLowerCase()}, tap to bend it, and tap the last point again to finish. It stays level or straight up and down; hold Shift for an angle.` : wv.tool && wv.tool.stud ? "Tap where the new stud goes, or press and slide to place it exactly." : wvOut() && l === "drywall" ? "Siding covers the outside of this wall and its gable. Pick the kind and color on the left." : wvOut() && ["elec", "plumb", "finish"].includes(l) ? "From outside you get outdoor things: tap one to put it on the wall, then drag it where it goes." : WV_HINTS[l];
+  $("wv-hint").textContent = wv.tool && wv.tool.run ? `Tap to start the ${WV_RUNS[wv.tool.run][0].toLowerCase()}, tap to bend it, and tap the last point again to finish. It stays level or straight up and down; hold Shift for an angle.` : wv.tool && wv.tool.stud ? "Tap where the new stud goes, or press and slide to place it exactly." : wv.tool && wv.tool.block ? "Tap between two studs at the height you want the blocking; keep holding to slide it up or down. Tap Add blocking again when you are done." : wvOut() && l === "drywall" ? "Siding covers the outside of this wall and its gable. Pick the kind and color on the left." : wvOut() && ["elec", "plumb", "finish"].includes(l) ? "From outside you get outdoor things: tap one to put it on the wall, then drag it where it goes." : WV_HINTS[l];
 }
 document.addEventListener("change", e => {
   if (!wv || !e.target || !["wv-sidetype", "wv-sidecol"].includes(e.target.id)) return;
@@ -6759,7 +6828,16 @@ function wvFields() {
   const sel = wv.sel, box = $("wv-selbox"); box.hidden = !sel;
   if (!sel) return;
   const fr = wvFrame(); let h = "";
-  if (sel.stud != null) {
+  if (sel.block != null) {
+    const bk = (wv.v.blocks || []).find(b => b.id === sel.block), f = wvFraming().find(f => f.kind === "block" && f.id === sel.block);
+    if (!bk) { wv.sel = null; box.hidden = true; return; }
+    const hh = WI(WV_BLOCK[bk.size] || 7.25);
+    $("wv-selname").textContent = "Blocking";
+    h = `<div class="field"><label for="wv-bsz">Board</label><select id="wv-bsz">${optList(Object.keys(WV_BLOCK).map(k => [k, blockName(k)]), bk.size)}</select></div>
+      <div class="pair">${wvField("wv-by", "Bottom from floor", fl(bk.y))}${wvField("wv-bc", "Center from floor", fl(bk.y + hh / 2))}</div>
+      <p class="muted" style="font-size:13px;margin:0 0 8px">${f ? "Fills the space between the studs: " + esc(fl(f.w)) + " long, " + esc(fmtInches(WV_BLOCK[bk.size])) + " tall. Drag it up or down, or over into the next space." : "It sits in a door or window opening, so it is not drawn. Drag it or type a height to move it."}</p>`;
+  }
+  else if (sel.stud != null) {
     $("wv-selname").textContent = sel.added ? "Stud you placed" : "Stud";
     h = wvField("wv-sx", "Center from left end", fl(fr.x(sel.stud))) + (sel.added
       ? `<p class="muted" style="font-size:13px;margin:0 0 8px">Drag it left or right to move it, or type a new spot.</p>`
@@ -6781,7 +6859,7 @@ function wvFields() {
       if (level) h += `<div class="pair">${wvField("wv-ry", "Height from floor", fl(it.pts[0].y))}${wvField("wv-rx", "Starts from left end", fl(Math.min(...xs)))}</div>${wvField("wv-rl", "Length", fl(Math.abs(xs[1] - xs[0])))}`;
       const holes = wvHoles(it.pts.map(p => ({ x: fr.x(p.t), y: p.y }))), hole = runHole(it), dep = wvStudDepth();
       if (holes.length) {
-        const studs = holes.filter(q => !["plate", "header", "sill"].includes(q.f.kind)).length, other = holes.length - studs;
+        const studs = holes.filter(q => !["plate", "header", "sill", "block"].includes(q.f.kind)).length, other = holes.length - studs;
         h += `<p class="muted" style="font-size:13px;margin:0 0 8px">Goes through ${studs ? studs + " stud" + (studs > 1 ? "s" : "") : ""}${studs && other ? " and " : ""}${other ? other + " plate" + (other > 1 ? "s" : "") + " or header" + (other > 1 ? "s" : "") : ""}: drill ${holes.length} hole${holes.length > 1 ? "s" : ""} about ${esc(fmtInches(hole))} across, centered in the stud.</p>`;
         if (hole > dep * 0.4) h += `<p style="font-size:13px;margin:0 0 8px;color:${MARK}">That hole is more than 40% of a ${dep > 4 ? "2×6" : "2×4"}'s ${esc(fmtInches(dep))} depth, which most codes don't allow in a bearing wall. Ask your inspector, or use a thicker wall.</p>`;
       }
@@ -6795,12 +6873,19 @@ function wvFields() {
     }
   }
   $("wv-selfields").innerHTML = h;
-  $("wv-del").textContent = sel.stud != null ? "Remove stud" : "Remove";
+  $("wv-del").textContent = sel.stud != null ? "Remove stud" : sel.block != null ? "Remove blocking" : "Remove";
 }
 function wvLen(id) { const v = parseLen($(id).value); return isFinite(v) ? v : NaN; }
 $("wv-selfields").addEventListener("change", e => {
   const sel = wv && wv.sel; if (!sel) return; const fr = wvFrame(), id = e.target.id;
-  if (sel.stud != null) { const v = wvLen(id); if (id === "wv-sx" && isFinite(v)) wvMoveStudTo(wvStudT(v)); }
+  if (sel.block != null) {
+    const bk = (wv.v.blocks || []).find(b => b.id === sel.block); if (!bk) return;
+    if (id === "wv-bsz") bk.size = e.target.value;
+    const hh = WI(WV_BLOCK[bk.size] || 7.25), lim = y => Math.max(WI(1.5), Math.min(dz.wallH - WI(3) - hh, y));
+    if (id === "wv-by") { const v = wvLen(id); if (isFinite(v)) bk.y = lim(v); }
+    if (id === "wv-bc") { const v = wvLen(id); if (isFinite(v)) bk.y = lim(v - hh / 2); }
+  }
+  else if (sel.stud != null) { const v = wvLen(id); if (id === "wv-sx" && isFinite(v)) wvMoveStudTo(wvStudT(v)); }
   else if (sel.open) {
     const o = sel.open, q = wvOpenings().find(q => q.o === o); if (!q) return;
     if (id === "wv-otype") { o.otype = e.target.value; delete o.sill; delete o.head; }
@@ -6842,6 +6927,7 @@ $("wv-tools").addEventListener("change", e => {
   if (e.target.id === "wv-from") { const left = e.target.value === "lo"; v.layFrom = (fr.s > 0) === left ? "lo" : "hi"; }
   if (e.target.id === "wv-paint") { v.paint = Object.assign({}, v.paint, { [fr.vf]: e.target.value }); }
   if (e.target.id === "wv-dwth") v.dwTh = e.target.value;
+  if (e.target.id === "wv-bsize") wv.blockSize = e.target.value;   // the size for new blocking; a picked one changes in its own box
   if (e.target.id === "wv-rnewkind") { const k = e.target.value; wv.runPick.plumb = { type: k, size: WV_RUN_DEF[k][0] }; wv.tool = null; wvTools(); }
   if (e.target.id === "wv-rnewsize") { const pk = wv.runPick[wv.layer]; pk.size = pk.type === "wire" ? e.target.value : +e.target.value; if (wv.tool && wv.tool.run) wv.tool.size = pk.size; }
   wvDraw();
@@ -6850,6 +6936,7 @@ $("wv-tools").addEventListener("input", e => { if (e.target.id === "wv-paint") {
 $("wv-tools").addEventListener("click", e => {
   const fr = wvFrame(), mid = fr.t(fr.L / 2), b = e.target.closest("button"); if (!b) return;
   if (b.id === "wv-addstud") { if (e.detail === 0) { wv.tool = wv.tool && wv.tool.stud ? null : { stud: true }; wvTools(); } return; }   // keyboard; mouse and touch are handled on pointerup
+  if (b.id === "wv-addblock") { wv.tool = wv.tool && wv.tool.block ? null : { block: true }; wvTools(); wvDraw(); return; }
   if (b.id === "wv-resetstud") { wv.v.studAdd = []; wv.v.studDel = []; wv.sel = null; wvFields(); wvDraw(); return; }
   if (b.dataset.run === "draw") { const pk = wv.runPick[wv.layer]; wv.tool = wv.tool && wv.tool.run ? null : { run: pk.type, size: pk.size }; wv.draft = null; wvTools(); wvDraw(); return; }
   if (b.dataset.run === "across") {   // end to end at the usual height for its kind
@@ -6877,7 +6964,7 @@ function wvHit(p) {   // what's under the pointer: the layer you're on first, th
   const order = [wv.layer, ...["finish", "openings", "elec", "plumb", "framing"].filter(l => l !== wv.layer && wv.show[l])];
   for (const l of order) {
     if (l === "openings") { const q = wvOpenings().find(q => Math.abs(p.x - fr.x(q.t)) <= q.w / 2 && p.y >= q.sill && p.y <= q.head); if (q) return { open: q.o }; continue; }
-    if (l === "framing") { if (wv.show.drywall && l !== wv.layer) continue; const f = wvFraming().find(f => (f.kind === "stud" || f.kind === "added") && p.x >= f.x - tol && p.x <= f.x + f.w + tol && p.y >= f.y && p.y <= f.y + f.h); if (f) return { stud: f.t, added: f.kind === "added" }; continue; }
+    if (l === "framing") { if (wv.show.drywall && l !== wv.layer) continue; const fb = wvFraming().find(f => f.kind === "block" && p.x >= f.x && p.x <= f.x + f.w && p.y >= f.y - tol && p.y <= f.y + f.h + tol); if (fb) return { block: fb.id }; const f = wvFraming().find(f => (f.kind === "stud" || f.kind === "added") && p.x >= f.x - tol && p.x <= f.x + f.w + tol && p.y >= f.y && p.y <= f.y + f.h); if (f) return { stud: f.t, added: f.kind === "added" }; continue; }
     const q = [...items].reverse().find(q => q.it.layer === l && (q.pts ? hitRun(q) : hitBox(q))); if (q) return { item: q.it };
   }
   return null;
@@ -6900,6 +6987,10 @@ wvc.addEventListener("pointerdown", e => {
   if (wvPtrs.size > 2) return;
   const fr = wvFrame();
   if (wv.tool && wv.tool.stud) { const t = wvStudT(p.x); wvAddStud(t); wvDrag = { stud: true, t0: t, start: p }; return; }   // keep holding to slide it
+  if (wv.tool && wv.tool.block) {   // a block in the bay under the pointer, centered on it; keep holding to slide it
+    const sz = wv.blockSize || "2x8", h = WI(WV_BLOCK[sz]), bk = { id: Date.now() + Math.random(), t: fr.t(p.x), y: wvSnap(Math.max(WI(1.5), Math.min(dz.wallH - WI(3) - h, p.y - h / 2))), size: sz };
+    wv.v.blocks = [...(wv.v.blocks || []), bk]; wv.sel = { block: bk.id }; wvDrag = { block: bk, o: { ...bk }, start: p }; wvFields(); wvDraw(); return;
+  }
   if (wv.tool && wv.tool.run) {
     const last = wv.draft && wv.draft[wv.draft.length - 1], q = wvRunPt(p, last, e.shiftKey);
     if (last && Math.hypot((fr.x(last.t) - fr.x(q.t)) * wk, (last.y - q.y) * wk) < 12) {   // tap the last point again: done
@@ -6913,6 +7004,7 @@ wvc.addEventListener("pointerdown", e => {
   if (h && h.item) { const it = h.item; if (it.layer !== wv.layer) { wv.layer = it.layer; wvSetLayer(it.layer); } wvDrag = { target: it, o: JSON.parse(JSON.stringify(it)), start: p }; }
   else if (h && h.open) { if (wv.layer !== "openings") wvSetLayer("openings"); const q = wvOpenings().find(q => q.o === h.open); wvDrag = { open: h.open, t0: q.t, sill0: q.sill, head0: q.head, start: p, target: h.open, o: { ...h.open } }; }
   else if (!h) wvDrag = { pan: true, last: { x: p.sx, y: p.sy } };
+  else if (h.block != null) { if (wv.layer !== "framing") wvSetLayer("framing"); const bk = wv.v.blocks.find(b => b.id === h.block); wvDrag = bk ? { block: bk, o: { ...bk }, start: p } : null; }
   else if (h.stud != null) { if (wv.layer !== "framing") wvSetLayer("framing"); wvDrag = h.added ? { stud: true, t0: h.stud, start: p } : null; }
   else wvDrag = null;
   wvFields(); wvDraw();
@@ -6928,6 +7020,12 @@ wvc.addEventListener("pointermove", e => {
   if (wv.tool && wv.tool.run && wv.draft) { const c = wvRunPt(p, wv.draft[wv.draft.length - 1], e.shiftKey); wv.cursor = { ...c, x: wvFrame().x(c.t) }; wvDrawDraftCursor(); return; }
   if (wv.tool && wv.tool.stud && !wvDrag) { wv.ghost = wvStudT(p.x); wvDraw(); return; }   // where the stud would go
   if (!wvDrag) return;
+  if (wvDrag.block) {   // slide it up and down, or over into another bay
+    const bk = wvDrag.block, o = wvDrag.o, fr = wvFrame(), h = WI(WV_BLOCK[bk.size] || 7.25);
+    bk.t = fr.t(Math.max(0.01, Math.min(fr.L - 0.01, fr.x(o.t) + p.x - wvDrag.start.x)));
+    bk.y = Math.max(WI(1.5), Math.min(dz.wallH - WI(3) - h, wvSnap(o.y + p.y - wvDrag.start.y)));
+    wvFields(); wvDraw(); return;
+  }
   if (wvDrag.stud) { wvMoveStudTo(wvStudT(wvFrame().x(wvDrag.t0) + p.x - wvDrag.start.x)); wvFields(); wvDraw(); return; }
   if (wvDrag.pan) { wvView(); wv.view = { k: wk, x: wox + p.sx - wvDrag.last.x, y: woy + p.sy - wvDrag.last.y }; wvDrag.last = { x: p.sx, y: p.sy }; wvDraw(); return; }
   const fr = wvFrame(), dx = p.x - wvDrag.start.x, dy = p.y - wvDrag.start.y;
@@ -6967,12 +7065,13 @@ $("wv-zfit").onclick = () => { if (wv) { wv.view = null; wvDraw(); } };
 $("wv-flip").onclick = () => { wv.face = -wv.face; wv.sel = null; wv.view = null; wvSetLayer(wv.layer); };
 $("wv-del").onclick = () => {
   const sel = wv.sel; if (!sel) return;
-  if (sel.stud != null) { if (sel.added) wv.v.studAdd = wv.v.studAdd.filter(t => Math.abs(t - sel.stud) > 1e-6); else wv.v.studDel = [...(wv.v.studDel || []), sel.stud]; }
+  if (sel.block != null) wv.v.blocks = (wv.v.blocks || []).filter(b => b.id !== sel.block);
+  else if (sel.stud != null) { if (sel.added) wv.v.studAdd = wv.v.studAdd.filter(t => Math.abs(t - sel.stud) > 1e-6); else wv.v.studDel = [...(wv.v.studDel || []), sel.stud]; }
   else if (sel.open) dz.opens = dz.opens.filter(o => o !== sel.open);
   else if (sel.item) wv.v.items = wv.v.items.filter(i => i !== sel.item);
   wv.sel = null; wvFields(); wvDraw();
 };
-function wvEmpty(v) { return !v.items.length && !(v.studAdd || []).length && !(v.studDel || []).length && (v.oc || 16) === 16 && (v.layFrom || "lo") === "lo" && !Object.keys(v.paint || {}).length && !v.dwTh && !Object.keys(v.side || {}).length; }
+function wvEmpty(v) { return !v.items.length && !(v.blocks || []).length && !(v.studAdd || []).length && !(v.studDel || []).length && (v.oc || 16) === 16 && (v.layFrom || "lo") === "lo" && !Object.keys(v.paint || {}).length && !v.dwTh && !Object.keys(v.side || {}).length; }
 $("wv-done").onclick = () => {
   const v = wv.v;
   if (wv.isNew && !wvEmpty(v)) dz.views.push(v);
@@ -7743,14 +7842,14 @@ cv.addEventListener("pointerdown", e => {
       let i = s.kind === "vehicle" || s.kind === "furn" || s.kind === "underlay" ? -1 : s.points.findIndex(q => dist(toS(q), p) < 14);
       if (isCircle(s) && i === 0) i = -1;
       const ei = i >= 0 || s.kind === "furn" ? -1 : edgeAt(s, p);
-      if (i >= 0) { drag = { type: "vertex", s, i, undoPushed: false }; if (!selCorner || selCorner.id !== s.id || selCorner.i !== i) { selCorner = { id: s.id, i }; $("d-extra").innerHTML = ""; renderPanel(); requestDraw(); } }
+      if (i >= 0) { drag = { type: "vertex", s, i, undoPushed: false, host: s.kind === "opening" ? openHost(s) : null }; if (!selCorner || selCorner.id !== s.id || selCorner.i !== i) { selCorner = { id: s.id, i }; $("d-extra").innerHTML = ""; renderPanel(); requestDraw(); } }
       else if (ei >= 0) {
         const a = s.points[ei], b = s.points[(ei + 1) % s.points.length], u = unit(a, b);
         drag = { type: "edge", s, i: ei, start: toW(p.x, p.y), o: s.points.map(q => ({ ...q })), n: { x: -u.y, y: u.x }, undoPushed: false };
       }
       else if ((() => { const hh = hitShape(toW(p.x, p.y)); return hh && (groupRoot(hh) === s || hh === s); })()) {
         const grp = s.kind === "building" ? [s, ...childrenOf(s).filter(c => !c.free)] : s.kind === "shape" ? [s, ...childrenOf(s)] : [s];
-        drag = { type: "move", s, start: toW(p.x, p.y), grp: grp.map(g => ({ g, o: g.points.map(q => ({ ...q })) })), undoPushed: false };
+        drag = { type: "move", s, start: toW(p.x, p.y), grp: grp.map(g => ({ g, o: g.points.map(q => ({ ...q })) })), undoPushed: false, host: s.kind === "opening" ? openHost(s) : null };
       }
     }
   }
@@ -7772,7 +7871,19 @@ cv.addEventListener("pointermove", e => {
   if (drag) {
     if (!drag.undoPushed) { pushUndo(); drag.undoPushed = true; }
     const w = toW(p.x, p.y);
-    if (drag.type === "vertex") {
+    if (drag.type === "vertex" && drag.host) {   // a door/window end: slides along its wall, at least 6" wide
+      const P = drag.s.points, k = drag.i, o = P[1 - k], H = drag.host.points, nh = drag.host.closed ? H.length : H.length - 1;
+      let seg = null, bd = Infinity;
+      for (let i = 0; i < nh; i++) { const d = segDist(o, H[i], H[(i + 1) % H.length]); if (d < bd) { bd = d; seg = [H[i], H[(i + 1) % H.length]]; } }
+      const u = unit(seg[0], seg[1]), L = dist(seg[0], seg[1]), to = (o.x - seg[0].x) * u.x + (o.y - seg[0].y) * u.y;
+      let t = (w.x - seg[0].x) * u.x + (w.y - seg[0].y) * u.y; const st = state.lenStep;
+      if (st > 0 && !shiftHeld) t = to + Math.round((t - to) / st) * st;
+      t = Math.max(0, Math.min(L, t)); if (Math.abs(t - to) < 6 * IN) t = to + (t >= to ? 1 : -1) * 6 * IN;
+      t = Math.max(0, Math.min(L, t));
+      if (Math.abs(t - to) >= 6 * IN - 1e-6) P[k] = { x: seg[0].x + u.x * t, y: seg[0].y + u.y * t };
+      snapMark = null;
+    }
+    else if (drag.type === "vertex") {
       const os = !drag.s.level && objSnap(w, new Set([drag.s.id]));
       const q = os || snapPoint(w, null, { exclude: { id: drag.s.id, i: drag.i } }); drag.s.points[drag.i] = { x: q.x, y: q.y }; snapMark = os || null;
     }
@@ -7803,7 +7914,13 @@ cv.addEventListener("pointermove", e => {
         const sn = moveSnap(main.o.map(q => ({ x: q.x + dx, y: q.y + dy })), excl, main.g.closed);
         if (sn) { dx += sn.dx; dy += sn.dy; snapMark = sn.mark; }
       }
-      for (const it of drag.grp) it.g.points = it.o.map(q => ({ x: q.x + dx, y: q.y + dy }));
+      if (drag.host && drag.grp.length === 1) {   // doors and windows stay on their wall
+        const o = main.o, c = { x: (o[0].x + o[1].x) / 2 + dx, y: (o[0].y + o[1].y) / 2 + dy };
+        const pts = openOnHost(drag.host, c, dist(o[0], o[1]) / 2, unit(o[0], o[1])); snapMark = null;
+        if (pts) main.g.points = pts;
+        $("hint").textContent = "Doors and windows stay on their wall: drag along it to slide. To put one on another wall, delete it and place a new one there.";
+      }
+      else for (const it of drag.grp) it.g.points = it.o.map(q => ({ x: q.x + dx, y: q.y + dy }));
     }
     renderPanel(); requestDraw(); return;
   }
