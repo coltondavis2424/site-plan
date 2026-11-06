@@ -4487,7 +4487,7 @@ function hitOne(s, w, sp) {
     default: {
       const pts = s.points, tolW = Math.max((s.kind === "road" ? s.width : s.thickness) / 2, tol), n = s.closed ? pts.length : pts.length - 1;
       for (let i = 0; i < n; i++) if (segDist(w, pts[i], pts[(i + 1) % pts.length]) <= tolW) return true;
-      return !!(s.closed && inPoly(w, pts));
+      return !!(s.closed && s.kind !== "wall" && inPoly(w, pts));   // a closed wall is picked on the wall itself; inside it is the floor
     }
   }
 }
@@ -6953,7 +6953,7 @@ cv.addEventListener("wheel", e => { e.preventDefault(); const p = local(e); zoom
 cv.addEventListener("contextmenu", e => e.preventDefault());
 
 /* ---------- panel ---------- */
-let openGroups = new Set(["site", "decks", "vehicles", "shapes"]), lastAutoSel = null, filterText = "";
+let openGroups = new Set(), lastAutoSel = null, filterText = "";
 function metaFor(s) {
   if (isCircle(s)) return "⌀ " + fmtLen(circR(s) * 2);
   if (s.kind === "underlay") return ((state.levels.find(l => l.id === s.level) || {}).name || "") + (s.hidden ? " · hidden" : "");
