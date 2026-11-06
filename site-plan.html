@@ -5059,7 +5059,7 @@ const DZ_HINTS = {
   move: "Drag a room or wall to move it. Drag edges, corners or wall ends to resize. Drag empty space to pan; scroll or pinch to zoom.",
   rect: "Drag from one corner to the opposite corner to draw a rectangle, then name it.",
   wall: "Point at a wall to see how far you are from the walls and openings along it; click to start a new wall on its face. Type a number + Enter to start it exactly that far (clear) from the orange end. After the start, type the wall's length + Enter, or click its end. Shift: any angle, no snapping.",
-  open: "Click any wall, inside or outside, to add the opening. Then drag it along the wall to position it.",
+  open: "Point at a wall to see how far the opening would be from the walls and openings beside it; click to place it, or type a number + Enter to put its edge exactly that far (clear) from the orange end. Drag an opening in Select to move it; the distances show while you drag.",
   dim: "Click where the dimension starts, then each point along it (they snap to wall faces and corners). Right-click (or Enter, or click the last point again) to end it, then move to slide the line out and click. Drag a dimension to move its line; Delete removes it.",
 };
 const OPEN_DEFAULT_W = { door: 36, double: 60, window: 48, overhead: 120, patio: 72, opening: 36, slider: 72 };
@@ -5112,7 +5112,7 @@ function projAlong(L, p) { const len = Math.hypot(L.x2 - L.x1, L.y2 - L.y1) || 1
 function dzInner() { const B = bbox(innerPoly()); return { x0: B.x0, y0: B.y0, x1: B.x1, y1: B.y1 }; }
 function dzSel() { return dz.rooms.find(x => x.id === dz.sel) || dz.walls.find(x => x.id === dz.sel) || dz.opens.find(x => x.id === dz.sel) || (typeof dz.sel === "string" ? extSides().find(e => e.id === dz.sel) : null) || null; }
 function dzSetTool(t) {
-  dz.tool = t; dz.wdraft = null; dz.rdraft = null; dz.whover = null; dz.ddraft = null; dz.dsel = null;
+  dz.tool = t; dz.wdraft = null; dz.rdraft = null; dz.whover = null; dz.ohover = null; dzc.dataset.hover = ""; dz.ddraft = null; dz.dsel = null;
   document.querySelectorAll("#dz-tools button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.dt === t)));
   $("dz-hint").textContent = DZ_HINTS[t]; dzc.style.cursor = t === "move" ? "default" : "crosshair";
   $("dz-wth").hidden = t !== "wall"; $("dz-opick").hidden = t !== "open";
@@ -5388,9 +5388,9 @@ function dzWallEnd(start, p, shift) {
 function wallDist(w, p) { return segDist(p, { x: w.x1, y: w.y1 }, { x: w.x2, y: w.y2 }); }
 // Where things stop along a wall line L (feet from its start): its ends, the edges of its openings, and the faces of the
 // walls that meet or cross it.
-function dzWallStops(L, ref) {
+function dzWallStops(L, ref, skipOpen) {
   const len = Math.hypot(L.x2 - L.x1, L.y2 - L.y1) || 1, u = { x: (L.x2 - L.x1) / len, y: (L.y2 - L.y1) / len }, st = [0, len];
-  for (const o of dz.opens) if (o.ref.type === ref.type && (ref.type === "ext" ? o.ref.idx === ref.idx : o.ref.wid === ref.wid)) st.push(o.along - o.w / 2, o.along + o.w / 2);
+  for (const o of dz.opens) if (o.id !== skipOpen && o.ref.type === ref.type && (ref.type === "ext" ? o.ref.idx === ref.idx : o.ref.wid === ref.wid)) st.push(o.along - o.w / 2, o.along + o.w / 2);
   for (const W of [...extSides(), ...dz.walls]) {
     if (W === L || (ref.type === "ext" && W.ext && W.idx === ref.idx) || (ref.type === "wall" && W.id === ref.wid)) continue;
     const wl = Math.hypot(W.x2 - W.x1, W.y2 - W.y1); if (wl < 1e-6) continue;
@@ -5421,14 +5421,33 @@ function dzHoverAt(H, along) {
   const c = { x: L.x1 + u.x * along + n.x * L.th / 2, y: L.y1 + u.y * along + n.y * L.th / 2 };
   return Object.assign({}, H, { along, c, prev, next, lo, hi, near: lo - prev <= next - hi ? "prev" : "next" });
 }
+// An opening of width w centered `along` the wall line of ref: clear distances from its edges to the nearest stops.
+function dzOpenDims(ref, along, w, p, skipId) {
+  const L = lineOf(ref); if (!L) return null;
+  const len = Math.hypot(L.x2 - L.x1, L.y2 - L.y1) || 1, u = { x: (L.x2 - L.x1) / len, y: (L.y2 - L.y1) / len };
+  let n = { x: -u.y, y: u.x }; if ((p.x - L.x1) * n.x + (p.y - L.y1) * n.y < 0) n = { x: -n.x, y: -n.y };
+  if (ref.type === "ext") { const m = { x: (L.x1 + L.x2) / 2 + n.x * L.th, y: (L.y1 + L.y2) / 2 + n.y * L.th }; if (!inPoly(m, dz.poly)) n = { x: -n.x, y: -n.y }; }
+  const stops = dzWallStops(L, ref, skipId), lo = along - w / 2, hi = along + w / 2;
+  const prev = Math.max(...stops.filter(x => x <= lo + 1e-6), 0), next = Math.min(...stops.filter(x => x >= hi - 1e-6), len);
+  return { L, ref, u, n, len, along, w, lo, hi, prev, next, near: lo - prev <= next - hi ? "prev" : "next" };
+}
+const dzHoverTag = h => h ? fl(h.lo - h.prev) + "|" + fl(h.next - h.hi) + "|" + h.near : "";
 function dzDrawHover(g) {
+  if (dz && dz.tool === "open" && dz.ohover) dzGapDims(g, dz.ohover);
+  if (dz && dDrag && dDrag.mode === "omove" && dz.odims) dzGapDims(g, dz.odims);
   const h = dz && dz.tool === "wall" && !dz.wdraft ? dz.whover : null; if (!h) return;
   const { L, u, n } = h, face = t => ({ x: L.x1 + u.x * t + n.x * L.th / 2, y: L.y1 + u.y * t + n.y * L.th / 2 });
   // the new wall's footprint, 2 ft out from the face
   const a = face(h.lo), b = face(h.hi), q = (p, k) => dS(p.x + n.x * k, p.y + n.y * k);
   g.save(); g.setLineDash([4, 3]); g.strokeStyle = MARK; g.lineWidth = 1.5; g.beginPath();
   const P = [q(a, 0), q(a, 2), q(b, 2), q(b, 0)]; g.moveTo(P[0].x, P[0].y); P.slice(1).forEach(r => g.lineTo(r.x, r.y)); g.stroke(); g.setLineDash([]);
-  // dimension strings along the face, 0.9 ft out from it
+  g.restore();
+  dzGapDims(g, h);
+}
+// Clear distances along a wall's face (h: L, u, n, prev, lo, hi, next, near), the nearer one orange.
+function dzGapDims(g, h) {
+  const { L, u, n } = h, face = t => ({ x: L.x1 + u.x * t + n.x * L.th / 2, y: L.y1 + u.y * t + n.y * L.th / 2 }), q = (p, k) => dS(p.x + n.x * k, p.y + n.y * k);
+  g.save();
   const off = 14 / dk + 0.15;
   const dim = (t0, t1, hot) => {
     if (t1 - t0 < 1e-3) return;
@@ -5500,7 +5519,7 @@ function dzSetHint() { if (dz) $("dz-hint").textContent = DZ_HINTS[dz.tool] || "
 // Typed numbers in the designer's wall tool: a clear distance from the orange end (before the start), or the wall's length.
 function dzLenOpen(ch) {
   const b = $("dz-lenbox"), r = $("dz-stage").getBoundingClientRect(), c = r && dz.ptr ? dS(dz.ptr.x, dz.ptr.y) : { x: 40, y: 40 }, cr = dzc.getBoundingClientRect();
-  dzLenPrev = document.activeElement; b.hidden = false; b.value = ch || ""; b.placeholder = dz.wdraft ? "wall length, Enter" : "distance, Enter";
+  dzLenPrev = document.activeElement; b.hidden = false; b.value = ch || ""; b.placeholder = dz.tool === "open" ? "distance, Enter" : dz.wdraft ? "wall length, Enter" : "distance, Enter";
   b.style.left = Math.min(r.width - 150, Math.max(4, c.x + cr.left - r.left + 18)) + "px"; b.style.top = Math.min(r.height - 40, Math.max(4, c.y + cr.top - r.top + 18)) + "px"; b.focus();
 }
 let dzLenPrev = null;
@@ -5509,7 +5528,17 @@ function dzLenClose() {
   if (had) { const p = dzLenPrev && $("designer").contains(dzLenPrev) && dzLenPrev !== b ? dzLenPrev : $("dz-stage"); p.focus({ preventScroll: true }); }   // keys keep going to the designer
 }
 function dzLenApply(L) {
-  if (!(L > 0) || !dz) return false;
+  if (!(L >= 0) || !dz) return false;
+  if (dz.tool === "open") {   // an opening that far (clear) from the orange end
+    const h = dz.ohover; if (!h) return false;
+    const along = h.near === "prev" ? h.prev + L + h.w / 2 : h.next - L - h.w / 2;
+    if (along < h.w / 2 - 1e-6 || along > h.len - h.w / 2 + 1e-6) return false;
+    const o = { id: dz.nid++, otype: dz.openType, w: h.w, hinge: 0, side: 1, label: "", ref: h.ref, along };
+    dz.opens.push(o); dz.sel = o.id; dz.hover = null; dz.ohover = null; dzSelFields(); dzDraw();
+    $("dz-hint").textContent = (OTYPES[o.otype] || "Opening") + " placed " + fl(L) + " from the end. Drag it in Select to move it; the distances show while you drag.";
+    return true;
+  }
+  if (!(L > 0)) return false;
   if (dz.wdraft) {   // the wall's length, along the pointer's straight direction from the start
     const d = dz.wdraft, st = { x: d.x1, y: d.y1 }, pp = dz.ptr || st; let dx = pp.x - st.x, dy = pp.y - st.y;
     if (Math.hypot(dx, dy) < 0.3 && d.n0) { dx = d.n0.x; dy = d.n0.y; }
@@ -5573,7 +5602,7 @@ dzc.addEventListener("pointerdown", e => {
     const h = dzOpenHit(p); if (!h) { $("dz-hint").textContent = "Click right on a wall to place the opening."; return; }
     const o = { id: dz.nid++, otype: dz.openType, w: dz.openW / 12, hinge: 0, side: 1, label: "", ref: h.ref };
     if (h.ref.type === "free") Object.assign(o, { cx: h.c.x, cy: h.c.y, ux: h.u.x, uy: h.u.y, th: h.th }); else o.along = h.along;
-    dz.opens.push(o); dz.sel = o.id; dz.hover = null; dzSelFields(); dzDraw(); return;
+    dz.opens.push(o); dz.sel = o.id; dz.hover = null; dz.ohover = null; dzSelFields(); dzDraw(); return;
   }
   const oHit = dz.opens.map(o => ({ o, E: openEnds(o) })).filter(x => x.E && segDist(p, x.E[0], x.E[1]) * dk <= Math.max(7, x.E[2].th * dk / 2 + 3))[0];
   if (oHit) { dz.sel = oHit.o.id; dDrag = { mode: "omove", o: oHit.o }; dzSelFields(); dzDraw(); return; }
@@ -5613,6 +5642,7 @@ dzc.addEventListener("pointermove", e => {
   if (dz.tool === "wall" && dz.wdraft && (dDrag || dz.wdraft.waiting)) { const end = dzWallEnd({ x: dz.wdraft.x1, y: dz.wdraft.y1 }, p, e.shiftKey); dz.wdraft.x2 = end.x; dz.wdraft.y2 = end.y; dzDraw(); return; }
   if (dz.tool === "open" && !dDrag) {
     const h = dzOpenHit(p); dz.hover = h ? (() => { const hw = dz.openW / 24; return { a: { x: h.c.x - h.u.x * hw, y: h.c.y - h.u.y * hw }, b: { x: h.c.x + h.u.x * hw, y: h.c.y + h.u.y * hw }, th: h.th }; })() : null;
+    dz.ohover = h && h.ref.type !== "free" ? dzOpenDims(h.ref, h.along, dz.openW / 12, p) : null; dzc.dataset.hover = dzHoverTag(dz.ohover);
     dzDraw(); return;
   }
   if (!dDrag) return;
@@ -5620,6 +5650,7 @@ dzc.addEventListener("pointermove", e => {
     const o = dDrag.o;
     if (o.ref.type === "free") { const d = (p.x - o.cx) * o.ux + (p.y - o.cy) * o.uy, sd = Math.round(d / dz.snap) * dz.snap; o.cx += o.ux * sd; o.cy += o.uy * sd; }
     else { const L = lineOf(o.ref); if (L) { const len = Math.hypot(L.x2 - L.x1, L.y2 - L.y1); o.along = Math.max(o.w / 2, Math.min(len - o.w / 2, Math.round(projAlong(L, p) / dz.snap) * dz.snap)); } }
+    dz.odims = o.ref.type !== "free" ? dzOpenDims(o.ref, o.along, o.w, p, o.id) : null; dzc.dataset.hover = dzHoverTag(dz.odims);
     dzDraw(); return;
   }
   if (dDrag.mode === "ext") {
@@ -5665,6 +5696,7 @@ dzc.addEventListener("pointerup", e => {
   dzPtrs.delete(e.pointerId);
   if (dzPinch) { if (!dzPtrs.size) dzPinch = null; dDrag = null; return; }   // lifting after a pinch never places anything
   if (!dz || !dDrag) { dDrag = null; return; }
+  if (dDrag.mode === "omove") { dz.odims = null; }
   if (dDrag.mode === "dimoff") { dDrag = null; dzDraw(); return; }
   if (dDrag.mode === "rect") {
     const d = dz.rdraft; dz.rdraft = null; dDrag = null;
@@ -5832,7 +5864,7 @@ $("designer").addEventListener("keydown", e => {
   else if ((k === "delete" || k === "backspace") && dz.dsel && dz.tool === "dim") { e.preventDefault(); dz.dims = dz.dims.filter(m => m.id !== dz.dsel); dz.dsel = null; dzDraw(); }
   else if (k === "enter" && dz.tool === "dim" && dz.ddraft && dz.ddraft.pts.length >= 2 && !dz.ddraft.off) { e.preventDefault(); dz.ddraft.off = true; $("dz-hint").textContent = "Now click to set how far out the dimension line sits."; dzDraw(); }
   else if (k === "escape" && dz.ddraft) { e.preventDefault(); dz.ddraft = null; dzSetHint(); dzDraw(); }
-  else if (/^[0-9.]$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && dz.tool === "wall" && (dz.whover || dz.wdraft)) { e.preventDefault(); dzLenOpen(e.key); }
+  else if (/^[0-9.]$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && ((dz.tool === "wall" && (dz.whover || dz.wdraft)) || (dz.tool === "open" && dz.ohover))) { e.preventDefault(); dzLenOpen(e.key); }
   else if (k === "escape" && (dz.wdraft || dz.rdraft)) { e.preventDefault(); dz.wdraft = null; dz.rdraft = null; dzDraw(); }
   else if (k === "v") dzSetTool("move"); else if (k === "r") dzSetTool("rect"); else if (k === "w") dzSetTool("wall"); else if (k === "o") dzSetTool("open"); else if (k === "i") dzSetTool("dim");
 });
@@ -6557,7 +6589,7 @@ let dzHist = {}, wvHist = null;   // designer: per floor {u, r, last}; wall view
 function wvKey() { return JSON.stringify({ v: wv.v, opens: dz.opens, wallH: dz.wallH }); }
 function stepCommit() {
   if (wv && wvHist && $("wallview").open) { const k = wvKey(); if (k !== wvHist.last) { wvHist.u.push(wvHist.last); wvHist.r = []; wvHist.last = k; } }
-  else if (dz && $("designer").open) {   // wall view changes land here as one step when it closes
+  else if (dz && $("designer").open && !dDrag) {   // wall view changes land here as one step when it closes; a drag is one step, recorded when it ends
     const k = levelKey(), H = dzHist[dz.lv];
     if (!H) dzHist[dz.lv] = { u: [], r: [], last: k };
     else if (k !== H.last) { H.u.push(H.last); H.r = []; H.last = k; }
