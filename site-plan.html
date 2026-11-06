@@ -761,7 +761,7 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
             <button data-dt="open" aria-pressed="false" title="Doors, windows and openings (O)">Door / window</button>
             <button data-dt="dim" aria-pressed="false" title="Dimension string (I)">Dimension</button>
           </div>
-          <span id="dz-opick" hidden style="display:inline-flex;gap:6px"><select id="dz-otype" aria-label="Opening type"></select><select id="dz-owidth" aria-label="Opening width"></select></span>
+          <span id="dz-opick" hidden style="display:inline-flex;gap:6px"><select id="dz-otype" aria-label="Opening type"></select><select id="dz-owidth" aria-label="Opening width"></select><select id="dz-omeas" aria-label="A typed number measures to" title="A typed number measures to the opening's edge or its center"><option value="edge">Type to edge</option><option value="center">Type to center</option></select></span>
           <select id="dz-wth" aria-label="New wall type"><option value="4.5">2×4 wall (4½″)</option><option value="6.5">2×6 wall (6½″)</option><option value="3.5">2×4 flat / half wall (3½″)</option><option value="8">8″ block</option></select>
         </div>
         <div class="dz-hint" id="dz-hint"></div>
@@ -5059,7 +5059,7 @@ const DZ_HINTS = {
   move: "Drag a room or wall to move it. Drag edges, corners or wall ends to resize. Drag empty space to pan; scroll or pinch to zoom.",
   rect: "Drag from one corner to the opposite corner to draw a rectangle, then name it.",
   wall: "Point at a wall to see how far you are from the walls and openings along it; click to start a new wall on its face. Type a number + Enter to start it exactly that far (clear) from the orange end. After the start, type the wall's length + Enter, or click its end. Shift: any angle, no snapping.",
-  open: "Point at a wall to see how far the opening would be from the walls and openings beside it; click to place it, or type a number + Enter to put its edge exactly that far (clear) from the orange end. Drag an opening in Select to move it; the distances show while you drag.",
+  open: "Point at a wall to see how far the opening would be from the walls and openings beside it; click to place it, or type a number + Enter to put it exactly that far from the orange end (to its edge, or its center with Type to center). Drag an opening in Select to move it; the distances show while you drag.",
   dim: "Click where the dimension starts, then each point along it (they snap to wall faces and corners). Right-click (or Enter, or click the last point again) to end it, then move to slide the line out and click. Drag a dimension to move its line; Delete removes it.",
 };
 const OPEN_DEFAULT_W = { door: 36, double: 60, window: 48, overhead: 120, patio: 72, opening: 36, slider: 72 };
@@ -5116,7 +5116,7 @@ function dzSetTool(t) {
   document.querySelectorAll("#dz-tools button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.dt === t)));
   $("dz-hint").textContent = DZ_HINTS[t]; dzc.style.cursor = t === "move" ? "default" : "crosshair";
   $("dz-wth").hidden = t !== "wall"; $("dz-opick").hidden = t !== "open";
-  if (t === "open") { $("dz-otype").innerHTML = optList(Object.entries(OTYPES), dz.openType); $("dz-owidth").innerHTML = optList(OWIDTHS.map(v => [v, fl(v / 12)]), dz.openW); }
+  if (t === "open") { $("dz-otype").innerHTML = optList(Object.entries(OTYPES), dz.openType); $("dz-owidth").innerHTML = optList(OWIDTHS.map(v => [v, fl(v / 12)]), dz.openW); $("dz-omeas").value = state.oMeas === "center" ? "center" : "edge"; }
   dzDraw();
 }
 function openDesigner(b, keep) {
@@ -5431,7 +5431,7 @@ function dzOpenDims(ref, along, w, p, skipId) {
   const prev = Math.max(...stops.filter(x => x <= lo + 1e-6), 0), next = Math.min(...stops.filter(x => x >= hi - 1e-6), len);
   return { L, ref, u, n, len, along, w, lo, hi, prev, next, near: lo - prev <= next - hi ? "prev" : "next" };
 }
-const dzHoverTag = h => h ? fl(h.lo - h.prev) + "|" + fl(h.next - h.hi) + "|" + h.near : "";
+const dzHoverTag = h => h ? fl(h.lo - h.prev) + "|" + fl(h.next - h.hi) + "|" + fl(h.near === "prev" ? h.along - h.prev : h.next - h.along) + "|" + h.near : "";
 function dzDrawHover(g) {
   if (dz && dz.tool === "open" && dz.ohover) dzGapDims(g, dz.ohover);
   if (dz && dDrag && dDrag.mode === "omove" && dz.odims) dzGapDims(g, dz.odims);
@@ -5448,7 +5448,7 @@ function dzDrawHover(g) {
 function dzGapDims(g, h) {
   const { L, u, n } = h, face = t => ({ x: L.x1 + u.x * t + n.x * L.th / 2, y: L.y1 + u.y * t + n.y * L.th / 2 }), q = (p, k) => dS(p.x + n.x * k, p.y + n.y * k);
   g.save();
-  const off = 14 / dk + 0.15;
+  let off = 14 / dk + 0.15;
   const dim = (t0, t1, hot) => {
     if (t1 - t0 < 1e-3) return;
     const A = q(face(t0), off), B = q(face(t1), off); g.strokeStyle = hot ? MARK : INK; g.fillStyle = hot ? MARK : INK; g.lineWidth = hot ? 1.6 : 1;
@@ -5458,7 +5458,16 @@ function dzGapDims(g, h) {
     g.font = '700 13px "Barlow Condensed", "Arial Narrow", sans-serif'; g.textAlign = "center"; g.textBaseline = "middle";
     const tx = fl(t1 - t0), tw = g.measureText(tx).width + 6; g.translate(M.x, M.y); g.rotate(ang); g.fillStyle = "rgba(247,245,239,.9)"; g.fillRect(-tw / 2, -8, tw, 16); g.fillStyle = hot ? MARK : INK; g.fillText(tx, 0, 0); g.setTransform(1, 0, 0, 1, 0, 0);
   };
-  dim(h.prev, h.lo, h.near === "prev"); dim(h.hi, h.next, h.near === "next");
+  const ctr = h.w != null && state.oMeas === "center";
+  dim(h.prev, h.lo, !ctr && h.near === "prev"); dim(h.hi, h.next, !ctr && h.near === "next");
+  if (h.w != null) {   // openings: center of the opening from the nearer stop, one row farther out
+    const off0 = off; off = off0 + 26 / dk;
+    if (h.near === "prev") dim(h.prev, h.along, ctr); else dim(h.along, h.next, ctr);
+    // a short center mark on the opening
+    const C0 = q(face(h.along), 0), C1 = q(face(h.along), off + 5 / dk);
+    g.save(); g.setLineDash([4, 3]); g.strokeStyle = ctr ? MARK : INK; g.lineWidth = 1; g.beginPath(); g.moveTo(C0.x, C0.y); g.lineTo(C1.x, C1.y); g.stroke(); g.restore();
+    off = off0;
+  }
   g.restore();
 }
 // Hand-drawn dimension strings in the designer: points along a line, the dimension line `off` feet to its left.
@@ -5531,11 +5540,11 @@ function dzLenApply(L) {
   if (!(L >= 0) || !dz) return false;
   if (dz.tool === "open") {   // an opening that far (clear) from the orange end
     const h = dz.ohover; if (!h) return false;
-    const along = h.near === "prev" ? h.prev + L + h.w / 2 : h.next - L - h.w / 2;
+    const c = state.oMeas === "center" ? 0 : h.w / 2, along = h.near === "prev" ? h.prev + L + c : h.next - L - c;
     if (along < h.w / 2 - 1e-6 || along > h.len - h.w / 2 + 1e-6) return false;
     const o = { id: dz.nid++, otype: dz.openType, w: h.w, hinge: 0, side: 1, label: "", ref: h.ref, along };
     dz.opens.push(o); dz.sel = o.id; dz.hover = null; dz.ohover = null; dzSelFields(); dzDraw();
-    $("dz-hint").textContent = (OTYPES[o.otype] || "Opening") + " placed " + fl(L) + " from the end. Drag it in Select to move it; the distances show while you drag.";
+    $("dz-hint").textContent = (OTYPES[o.otype] || "Opening") + " placed " + fl(L) + (state.oMeas === "center" ? " to its center" : "") + " from the end. Drag it in Select to move it; the distances show while you drag.";
     return true;
   }
   if (!(L > 0)) return false;
@@ -5741,6 +5750,7 @@ function dzOpenHit(p) {
   const along = Math.max(hw, Math.min(len - hw, Math.round(projAlong(L, p) / dz.snap) * dz.snap));
   return { ref: best.ref, along, c: { x: L.x1 + u.x * along, y: L.y1 + u.y * along }, u, th: L.th };
 }
+$("dz-omeas").addEventListener("change", e => { state.oMeas = e.target.value; save(); dzc.focus && $("dz-stage").focus(); dzDraw(); });
 $("dz-otype").addEventListener("change", e => { dz.openType = e.target.value; dz.openW = OPEN_DEFAULT_W[dz.openType] || 36; dzSetTool("open"); });
 $("dz-owidth").addEventListener("change", e => { dz.openW = +e.target.value; });
 $("dz-osel").addEventListener("change", e => { const o = dzSel(); if (o && "otype" in o) { o.otype = e.target.value; dzSelFields(); dzDraw(); } });
