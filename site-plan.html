@@ -1913,6 +1913,22 @@ function drawDirt() {
 /* ---------- material list ---------- */
 // A take-off for one building: framing, sheathing, roofing, siding, insulation, drywall, foundation, windows and doors.
 // Works in feet in the building's own frame. Choices live on the building as b.build (defaults in MAT_DEF).
+const RIDGE_OPTS = [["long", "Along the long side"], ["ew", "East–west"], ["ns", "North–south"]];
+// Which way a rectangle's roof peak runs: true = along its P0→P1 side, false = along P1→P2. P in building feet with F =
+// buildingFrame(b), or in map meters with F = null. "long" picks the longer side; a square follows the top floor's
+// longest inside wall, else east–west. (Map: x is east, y is south.)
+function ridgeFirst(b, o, P, F) {
+  const dir = (p, q) => { const d = F ? F.dir(q.x - p.x, q.y - p.y) : { x: q.x - p.x, y: q.y - p.y }, L = Math.hypot(d.x, d.y) || 1; return { x: d.x / L, y: d.y / L }; };
+  const d01 = dir(P[0], P[1]), d12 = dir(P[1], P[2]), L01 = dist(P[0], P[1]), L12 = dist(P[1], P[2]), m = o.ridge || "long";
+  if (m === "ns") return Math.abs(d01.y) >= Math.abs(d12.y);
+  if (m === "long" && Math.abs(L01 - L12) > 0.01 * Math.max(L01, L12)) return L01 > L12;
+  if (m === "long") {
+    let best = null, bl = 0;
+    for (const w of state.shapes) if (w.bid === b.id && w.level === topLv(b) && w.kind === "wall" && !w.closed && w.points.length === 2) { const l = dist(w.points[0], w.points[1]); if (l > bl) { bl = l; best = w; } }
+    if (best) { const a = best.points[0], c = best.points[1], L = Math.hypot(c.x - a.x, c.y - a.y), wd = { x: (c.x - a.x) / L, y: (c.y - a.y) / L }; return Math.abs(wd.x * d01.x + wd.y * d01.y) >= Math.abs(wd.x * d12.x + wd.y * d12.y); }
+  }
+  return Math.abs(d01.x) >= Math.abs(d12.x);
+}
 const MAT_OPTS = [
   ["Foundation", [
     ["found", "Foundation", [["frost", "Frost wall and slab (5 ft frost depth)"], ["slab", "Slab on grade, thickened edge"], ["crawl", "Crawlspace, block walls"], ["bsmt", "Full basement, poured walls"], ["none", "Leave it out"]]],
@@ -1934,6 +1950,7 @@ const MAT_OPTS = [
   ]],
   ["Roof", [
     ["roof", "Roof shape", [["gable", "Gable"], ["hip", "Hip"], ["shed", "Shed (one slope)"], ["flat", "Flat / low slope"]]],
+    ["ridge", "Roof peak runs", RIDGE_OPTS],
     ["pitch", "Roof pitch", [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14].map(n => [String(n), n + " in 12"])],
     ["over", "Overhang", [["12", "12\""], ["18", "18\""], ["24", "24\""], ["0", "None"]]],
     ["rframe", "Roof framing", [["truss", "Trusses @ 24\""], ["rafter", "Rafters 2×10 @ 16\""]]],
@@ -1962,6 +1979,7 @@ const POST_OPTS = [
   ]],
   ["Roof and walls", [
     ["roof", "Roof shape", [["gable", "Gable"], ["shed", "Shed (one slope)"]]],
+    ["ridge", "Roof peak runs", RIDGE_OPTS],
     ["pitch", "Roof pitch", [3, 4, 5, 6].map(n => [String(n), n + " in 12"])],
     ["over", "Overhang", [["12", "12\""], ["18", "18\""], ["24", "24\""], ["0", "None"]]],
     ["tsp", "Truss spacing", [["4", "Every 4 ft (2×4 purlins on edge)"], ["2", "Every 2 ft (2×4 purlins flat)"]]],
@@ -2030,7 +2048,7 @@ function matList(s) {
 function postList(b) {
   const o = matOpt(b), G = matGeom(b), f = G.floors[0], L = mkList(o), { section, row, pcs, waste } = L;
   const P = f.P, n = P.length, eave = +o.eave, oc = +o.poc, pitch = +o.pitch / 12, k = Math.sqrt(1 + pitch * pitch), ov = +o.over / 12;
-  const rect = matRect(P), RW = rect ? Math.min(dist(P[0], P[1]), dist(P[1], P[2])) : f.W, RL = rect ? Math.max(dist(P[0], P[1]), dist(P[1], P[2])) : f.L;
+  const rect = matRect(P), r01 = rect && ridgeFirst(b, o, P, G.F), RW = rect ? dist(P[r01 ? 1 : 0], P[r01 ? 2 : 1]) : f.W, RL = rect ? dist(P[r01 ? 0 : 1], P[r01 ? 1 : 2]) : f.L;
   const shed = o.roof === "shed", rise = shed ? RW * pitch : RW / 2 * pitch, Lo = RL + 2 * ov, Wo = RW + 2 * ov, slopeL = (shed ? Wo : Wo / 2) * k;
   let nPost = 0; for (let i = 0; i < n; i++) nPost += Math.ceil(dist(P[i], P[(i + 1) % n]) / oc - 1e-6);
   const big = f.opens.filter(q => q.out && q.w > oc - 0.5); nPost += big.length * 2;
@@ -2443,7 +2461,7 @@ function stickList(b) {
   const pitch = +o.pitch / 12, k = o.roof === "flat" ? 1 : Math.sqrt(1 + pitch * pitch), ov = +o.over / 12;
   const topF = fl.reduce((a, f) => f.area > a.area + 1 ? f : a, fl[0]), rect = matRect(topF.P);   // the roof covers the biggest floor
   const roofShape = o.roof !== "flat" && !rect ? "hip" : o.roof;   // gable and shed need a rectangle
-  const RW = rect ? Math.min(dist(topF.P[0], topF.P[1]), dist(topF.P[1], topF.P[2])) : topF.W, RL = rect ? Math.max(dist(topF.P[0], topF.P[1]), dist(topF.P[1], topF.P[2])) : topF.L;
+  const r01 = rect && ridgeFirst(b, o, topF.P, buildingFrame(b)), RW = rect ? dist(topF.P[r01 ? 1 : 0], topF.P[r01 ? 2 : 1]) : topF.W, RL = rect ? dist(topF.P[r01 ? 0 : 1], topF.P[r01 ? 1 : 2]) : topF.L;
   const rise = roofShape === "shed" ? RW * pitch : roofShape === "flat" ? 0 : RW / 2 * pitch;
   const gableA = roofShape === "gable" ? RW * rise : roofShape === "shed" ? RW * rise + RL * rise : 0;   // two gable triangles; shed: two side triangles + the high wall
   let wallHtot = 0; fl.forEach(f => { wallHtot += f.H + (joistBelow(f.lv) ? jd + 0.125 : 0); });
@@ -3333,7 +3351,7 @@ function psRoofs(b, o) {
     const rect = matRect(P); let shape = o.roof; if (!rect && shape !== "flat") shape = "hip";
     const E = tops[i]; let fn;
     if (shape === "gable") {
-      const L01 = dist(P[0], P[1]), L12 = dist(P[1], P[2]), u = L01 >= L12 ? unit(P[0], P[1]) : unit(P[1], P[2]), nr = { x: -u.y, y: u.x }, RW = Math.min(L01, L12);
+      const L01 = dist(P[0], P[1]), L12 = dist(P[1], P[2]), r01 = ridgeFirst(b, o, P, G.F), u = r01 ? unit(P[0], P[1]) : unit(P[1], P[2]), nr = { x: -u.y, y: u.x }, RW = r01 ? L12 : L01;
       const c = { x: (P[0].x + P[2].x) / 2, y: (P[0].y + P[2].y) / 2 };
       fn = q => { const w = (q.x - c.x) * nr.x + (q.y - c.y) * nr.y; return [E + pitch * (RW / 2 - Math.abs(w)), w >= 0 ? 1 : 2]; };
     } else if (shape === "shed") {
@@ -3797,7 +3815,7 @@ function psBuild(b) {
     g.push(`<image href="${img.url}" x="${X(B0.x0)}" y="${Y(B0.y0)}" width="${n2((B0.x1 - B0.x0) * s)}" height="${n2((B0.y1 - B0.y0) * s)}" preserveAspectRatio="none"/>`);
     for (const f of G.floors) g.push(`<polygon points="${pl(f.P)}" class="ftd"/>`);
     if (RF.roofs.length === 1 && matRect(RF.roofs[0].P) && !RF.roofs[0].flat) {   // trusses or rafters over one rectangular roof
-      let [A, Bp, C, D] = RF.roofs[0].out; if (dist(A, Bp) < dist(Bp, C)) [A, Bp, C, D] = [Bp, C, D, A];
+      let [A, Bp, C, D] = RF.roofs[0].out; if (!ridgeFirst(b, o, RF.roofs[0].P, G.F)) [A, Bp, C, D] = [Bp, C, D, A];
       const Lr = dist(A, Bp), u = unit(A, Bp), ts = post ? +o.tsp : o.rframe === "truss" ? 2 : 16 / 12, ov = RF.ov, n = Math.floor((Lr - 2 * ov) / ts + 1e-6);
       for (let j = 0; j <= n; j++) { const t = ov + j * ts, p = { x: A.x + u.x * t, y: A.y + u.y * t }, q = { x: D.x + u.x * t, y: D.y + u.y * t }; g.push(`<line x1="${X(p.x)}" y1="${Y(p.y)}" x2="${X(q.x)}" y2="${Y(q.y)}" class="tl2"/>`); }
     }
@@ -3841,7 +3859,7 @@ function psBuild(b) {
   // ---- loft section: a cut across the roof through the loft, with the headroom ----
   const LHs = G.floors[G.floors.length - 1].loft ? loftHeads(b, o) : null;
   if (LHs && !["flat", "shed"].includes(o.roof)) {
-    const { R: RL, f: lf, rf, base } = LHs, P = lf.P, L01 = dist(P[0], P[1]), L12 = dist(P[1], P[2]), uR = L01 >= L12 ? unit(P[0], P[1]) : unit(P[1], P[2]), cd = { x: -uR.y, y: uR.x };
+    const { R: RL, f: lf, rf, base } = LHs, P = lf.P, uR = matRect(P) && !ridgeFirst(b, o, P, LHs.R.G.F) ? unit(P[1], P[2]) : unit(P[0], P[1]), cd = { x: -uR.y, y: uR.x };
     const area = LHs.rooms.length ? LHs.rooms.map(r => r.P) : [P], m = centroid(area[0].map(q => ({ ...q }))), at = v => ({ x: m.x + cd.x * v, y: m.y + cd.y * v });
     const span = Poly => { const vs = []; for (let j = 0; j < Poly.length; j++) { const p = Poly[j], q = Poly[(j + 1) % Poly.length], e = { x: q.x - p.x, y: q.y - p.y }, den = cd.x * e.y - cd.y * e.x; if (Math.abs(den) < 1e-9) continue; const w = { x: p.x - m.x, y: p.y - m.y }, v = (w.x * e.y - w.y * e.x) / den, u = (w.x * cd.y - w.y * cd.x) / den; if (u >= -1e-9 && u <= 1 + 1e-9) vs.push(v); } return vs.length >= 2 ? [Math.min(...vs), Math.max(...vs)] : null; };   // where the cut crosses an outline
     const W0 = Math.max(0, ...rf.out.map(q => Math.abs((q.x - m.x) * cd.x + (q.y - m.y) * cd.y))) + 1, sOut = span(rf.out), sIn = span(P);
@@ -7556,7 +7574,7 @@ function v3Building(b, H) {
     wp.push(...v(B, y1), ...v(C, y1), ...v(C, yh), ...v(D, y1), ...v(A, y1), ...v(D, yh));
     quad(v(C, y1), v(D, y1), v(D, yh), v(C, yh));
   } else if (rect && shape === "gable") {
-    let [A, B, C, D] = P; if (dist(A, B) < dist(B, C)) [A, B, C, D] = [B, C, D, A];   // A-B along the ridge
+    let [A, B, C, D] = P; if (!ridgeFirst(b, matOpt(b), P, null)) [A, B, C, D] = [B, C, D, A];   // A-B along the ridge
     const rise = dist(B, C) / 2 * pch, mid = (p, q) => ({ x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 }), Ra = mid(D, A), Rb = mid(B, C), yr = y1 + rise;
     const v = (p, y) => [p.x, y, p.y], rq = (a, b2, c2, d) => rp.push(...a, ...b2, ...c2, ...a, ...c2, ...d);
     rq(v(A, y1), v(B, y1), v(Rb, yr), v(Ra, yr)); rq(v(C, y1), v(D, y1), v(Ra, yr), v(Rb, yr));   // the two roof slopes
