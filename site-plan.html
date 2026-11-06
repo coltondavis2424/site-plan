@@ -748,6 +748,7 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
             <button data-dt="rect" aria-pressed="false" title="Draw a rectangle (R)">Rectangle</button>
             <button data-dt="wall" aria-pressed="false" title="Draw a wall (W)">Wall</button>
             <button data-dt="open" aria-pressed="false" title="Doors, windows and openings (O)">Door / window</button>
+            <button data-dt="dim" aria-pressed="false" title="Dimension string (I)">Dimension</button>
           </div>
           <span id="dz-opick" hidden style="display:inline-flex;gap:6px"><select id="dz-otype" aria-label="Opening type"></select><select id="dz-owidth" aria-label="Opening width"></select></span>
           <select id="dz-wth" aria-label="New wall type"><option value="4.5">2×4 wall (4½″)</option><option value="6.5">2×6 wall (6½″)</option><option value="3.5">2×4 flat / half wall (3½″)</option><option value="8">8″ block</option></select>
@@ -4274,11 +4275,37 @@ function drawPlanBuilding(b, sel) {
   ctx.beginPath(); sp.forEach((q, i) => i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)); ctx.closePath();
   ctx.setLineDash(sel ? [] : [6, 5]); ctx.lineWidth = sel ? 2.5 : 1; ctx.strokeStyle = sel ? MARK : "rgba(255,255,255,.7)"; ctx.stroke(); ctx.setLineDash([]);
 }
+// A wall's end stops flat where it meets another wall's face (or runs into it); free ends and corners get the usual
+// square end that reaches half the wall's thickness past the point, so corners close up. segs: [{a, b, th}].
+function wallEndOn(e, segs, tol) {
+  for (const g of segs) {
+    const L = dist(g.a, g.b); if (L < 1e-9) continue;
+    const u = { x: (g.b.x - g.a.x) / L, y: (g.b.y - g.a.y) / L }, t = (e.x - g.a.x) * u.x + (e.y - g.a.y) * u.y;
+    if (t < g.th / 2 - tol || t > L - g.th / 2 + tol) continue;   // at its end: a corner, keep the square end
+    if (Math.abs((e.x - g.a.x) * u.y - (e.y - g.a.y) * u.x) <= g.th / 2 + tol) return true;
+  }
+  return false;
+}
+function wallDrawPts(P, th, segs, tol) {
+  const out = P.map(p => ({ x: p.x, y: p.y })), n = out.length; if (n < 2) return out;
+  const ext = (i, j) => { const L = dist(P[i], P[j]) || 1; out[i] = { x: P[i].x + (P[i].x - P[j].x) / L * th / 2, y: P[i].y + (P[i].y - P[j].y) / L * th / 2 }; };
+  if (!wallEndOn(P[0], segs, tol)) ext(0, 1);
+  if (!wallEndOn(P[n - 1], segs, tol)) ext(n - 1, n - 2);
+  return out;
+}
+function planWallSegs(s) {
+  const out = [];
+  for (const w of state.shapes) if (w !== s && w.kind === "wall" && w.bid === s.bid && w.level === s.level && w.points.length >= 2) {
+    const m = w.closed ? w.points.length : w.points.length - 1;
+    for (let i = 0; i < m; i++) out.push({ a: w.points[i], b: w.points[(i + 1) % w.points.length], th: w.thickness || 0 });
+  }
+  return out;
+}
 function drawPlanWall(s, sel, alpha = 1) {
-  const sp = s.points.map(toS); if (sp.length < 2) return;
+  const sp = (s.closed ? s.points : wallDrawPts(s.points, s.thickness || 0, planWallSegs(s), 0.006)).map(toS); if (sp.length < 2) return;
   ctx.save(); ctx.globalAlpha = alpha;
   ctx.beginPath(); sp.forEach((q, i) => i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)); if (s.closed) ctx.closePath();
-  ctx.lineJoin = "miter"; ctx.lineCap = s.closed ? "butt" : "square";
+  ctx.lineJoin = "miter"; ctx.lineCap = "butt";
   ctx.strokeStyle = sel ? MARK : INK; ctx.lineWidth = Math.max(s.thickness * view.s, 1.2); ctx.stroke();
   ctx.restore();
 }
@@ -5022,6 +5049,7 @@ const DZ_HINTS = {
   rect: "Drag from one corner to the opposite corner to draw a rectangle, then name it.",
   wall: "Point at a wall to see how far you are from the walls and openings along it; click to start a new wall on its face. Type a number + Enter to start it exactly that far (clear) from the orange end. After the start, type the wall's length + Enter, or click its end. Shift: any angle, no snapping.",
   open: "Click any wall, inside or outside, to add the opening. Then drag it along the wall to position it.",
+  dim: "Click where the dimension starts, then each point along it (they snap to wall faces and corners). Click the last point again or press Enter, then click to set how far out the line sits. Click a dimension to pick it; Delete removes it.",
 };
 const OPEN_DEFAULT_W = { door: 36, double: 60, window: 48, overhead: 120, patio: 72, opening: 36, slider: 72 };
 function polyArea(P) { let A = 0; for (let i = 0; i < P.length; i++) { const p = P[i], q = P[(i + 1) % P.length]; A += p.x * q.y - q.x * p.y; } return A / 2; }
@@ -5073,7 +5101,7 @@ function projAlong(L, p) { const len = Math.hypot(L.x2 - L.x1, L.y2 - L.y1) || 1
 function dzInner() { const B = bbox(innerPoly()); return { x0: B.x0, y0: B.y0, x1: B.x1, y1: B.y1 }; }
 function dzSel() { return dz.rooms.find(x => x.id === dz.sel) || dz.walls.find(x => x.id === dz.sel) || dz.opens.find(x => x.id === dz.sel) || (typeof dz.sel === "string" ? extSides().find(e => e.id === dz.sel) : null) || null; }
 function dzSetTool(t) {
-  dz.tool = t; dz.wdraft = null; dz.rdraft = null; dz.whover = null;
+  dz.tool = t; dz.wdraft = null; dz.rdraft = null; dz.whover = null; dz.ddraft = null; dz.dsel = null;
   document.querySelectorAll("#dz-tools button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.dt === t)));
   $("dz-hint").textContent = DZ_HINTS[t]; dzc.style.cursor = t === "move" ? "default" : "crosshair";
   $("dz-wth").hidden = t !== "wall"; $("dz-opick").hidden = t !== "open";
@@ -5124,6 +5152,12 @@ function openDesigner(b, keep) {
   // Wall views (studs, wiring, plumbing, drywall, wall items), one per wall line, in designer feet.
   dz.views = state.shapes.filter(s => s.kind === "wallview" && s.bid === b.id && s.level === lv)
     .map(s => Object.assign(JSON.parse(JSON.stringify(s.data || {})), { p1: F.toL(s.points[0]), p2: F.toL(s.points[1]) }));
+  // Dimension strings drawn by hand on this floor (the automatic ones are made again on save).
+  dz.dimIds = []; dz.dims = [];
+  for (const d of state.shapes.filter(s => s.bid === b.id && s.level === lv && s.kind === "dim" && !s.auto && s.points.length >= 2)) {
+    const { id, kind, points, offset, bid, level, ...extra } = d;
+    dz.dimIds.push(id); dz.dims.push({ id: dz.nid++, pts: points.map(F.toL), off: (offset || 0) / FT, extra });
+  }
   dz.wallH = (b.wallH && b.wallH[lv]) || 8;
   const lvName = (state.levels.find(l => l.id === lv) || {}).name || "";
   $("dz-title").textContent = `Design floor plan: ${b.name}`;
@@ -5213,8 +5247,13 @@ const dS = (x, y) => ({ x: x * dk + dox, y: y * dk + doy });
 function overlaps(a, b) { const w = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x), h = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y); return w > 0.1 && h > 0.1; }
 function dzDrawWall(w, col, dash, ext) {
   const g = dctx, a = dS(w.x1, w.y1), b = dS(w.x2, w.y2);
-  g.save(); if (dash) g.setLineDash([6, 4]); g.strokeStyle = col; g.lineCap = ext ? "square" : "square"; g.lineWidth = Math.max(2, w.th * dk);
-  g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke(); g.restore();
+  let A = a, B = b;
+  if (!ext) {   // flat where it meets another wall's face, square at corners and free ends
+    const segs = [...extSides(), ...dz.walls.filter(x => x !== w && x.id !== w.id)].map(x => ({ a: { x: x.x1, y: x.y1 }, b: { x: x.x2, y: x.y2 }, th: x.th }));
+    const P = wallDrawPts([{ x: w.x1, y: w.y1 }, { x: w.x2, y: w.y2 }], w.th, segs, 0.02); A = dS(P[0].x, P[0].y); B = dS(P[1].x, P[1].y);
+  }
+  g.save(); if (dash) g.setLineDash([6, 4]); g.strokeStyle = col; g.lineCap = ext ? "square" : "butt"; g.lineWidth = Math.max(2, w.th * dk);
+  g.beginPath(); g.moveTo(A.x, A.y); g.lineTo(B.x, B.y); g.stroke(); g.restore();
   const L = Math.hypot(w.x2 - w.x1, w.y2 - w.y1); if (L * dk < 40 || ext) return;
   const ang = Math.atan2(b.y - a.y, b.x - a.x), nx = -Math.sin(ang), ny = Math.cos(ang), o = Math.max(2, w.th * dk) / 2 + 9;
   g.save(); g.translate((a.x + b.x) / 2 + nx * o, (a.y + b.y) / 2 + ny * o); let r = ang; if (r > Math.PI / 2) r -= Math.PI; if (r < -Math.PI / 2) r += Math.PI; g.rotate(r);
@@ -5310,7 +5349,7 @@ function dzDraw() {
     let ang = Math.atan2(b.y - a.y, b.x - a.x); if (ang > Math.PI / 2) ang -= Math.PI; if (ang < -Math.PI / 2) ang += Math.PI;
     g.save(); g.translate(m.x, m.y); g.rotate(ang); g.fillText(fl(len), 0, 0); g.restore();
   }
-  dzDrawHover(g);
+  dzDrawHover(g); dzDrawDims();
 }
 function dzHandles(r) { return [[r.x, r.y], [r.x + r.w / 2, r.y], [r.x + r.w, r.y], [r.x + r.w, r.y + r.h / 2], [r.x + r.w, r.y + r.h], [r.x + r.w / 2, r.y + r.h], [r.x, r.y + r.h], [r.x, r.y + r.h / 2]]; }
 const HANDLE_EDGES = [["l", "t"], ["t"], ["r", "t"], ["r"], ["r", "b"], ["b"], ["l", "b"], ["l"]];
@@ -5392,6 +5431,61 @@ function dzDrawHover(g) {
   dim(h.prev, h.lo, h.near === "prev"); dim(h.hi, h.next, h.near === "next");
   g.restore();
 }
+// Hand-drawn dimension strings in the designer: points along a line, the dimension line `off` feet to its left.
+function dzDimGeom(pts, off) {
+  const a = pts[0], z = pts[pts.length - 1], L = dist(a, z) || 1, u = { x: (z.x - a.x) / L, y: (z.y - a.y) / L }, n = { x: -u.y, y: u.x };
+  const t = pts.map(p => (p.x - a.x) * u.x + (p.y - a.y) * u.y), D = t.map(v => ({ x: a.x + u.x * v + n.x * off, y: a.y + u.y * v + n.y * off }));
+  return { u, n, t, D };
+}
+function dzDrawDim(pts, off, col, live) {
+  if (pts.length < 2) return;
+  const g = dctx, G = dzDimGeom(pts, off);
+  g.save(); g.strokeStyle = col; g.fillStyle = col; g.lineWidth = 1.2;
+  for (let i = 0; i < pts.length; i++) {
+    const P = dS(pts[i].x, pts[i].y), Q = dS(G.D[i].x, G.D[i].y), over = dS(G.D[i].x + G.n.x * Math.sign(off || 1) * 4 / dk, G.D[i].y + G.n.y * Math.sign(off || 1) * 4 / dk);
+    g.globalAlpha = 0.6; g.beginPath(); g.moveTo(P.x, P.y); g.lineTo(over.x, over.y); g.stroke(); g.globalAlpha = 1;
+    const k1 = dS(G.D[i].x - (G.u.x + G.n.x) * 4 / dk, G.D[i].y - (G.u.y + G.n.y) * 4 / dk), k2 = dS(G.D[i].x + (G.u.x + G.n.x) * 4 / dk, G.D[i].y + (G.u.y + G.n.y) * 4 / dk);
+    g.lineWidth = 1.6; g.beginPath(); g.moveTo(k1.x, k1.y); g.lineTo(k2.x, k2.y); g.stroke(); g.lineWidth = 1.2;
+    if (i) {
+      const A = dS(G.D[i - 1].x, G.D[i - 1].y); g.beginPath(); g.moveTo(A.x, A.y); g.lineTo(Q.x, Q.y); g.stroke();
+      const len = Math.abs(G.t[i] - G.t[i - 1]); if (len < 1e-3) continue;
+      const mid = { x: (G.D[i - 1].x + G.D[i].x) / 2 + G.n.x * 9 / dk * Math.sign(off || 1), y: (G.D[i - 1].y + G.D[i].y) / 2 + G.n.y * 9 / dk * Math.sign(off || 1) }, M = dS(mid.x, mid.y);
+      let ang = Math.atan2(G.u.y, G.u.x); if (ang > Math.PI / 2) ang -= Math.PI; if (ang < -Math.PI / 2) ang += Math.PI;
+      g.font = '700 13px "Barlow Condensed", "Arial Narrow", sans-serif'; g.textAlign = "center"; g.textBaseline = "middle";
+      const tx = fl(len), tw = g.measureText(tx).width + 6;
+      g.translate(M.x, M.y); g.rotate(ang); g.fillStyle = "rgba(247,245,239,.9)"; g.fillRect(-tw / 2, -8, tw, 16); g.fillStyle = col; g.fillText(tx, 0, 0); g.setTransform(1, 0, 0, 1, 0, 0);
+    }
+  }
+  g.restore();
+}
+function dzDrawDims() {
+  if (!dz) return;
+  for (const m of dz.dims || []) dzDrawDim(m.pts, m.off, m.id === dz.dsel ? MARK : "#1D4E89");
+  const d = dz.ddraft; if (!d || dz.tool !== "dim") return;
+  if (d.off) { const G = dzDimGeom(d.pts, 0), p = dz.ptr || d.pts[0]; dzDrawDim(d.pts, (p.x - d.pts[0].x) * G.n.x + (p.y - d.pts[0].y) * G.n.y, MARK); }
+  else if (dz.ptr) dzDrawDim([...d.pts, dzSnapPt(dz.ptr, null, shiftHeld)], 0, MARK);
+  for (const p of d.pts) { const q = dS(p.x, p.y); dctx.beginPath(); dctx.arc(q.x, q.y, 4, 0, Math.PI * 2); dctx.fillStyle = MARK; dctx.fill(); }
+}
+function dzDimHit(p) {
+  for (const m of [...(dz.dims || [])].reverse()) { const G = dzDimGeom(m.pts, m.off); for (let i = 1; i < G.D.length; i++) if (segDist(p, G.D[i - 1], G.D[i]) < 8 / dk) return m; }
+  return null;
+}
+function dzDimTap(p, free) {
+  const d = dz.ddraft, q = dzSnapPt(p, null, free);
+  if (!d) {
+    if (dz.sel != null) { dz.sel = null; dzSelFields(); }
+    const m = dzDimHit(p); if (m) { dz.dsel = m.id; dzDraw(); $("dz-hint").textContent = "Dimension picked. Press Delete to remove it, or click empty space to start a new one."; return; }
+    dz.dsel = null; dz.ddraft = { pts: [q] }; dzDraw(); return;
+  }
+  if (d.off) {   // set how far out the line sits, and keep it
+    const G = dzDimGeom(d.pts, 0), off = (p.x - d.pts[0].x) * G.n.x + (p.y - d.pts[0].y) * G.n.y;
+    const m = { id: dz.nid++, pts: d.pts, off, extra: {} }; dz.dims.push(m); dz.ddraft = null; dz.dsel = m.id; dzSetHint(); dzDraw(); return;
+  }
+  const last = d.pts[d.pts.length - 1];
+  if (dist(q, last) * dk < 8) { if (d.pts.length >= 2) { d.off = true; $("dz-hint").textContent = "Now click to set how far out the dimension line sits."; } dzDraw(); return; }
+  d.pts.push(q); dzDraw();
+}
+function dzSetHint() { if (dz) $("dz-hint").textContent = DZ_HINTS[dz.tool] || ""; }
 // Typed numbers in the designer's wall tool: a clear distance from the orange end (before the start), or the wall's length.
 function dzLenOpen(ch) {
   const b = $("dz-lenbox"), r = $("dz-stage").getBoundingClientRect(), c = r && dz.ptr ? dS(dz.ptr.x, dz.ptr.y) : { x: 40, y: 40 }, cr = dzc.getBoundingClientRect();
@@ -5454,6 +5548,7 @@ dzc.addEventListener("pointerdown", e => {
   if (dzPtrs.size > 2) return;
   if (e.button === 1 || dzSpace) { e.preventDefault(); dDrag = { mode: "pan", last: dzScreen(e) }; return; }
   const p = dzLocal(e);
+  if (dz.tool === "dim") { dzDimTap(p, e.shiftKey); return; }
   if (dz.tool === "rect") { const s = dzSnapPt(p, null, e.shiftKey); dDrag = { mode: "rect", start: s }; dz.rdraft = { x: s.x, y: s.y, w: 0, h: 0 }; return; }
   if (dz.tool === "wall") {
     if (dz.wdraft && dz.wdraft.waiting) { const end = dzWallEnd({ x: dz.wdraft.x1, y: dz.wdraft.y1 }, p, e.shiftKey); dz.wdraft.x2 = end.x; dz.wdraft.y2 = end.y; dzCommitWall(); return; }
@@ -5496,6 +5591,7 @@ dzc.addEventListener("pointermove", e => {
   if (dDrag && dDrag.mode === "pan") { const s = dzScreen(e); dzPanBy(s.x - dDrag.last.x, s.y - dDrag.last.y); dDrag.last = s; return; }
   const p = dzLocal(e);
   dz.ptr = p;
+  if (dz.tool === "dim") { if (dz.ddraft) dzDraw(); return; }
   if (dz.tool === "wall" && !dz.wdraft && !dDrag) { const hv = e.shiftKey ? null : dzWallHover(p); if (hv || dz.whover) { dz.whover = hv; dzc.dataset.hover = hv ? fl(hv.lo - hv.prev) + "|" + fl(hv.next - hv.hi) + "|" + hv.near : ""; dzDraw(); } return; }
   if (dz.tool === "wall" && dz.wdraft && (dDrag || dz.wdraft.waiting)) { const end = dzWallEnd({ x: dz.wdraft.x1, y: dz.wdraft.y1 }, p, e.shiftKey); dz.wdraft.x2 = end.x; dz.wdraft.y2 = end.y; dzDraw(); return; }
   if (dz.tool === "open" && !dDrag) {
@@ -5637,7 +5733,7 @@ $("dz-sgo").addEventListener("change", e => { const r = dzSel(); if (r && r.type
 $("dz-rot").onclick = () => { const r = dzSel(); if (r && "h" in r) { [r.w, r.h] = [r.h, r.w]; if (r.type === "stair") r.dir = ((r.dir || 0) + 1) % 4; dzSelFields(); dzDraw(); } };
 $("dz-dup").onclick = () => { const r = dzSel(); if (!r || !("h" in r)) return; const s = dzFindSpot(r.w, r.h), c = Object.assign({}, r, { id: dz.nid++, x: s.x, y: s.y }); dz.rooms.push(c); dz.sel = c.id; dzSelFields(); dzDraw(); };
 $("dz-del").onclick = () => { dz.rooms = dz.rooms.filter(x => x.id !== dz.sel); dz.sel = null; dzSelFields(); dzDraw(); };
-function levelKey() { return JSON.stringify({ t: dz.t, poly: dz.poly, ox: dz.ox, oy: dz.oy, W: dz.W, D: dz.D, rooms: dz.rooms, walls: dz.walls, opens: dz.opens, stairIds: dz.stairIds, roomIds: dz.roomIds, fixedRooms: dz.fixedRooms, views: dz.views, wallH: dz.wallH }); }
+function levelKey() { return JSON.stringify({ t: dz.t, poly: dz.poly, ox: dz.ox, oy: dz.oy, W: dz.W, D: dz.D, rooms: dz.rooms, walls: dz.walls, opens: dz.opens, stairIds: dz.stairIds, roomIds: dz.roomIds, fixedRooms: dz.fixedRooms, views: dz.views, wallH: dz.wallH, dims: dz.dims, dimIds: dz.dimIds }); }
 function levelSnap() { return { lv: dz.lv, base: dz.base, data: JSON.parse(levelKey()) }; }
 function restoreSnap(sn) { Object.assign(dz, sn.data); dz.lv = sn.lv; dz.base = sn.base; dz.sel = null; }
 function snapDirty(sn) { return JSON.stringify(sn.data) !== sn.base; }
@@ -5671,6 +5767,7 @@ function rotData(d, c) {
     if (o.ref.type === "free") { const q = rotPt({ x: o.cx, y: o.cy }, c); o.cx = q.x; o.cy = q.y; [o.ux, o.uy] = [-o.uy, o.ux]; }
   }
   for (const v of d.views || []) { v.p1 = rotPt(v.p1, c); v.p2 = rotPt(v.p2, c); }
+  for (const m of d.dims || []) m.pts = m.pts.map(p => rotPt(p, c));
   for (const r of d.fixedRooms || []) r.pts = r.pts.map(q => rotPt(q, c));
 }
 function dzRotate(k) {
@@ -5710,9 +5807,12 @@ $("designer").addEventListener("keydown", e => {
   if (e.target.matches("input, select, textarea") || !dz) return;
   const k = e.key.toLowerCase();
   if ((k === "delete" || k === "backspace") && dz.sel) { e.preventDefault(); if (dz.opens.some(o => o.id === dz.sel)) $("dz-odel").onclick(); else if (dz.walls.some(w => w.id === dz.sel)) $("dz-wdel").onclick(); else if (typeof dz.sel !== "string") $("dz-del").onclick(); }
+  else if ((k === "delete" || k === "backspace") && dz.dsel && dz.tool === "dim") { e.preventDefault(); dz.dims = dz.dims.filter(m => m.id !== dz.dsel); dz.dsel = null; dzDraw(); }
+  else if (k === "enter" && dz.tool === "dim" && dz.ddraft && dz.ddraft.pts.length >= 2 && !dz.ddraft.off) { e.preventDefault(); dz.ddraft.off = true; $("dz-hint").textContent = "Now click to set how far out the dimension line sits."; dzDraw(); }
+  else if (k === "escape" && dz.ddraft) { e.preventDefault(); dz.ddraft = null; dzSetHint(); dzDraw(); }
   else if (/^[0-9.]$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && dz.tool === "wall" && (dz.whover || dz.wdraft)) { e.preventDefault(); dzLenOpen(e.key); }
   else if (k === "escape" && (dz.wdraft || dz.rdraft)) { e.preventDefault(); dz.wdraft = null; dz.rdraft = null; dzDraw(); }
-  else if (k === "v") dzSetTool("move"); else if (k === "r") dzSetTool("rect"); else if (k === "w") dzSetTool("wall"); else if (k === "o") dzSetTool("open");
+  else if (k === "v") dzSetTool("move"); else if (k === "r") dzSetTool("rect"); else if (k === "w") dzSetTool("wall"); else if (k === "o") dzSetTool("open"); else if (k === "i") dzSetTool("dim");
 });
 new ResizeObserver(() => { if (dz) dzResize(); }).observe($("dz-stage"));
 $("dz-lenbox").addEventListener("blur", () => setTimeout(dzLenClose, 0));
@@ -5775,8 +5875,8 @@ $("dz-save").onclick = () => {
 };
 function saveCurrentLevel() {
   const { b, lv, F } = dz, t = dz.t, I = innerPoly();
-  const loaded = new Set(dz.stairIds || []), roomsIn = new Set(dz.roomIds || []);
-  state.shapes = state.shapes.filter(s => !(s.bid === b.id && s.level === lv && (s.kind === "wall" || s.kind === "opening" || s.kind === "wallview" || (s.kind === "room" && roomsIn.has(s.id)) || (s.kind === "stair" && loaded.has(s.id)))));
+  const loaded = new Set(dz.stairIds || []), roomsIn = new Set(dz.roomIds || []), dimsIn = new Set(dz.dimIds || []);
+  state.shapes = state.shapes.filter(s => !(s.bid === b.id && s.level === lv && (s.kind === "wall" || s.kind === "opening" || s.kind === "wallview" || (s.kind === "room" && roomsIn.has(s.id)) || (s.kind === "stair" && loaded.has(s.id)) || (s.kind === "dim" && dimsIn.has(s.id)))));
   const add = (o) => state.shapes.push(Object.assign({ id: state.nextId++, bid: b.id, level: lv, closed: false, thickness: 4.5 * IN }, o));
   const c = offsetPoly(dz.poly, t / 2);
   add({ kind: "wall", name: "Exterior walls", closed: true, thickness: t * FT, points: c.map(F.toW) });
@@ -5793,6 +5893,7 @@ function saveCurrentLevel() {
     add(o2);
   }
   for (const v of dz.views || []) { const { p1, p2, ...data } = v; add({ kind: "wallview", name: "Wall view", points: [F.toW(p1), F.toW(p2)], thickness: 0, data }); }
+  for (const m of dz.dims || []) add(Object.assign({ name: "Dimension" }, m.extra, { kind: "dim", points: m.pts.map(F.toW), offset: m.off * FT, thickness: 0 }));
   b.wallH = Object.assign({}, b.wallH, { [lv]: dz.wallH || 8 });
   let n = 0;
   for (const r of rooms) add({ kind: "room", name: r.name.trim() || "Room " + (++n), sub: r.sub, style: r.style, closed: true, points: [[r.x, r.y], [r.x + r.w, r.y], [r.x + r.w, r.y + r.h], [r.x, r.y + r.h]].map(([x, y]) => F.toW({ x, y })) });
