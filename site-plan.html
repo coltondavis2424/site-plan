@@ -269,7 +269,12 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
 .ps-notes{padding-left:.2in;margin:0}.ps-notes li{margin:.03in 0}
 .ps-tbl{border-collapse:collapse;width:100%;font-size:8.5pt}
 .ps-tbl th,.ps-tbl td{border:1px solid #9AA39F;padding:.02in .05in;text-align:left;vertical-align:top}
-.ps-tbl thead th{background:#E6EAE8}.ps-tbl td.r{text-align:right;white-space:nowrap}.ps-tbl td.nt{color:#3E4A46;font-size:7.5pt}
+.ps-tbl thead th{background:#E6EAE8}.ps-tbl td.ok{color:#1D6B3A;font-weight:700}.ps-tbl td.bad{color:#B3261E;font-weight:700}.ps-tbl td.eng{color:#1F4F9F;font-weight:700}
+.ps-note{font-size:7.5pt;color:#3E4A46;margin:.03in 0 .06in}
+.ps-tb-i{font-size:8pt;color:#17231F;line-height:1.25}.ps-tb-i b{font-weight:600;color:#3E4A46}
+.ps-tb-rev{width:100%;border-collapse:collapse;font-size:7pt}.ps-tb-rev th,.ps-tb-rev td{border:1px solid #9AA39F;padding:.01in .03in;height:.14in;text-align:left}
+.ps-tb-seal{border:1px solid #17231F;height:1.55in;display:flex;align-items:flex-end;justify-content:center;font-size:7pt;color:#3E4A46;padding-bottom:.04in}
+.ps-infobar{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;padding:6px 14px;font-size:13px;border-bottom:1px solid var(--line,#ccc)}.ps-infobar input{width:200px;font:inherit;padding:3px 6px}.ps-tbl td.r{text-align:right;white-space:nowrap}.ps-tbl td.nt{color:#3E4A46;font-size:7.5pt}
 .ps-mat .ps-mh td{background:#E6EAE8;font-weight:700;font-family:"Barlow Condensed",sans-serif;font-size:10pt}
 .ps-note{font-size:8pt;color:#3E4A46}
 .ps-cols{column-count:2;column-gap:.3in}.ps-step{break-inside:avoid;border:1px solid #9AA39F;border-radius:4px;padding:.06in .1in;margin:0 0 .1in}
@@ -726,6 +731,13 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
           <div id="dz-rviews"><p class="muted" style="font-size:13px;margin:10px 0 6px">Wall views from inside this room</p>
           <div class="row"><button class="ghost small" data-side="0">Top wall</button><button class="ghost small" data-side="1">Right wall</button><button class="ghost small" data-side="2">Bottom wall</button><button class="ghost small" data-side="3">Left wall</button></div></div>
         </div>
+        <div id="dz-dimbox" hidden>
+          <h3>Selected dimension</h3>
+          <p class="muted" id="dz-dinfo" style="margin:0 0 6px"></p>
+          <div class="field"><label for="dz-doff">Distance out from the points</label><input id="dz-doff" type="text" autocomplete="off" inputmode="decimal"></div>
+          <p class="muted" style="margin:4px 0 6px;font-size:12px">Drag the line to slide it in or out. Drag a dot to move that point.</p>
+          <div class="row"><button class="danger small" id="dz-ddel">Remove</button></div>
+        </div>
         <div id="dz-openbox" hidden>
           <h3>Selected opening</h3>
           <div class="pair">
@@ -839,6 +851,7 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
 <dialog id="plandlg" class="dz" aria-labelledby="ps-title">
   <div class="dz-wrap">
     <div class="dz-head"><h2 id="ps-title">Plan set</h2><span class="mat-msg" id="ps-msg" role="status"></span><label class="v3-opt">Paper <select id="ps-paper" aria-label="Paper size"><option value="archd">24 × 36 (ARCH D)</option><option value="tabloid">11 × 17</option><option value="letter">8½ × 11</option></select></label><button class="primary" id="ps-print">Print or save PDF</button><button class="ghost" id="ps-close">Close</button></div>
+    <div class="ps-infobar">Title block: <label>Site address <input id="ps-addr" autocomplete="off" placeholder="e.g. 27 W Harney Rd, Esko MN"></label><label>Owner <input id="ps-owner" autocomplete="off"></label><label>Drawn by <input id="ps-by" autocomplete="off"></label></div>
     <div class="ps-pages" id="ps-pages"></div>
   </div>
 </dialog>
@@ -2045,6 +2058,19 @@ const ADDON_OPTS = [
   ]],
   ["Other", [WASTE_OPT]],
 ];
+// Design loads for the engineering sheets (S-0...). The first choice of each is the default (Esko, Carlton County, MN).
+const ENG_OPTS = ["Design loads (for the engineer)", [
+  ["code", "Building code", [["mn2020", "2020 Minnesota Residential Code (2018 IRC)"], ["irc2021", "2021 IRC (most Colorado counties)"], ["irc2018", "2018 IRC"]]],
+  ["use", "Building use", [["auto", "Guess from its name"], ["house", "Home (R-3)"], ["garage", "Garage or shop (U)"], ["ag", "Shed, coop or barn (U, low risk)"]]],
+  ["pg", "Ground snow load", [60, 50, 40, 35, 30, 25, 20, 70, 80, 100].map(n => [String(n), n + " psf" + (n === 60 ? " (Carlton County, MN)" : n === 50 ? " (southern MN)" : n === 30 ? " (SE Colorado plains, check county)" : "")])],
+  ["wind", "Wind speed (ultimate, 3-second gust)", [115, 105, 110, 120, 130, 140].map(n => [String(n), n + " mph" + (n === 115 ? " (most of MN and CO)" : "")])],
+  ["exp", "Wind exposure", [["C", "C: open country, fields"], ["B", "B: town or woods all around"]]],
+  ["sdc", "Seismic design category", [["A", "A (all of MN)"], ["B", "B (much of SE Colorado)"], ["C", "C"]]],
+  ["frost", "Frost depth", [["60", "60\" (northern MN)"], ["42", "42\" (southern MN)"], ["36", "36\""], ["30", "30\""], ["24", "24\""]]],
+  ["soil", "Soil bearing (allowable)", [["1500", "1,500 psf (assumed, no soil test)"], ["2000", "2,000 psf"], ["3000", "3,000 psf"]]],
+  ["lumber", "Framing lumber", [["spf2", "SPF No. 2"], ["df2", "Douglas fir-larch No. 2"], ["hf2", "Hem-fir No. 2"]]],
+]];
+MAT_OPTS.push(ENG_OPTS); POST_OPTS.push(ENG_OPTS);
 function matOptsFor(s) { return s.kind === "deck" ? DECK_OPTS : s.kind === "addon" ? ADDON_OPTS : s.build && s.build.frame === "post" ? POST_OPTS : MAT_OPTS; }
 const defsOf = L => { const d = {}; for (const [, G] of L) for (const [k, , o] of G) d[k] = o[0][0]; return d; };
 function matOpt(s) {
@@ -2433,6 +2459,10 @@ const MEP_ROWS = {
   sink: ["Sink rough-ins: stub-outs, 2 shutoff valves, trap adapter", "plumb"], toilet: ["Toilet rough-ins: flange, shutoff valve, wax ring", "plumb"],
   valve: ["Shower / tub valves", "plumb"], head: ["Shower arms and heads", "plumb"], spout: ["Tub spouts", "plumb"], washer: ["Washer outlet boxes", "plumb"],
   bibb: ["Frost-free hose bibbs", "plumb"], cleanout: ["Cleanout fittings with plugs", "plumb"],
+  wpgfci: ["Outdoor GFCI outlets, 20 A weather-resistant, in-use covers", "elec"], porch: ["Outdoor wall lights (wet-rated)", "elec"], flood: ["Motion flood lights", "elec"],
+  meter: ["Electric meter base (check with the utility)", "elec"], disc: ["AC disconnects, 60 A", "elec"], ev: ["EV charger circuits (size per the charger)", "elec"],
+  bell: ["Doorbells and transformers", "elec"], cam: ["Camera mounting boxes", "elec"],
+  dvent: ["Dryer vent hoods with 4″ rigid duct", "plumb"], fanvent: ["Bath fan wall caps with 4″ duct", "plumb"], gasm: ["Gas line stubs at the meter (by the gas utility)", "plumb"], acline: ["AC line set covers and wall sleeves", "plumb"],
 };
 function mepCount(b) {
   const n = {}, run = {}, bends = {}; let any = false, plates = 0;
@@ -3214,7 +3244,8 @@ const n2 = v => +v.toFixed(3);
 // Every wall to frame on a floor: outside edges (E1, E2…) and inside wall runs (I1…), with the openings in each, and the
 // wall view record for that wall line (moved/added studs, outlets, fixtures, wires and pipes), all in feet along a→c.
 const PS_CODES = { outlet: "R", gfci: "GFI", out240: "240", switch: "S", switch3: "S3", data: "TV", sconce: "WL", jbox: "J", thermo: "T", panel: "P",
-  sink: "SK", toilet: "WC", valve: "SV", head: "SH", spout: "TS", washer: "WB", bibb: "HB", cleanout: "CO" };
+  sink: "SK", toilet: "WC", valve: "SV", head: "SH", spout: "TS", washer: "WB", bibb: "HB", cleanout: "CO",
+  wpgfci: "WP", porch: "OL", flood: "FL", meter: "M", disc: "DS", ev: "EV", bell: "DB", cam: "CAM", dvent: "DV", fanvent: "FV", gasm: "G", acline: "AC" };
 const PS_RUNC = { wire: "#D9822B", hot: "#D9342B", cold: "#2F6BD8", drain: "#5F5F5F", vent: "#8A8A8A" };
 function psWalls(b, lv) {
   const F = buildingFrame(b), base = orientPoly(b.points.map(F.toL)), f = matFloor(b, F, lv, base), out = [], o = matOpt(b);
@@ -3591,6 +3622,71 @@ const PS_DEFS = `<defs>
 <pattern id="ps-pf" patternUnits="userSpaceOnUse" width=".06" height=".06"><rect width=".06" height=".06" fill="#F6C9D8"/><path d="M0 .06L.06 0" stroke="#C98AA0" stroke-width=".005"/></pattern>
 <pattern id="ps-pb" patternUnits="userSpaceOnUse" width=".16" height=".667"><rect width=".16" height=".667" fill="#E4E4E2"/><path d="M0 .665H.16M.08 0V.333M0 .333H.16" stroke="#6F7471" stroke-width=".006"/></pattern>
 </defs>`;
+// Four typical details, each in its own box: sill anchorage, truss to wall, header, top plate splice. Drawn in inches of the real parts.
+function psTypDetails(ax, ay, aw, ah, o, E) {
+  const g = [], gx = 2, gy = 2, bw = (aw - 0.3) / gx, bh = (ah - 0.3) / gy, wood = "#E2C99A", stud = o.stud === "2x6" ? 5.5 : 3.5;
+  const box = (k, title, W, H, draw) => {
+    const bx = ax + (k % gx) * (bw + 0.3), by = ay + Math.floor(k / gx) * (bh + 0.3), lw = bw * 0.42, s = Math.min((bw - lw - 0.3) / W, (bh - 0.75) / H), ox = bx + 0.15, oy = by + 0.45;
+    const X = v => n2(ox + v * s), Y = v => n2(oy + v * s), labs = [];
+    const R = (x0, y0, x1, y1, fill, extra = "") => g.push(`<rect x="${X(Math.min(x0, x1))}" y="${Y(Math.min(y0, y1))}" width="${n2(Math.abs(x1 - x0) * s)}" height="${n2(Math.abs(y1 - y0) * s)}" fill="${fill}" stroke="#17231F" stroke-width=".008" ${extra}/>`);
+    const Ln = (pts, w = 0.01, col = "#17231F", dash) => g.push(`<polyline points="${pts.map(([x, y]) => X(x) + "," + Y(y)).join(" ")}" fill="none" stroke="${col}" stroke-width="${w}"${dash ? ` stroke-dasharray="${dash}"` : ""}/>`);
+    const Lab = (x, y, t) => labs.push([x, y, t]);
+    draw({ R, Ln, Lab });
+    g.push(`<rect x="${n2(bx)}" y="${n2(by)}" width="${n2(bw)}" height="${n2(bh)}" fill="none" stroke="#9AA39F" stroke-width=".008"/>`);
+    g.push(`<circle cx="${n2(bx + 0.2)}" cy="${n2(by + 0.2)}" r=".13" fill="#FFFFFF" stroke="#17231F" stroke-width=".01"/><text x="${n2(bx + 0.2)}" y="${n2(by + 0.235)}" class="tc tb">${k + 1}</text><text x="${n2(bx + 0.4)}" y="${n2(by + 0.25)}" class="tl tb">${psE(title)}</text>`);
+    const lx = bx + bw - lw, rows = labs.sort((p, q) => p[1] - q[1]); let yy = by + 0.5;
+    for (const [x, y, t] of rows) {
+      const words = t.split(" "), ln = [[]]; for (const w of words) { const cur = ln[ln.length - 1]; if ((cur.join(" ") + " " + w).length > lw * 13 && cur.length) ln.push([w]); else cur.push(w); }
+      const ty = Math.max(yy, Math.min(by + bh - 0.1 - ln.length * 0.13, +Y(y))); yy = ty + ln.length * 0.13 + 0.06;
+      g.push(`<polyline points="${X(x)},${Y(y)} ${n2(lx - 0.12)},${n2(ty - 0.03)} ${n2(lx - 0.04)},${n2(ty - 0.03)}" class="ld"/><circle cx="${X(x)}" cy="${Y(y)}" r=".018" class="ldd"/>`);
+      ln.forEach((l, i) => g.push(`<text x="${n2(lx)}" y="${n2(ty + i * 0.13)}" class="tl ts">${psE(l.join(" "))}</text>`));
+    }
+  };
+  // 1. sill anchorage
+  box(0, "Sill anchorage", 20, 30, ({ R, Ln, Lab }) => {
+    R(0, 12, 8, 30, "url(#ps-pc)"); R(1.25, 11.5, 6.75, 12, "#8FB3D9"); R(1.25, 10, 6.75, 11.5, wood); R(1.25, 0, 1.25 + stud, 10, "#F1DDB5");
+    R(-0.45, 0, 0, 12, "#C8B38B"); Ln([[4, 7.2], [4, 21]], 0.03, "#5F6B67"); Ln([[4, 21], [5.6, 21.8]], 0.03, "#5F6B67"); R(2.7, 9.6, 5.3, 10, "#9AA39F");
+    Lab(1.5 + stud / 2, 4, (o.stud || "2x6").replace("x", "×") + " studs @ " + (o.oc || 16) + "\" o.c.");
+    Lab(-0.2, 6, "Wall sheathing, lapped onto the sill plate");
+    Lab(5.6, 10.8, "2× treated sill plate");
+    Lab(6.5, 11.75, "Sill seal (foam gasket)");
+    Lab(4, 9.8, "3\"×3\" plate washer and nut");
+    Lab(4, 17, "1/2\" anchor bolt, 7\" min into concrete, 6'-0\" o.c. max, 12\" max from each plate end, 2 per plate min (IRC R403.1.6)");
+    Lab(7, 26, "Concrete wall or thickened slab edge, see A-1");
+  });
+  // 2. truss or rafter to wall
+  box(1, (E.post ? "Truss to post" : o.rframe === "truss" ? "Truss" : "Rafter") + " to wall", 34, 22, ({ R, Ln, Lab }) => {
+    const p = (+o.pitch || 6) / 12;
+    R(4, 9, 4 + stud, 22, "#F1DDB5"); R(4, 7.5, 4 + stud, 9, wood); R(4, 6, 4 + stud, 7.5, wood); R(3.55, 6, 4, 22, "#C8B38B");
+    Ln([[4, 6], [34, 6]], 0.035); Ln([[-4, 6 + 8 * p], [34, 6 - 30 * p]], 0.035); Ln([[4 + stud, 6], [14, 6 - 10 * p + 0.2]], 0.02);
+    Ln([[4 + stud + 0.2, 7.5], [4 + stud + 0.2, 4.6], [4 + stud + 1.6, 4.6]], 0.03, "#C0532B");
+    Ln([[16, 6 - 0.3], [24, 6 - 0.3 - 8 * p]], 0.04, "#E8B7C8");
+    Lab(20, 6 - 14 * p, (E.post || o.rframe === "truss" ? "Truss top chord" : "Rafter") + ", " + (+o.pitch || 6) + "/12");
+    Lab(4 + stud + 1, 4.8, "Uplift tie at every " + (E.post || o.rframe === "truss" ? "truss" : "rafter") + " (Simpson H2.5A or per truss reactions)");
+    Lab(20, 5.6, "Vent baffle, keep 1\" air space over insulation");
+    Lab(4 + stud / 2, 7, "Double top plate");
+    Lab(30, 6.2, E.post || o.rframe === "truss" ? "Bottom chord / ceiling" : "Ceiling joist or rafter tie at each rafter");
+    Lab(4 + stud / 2, 15, "Stud wall");
+  });
+  // 3. header
+  box(2, "Header at an opening", 60, 34, ({ R, Ln, Lab }) => {
+    R(0, 0, 60, 1.5, wood); R(0, 1.5, 60, 3, wood); R(0, 3, 1.5, 34, "#F1DDB5"); R(58.5, 3, 60, 34, "#F1DDB5");
+    R(1.5, 3, 3, 34, "#F1DDB5"); R(57, 3, 58.5, 34, "#F1DDB5"); R(3, 3, 57, 3.6, wood); R(1.5, 3.6, 58.5, 12.85, "#C9A46A");
+    R(3, 12.85, 4.5, 34, "#F1DDB5"); R(55.5, 12.85, 57, 34, "#F1DDB5"); Ln([[4.5, 34], [55.5, 34]], 0.01, "#2E6FA8", ".04 .03");
+    Lab(30, 0.8, "Double top plate"); Lab(30, 8, "Header: size on the schedules and S-0.1, built up with 16d @ 16\" each edge" + (o.stud === "2x6" ? "; 1/2\" foam or plywood between plies" : ""));
+    Lab(0.75, 20, "King studs, full height"); Lab(3.75, 26, "Jack (trimmer) studs carry the header, count per the wall framing sheets");
+    Lab(30, 33, "Rough opening");
+  });
+  // 4. top plate splice
+  box(3, "Top plate splice", 72, 14, ({ R, Ln, Lab }) => {
+    R(0, 4, 60, 5.5, wood); R(60, 4, 72, 5.5, wood); R(0, 5.5, 12, 7, wood); R(12, 5.5, 72, 7, wood); R(0, 7, 72, 14, "#F1DDB5");
+    Ln([[60, 3], [60, 8]], 0.02, "#C0532B"); Ln([[12, 3], [12, 8]], 0.02, "#C0532B");
+    for (let i = 0; i < 8; i++) { const x = 47 + i * 1.6 + (i > 3 ? 0.5 : 0); Ln([[x, 4.3], [x, 6.7]], 0.012, "#17231F"); const x2 = 61.5 + i * 1.3; Ln([[x2, 4.3], [x2, 6.7]], 0.012, "#17231F"); }
+    Lab(60, 3.4, "Upper plate joint"); Lab(36, 11, "Wall below"); Lab(12, 7.4, "Lower plate joint, 24\" min (48\" shown) from the upper joint");
+    Lab(55, 4.6, "8-16d face nails each side of the joint (IRC R602.3.2)");
+  });
+  return g.join("");
+}
 function psFoundDetail(b, o, bx, by, bw, bh, num, sheetNo) {
   const I = v => v / 12, post = o.frame === "post", type = post ? "post" : o.found;
   if (!type || type === "none") return "";
@@ -3717,7 +3813,7 @@ function psRaster(b, lv, ext, sIn, ppi, tags, opt = {}) {
     ctx = g; view.s = ppi * sIn / FT; view.x = -ext.x0 * view.s; view.y = -ext.y0 * view.s; selected = null; state.showDims = !opt.noDims; state.ghost = false;
     if (b) {
       state.shapes = JSON.parse(JSON.stringify([b, ...state.shapes.filter(s => s.bid === b.id && s.kind !== "wallview" && s.kind !== "underlay")]));
-      state.level = lv; autoDimension(state.shapes[0], lv);
+      state.level = lv; autoDimension(state.shapes[0], lv, opt.dimK || 1);
     } else {
       state.shapes = state.shapes.filter(s => !s.level && s.kind !== "underlay"); state.level = 99;
       if (opt.site) {
@@ -3736,6 +3832,126 @@ function psRaster(b, lv, ext, sIn, ppi, tags, opt = {}) {
   return { url: c.toDataURL("image/png"), wIn, hIn, sIn };
 }
 
+// ---- engineering: design criteria, member checks and typical details (a preliminary design for an engineer to review) ----
+// Wood: NDS reference values (2018 NDS Supplement Table 4A, No. 2 grade), size factor CF for bending, repetitive Cr 1.15 at 24" or less.
+const LUMBER = { spf2: { n: "SPF No. 2", Fb: 875, Fv: 135, E: 1.4e6 }, df2: { n: "Douglas fir-larch No. 2", Fb: 900, Fv: 180, E: 1.6e6 }, hf2: { n: "Hem-fir No. 2", Fb: 850, Fv: 150, E: 1.3e6 } };
+const DIM_D = { "2x4": 3.5, "2x6": 5.5, "2x8": 7.25, "2x10": 9.25, "2x12": 11.25 }, CF_FB = { "2x4": 1.5, "2x6": 1.3, "2x8": 1.2, "2x10": 1.1, "2x12": 1.0 };
+const LVL_D = [9.25, 11.875, 14, 16, 18], LVL_V = { Fb: 2600, Fv: 285, E: 1.9e6 };
+const engFrac = d => ({ 9.25: "9¼", 11.875: "11⅞", 14: "14", 16: "16", 18: "18" })[d] || String(d);
+// A member: size "2x10" (sawn) or "lvl" with depth d, plies. Section in inches.
+function engMember(size, plies, lum, d) {
+  if (size === "lvl") { const dd = d || 11.875, bb = 1.75 * plies; return { b: bb, d: dd, Fb: LVL_V.Fb * Math.min(1, Math.pow(12 / dd, 0.136)), Fv: LVL_V.Fv, E: LVL_V.E, S: bb * dd * dd / 6, I: bb * dd ** 3 / 12, name: plies + "-ply 1¾×" + engFrac(dd) + " LVL" }; }
+  const dd = DIM_D[size], bb = 1.5 * plies, L = LUMBER[lum] || LUMBER.spf2;
+  return { b: bb, d: dd, Fb: L.Fb * CF_FB[size], Fv: L.Fv, E: L.E, S: bb * dd * dd / 6, I: bb * dd ** 3 / 12, name: (plies > 1 ? plies + "-ply " : "") + size.replace("x", "×") };
+}
+// Longest simple span (ft) under w plf total, deflection checked under wl plf at L/lim. CD load duration, Cr repetitive member.
+function engMaxSpan(m, w, wl, lim, CD = 1, Cr = 1) {
+  const Lb = Math.sqrt(8 * m.Fb * CD * Cr * m.S / 12 / w), Lv = 2 * (2 / 3) * m.Fv * CD * m.b * m.d / w, Ld = wl > 0 ? Math.cbrt(384 * m.E * m.I / (5 * lim * wl / 12)) / 12 : Infinity;
+  const L = Math.min(Lb, Lv, Ld); return { L, by: L === Lb ? "bending" : L === Lv ? "shear" : "deflection (L/" + lim + ")" };
+}
+// The smallest header/beam that works: sawn sizes first at these plies, then LVL by depth and plies.
+function engSuggest(span, w, wl, lim, CD, plies, lum) {
+  for (const sz of ["2x6", "2x8", "2x10", "2x12"]) { const m = engMember(sz, plies, lum); if (engMaxSpan(m, w, wl, lim, CD).L >= span) return m.name; }
+  for (const pl of [plies, plies + 1]) for (const d of LVL_D) { const m = engMember("lvl", pl, lum, d); if (engMaxSpan(m, w, wl, lim, CD).L >= span) return m.name; }
+  return "a beam sized by the engineer";
+}
+function engUse(b, o) { if (o.use && o.use !== "auto") return o.use; const n = (b.name || "").toLowerCase(); return /garage|shop/.test(n) ? "garage" : /shed|coop|barn|stable|storage|lean|pole/.test(n) ? "ag" : "house"; }
+const ENG_USE = { house: ["Home", "R-3", "II"], garage: ["Garage or shop", "U", "II"], ag: ["Shed, coop or barn", "U", "I"] };
+const ENG_CODE = { mn2020: "2020 Minnesota Residential Code (MN Rules ch. 1309, 2018 IRC) with MN Rules 1303 (snow, frost)", irc2021: "2021 International Residential Code, as adopted by the county", irc2018: "2018 International Residential Code, as adopted locally" };
+// Snow (ASCE 7-16 ch. 7), dead and live loads.
+function engLoads(b, o = matOpt(b)) {
+  const use = engUse(b, o), pg = +o.pg || 60, Is = use === "ag" ? 0.8 : 1.0, Ct = use === "house" ? 1.1 : 1.2, Ce = 1.0;
+  const pitch = o.roof === "flat" ? 0.25 : +o.pitch || 6, deg = Math.atan(pitch / 12) * 180 / Math.PI, slip = ["metal", "seam"].includes(o.roofing);
+  const c0 = slip ? { 1: 5, 1.1: 10, 1.2: 15 }[Ct] : { 1: 30, 1.1: 37.5, 1.2: 45 }[Ct], Cs = deg <= c0 ? 1 : Math.max(0, 1 - (deg - c0) / (70 - c0));
+  const pfMin = deg < 15 ? (pg <= 20 ? Is * pg : 20 * Is) : 0, pf = Math.max(0.7 * Ce * Ct * Is * pg, pfMin), ps = Math.max(Cs * pf, pfMin);
+  const rDL = slip ? 10 : 15, bcDL = o.frame === "post" ? 3 : 10, bcLL = use === "house" ? 10 : 20;
+  return { use, pg, Is, Ct, Ce, Cs, deg, pitch, slip, pf, ps, rDL, bcDL, bcLL, fLL: 40, fDL: 10, loftLL: 30, wallDL: 10 };
+}
+// Roof span (ft, across the ridge) and ridge direction in building feet.
+function engSpan(b, o, G) {
+  const f = G.floors.reduce((a, c) => c.area > a.area ? c : a, G.floors[0]), P = f.P;
+  if (P.length === 4) { const a01 = ridgeFirst(b, o, P, G.F), r = a01 ? [P[0], P[1]] : [P[1], P[2]]; return { span: a01 ? dist(P[1], P[2]) : dist(P[0], P[1]), len: dist(r[0], r[1]), ridge: unit(r[0], r[1]), f }; }
+  const B = bbox(P), w = B.x1 - B.x0, h = B.y1 - B.y0; return { span: Math.min(w, h), len: Math.max(w, h), ridge: w >= h ? { x: 1, y: 0 } : { x: 0, y: 1 }, f };
+}
+const engOK = (a, need) => a + 1e-6 >= need;
+// Everything the S sheets show: loads, member checks, footings, bracing, assumptions.
+function engChecks(b) {
+  const o = matOpt(b), G = matGeom(b), Ld = engLoads(b, o), post = o.frame === "post", lum = o.lumber || "spf2", sp = engSpan(b, o, G), ov = (+o.over || 0) / 12;
+  const floors = (G.bsmt ? [G.bsmt] : []).concat(G.floors), out = { o, G, Ld, sp, post, lum, joists: [], roof: [], headers: [], foot: [], brace: [], assume: [], flags: [] };
+  const joisted = f => !post && ((f.lv > GROUND && !(f.loft && o.rframe === "truss")) || (f.lv === GROUND && ["crawl", "bsmt"].includes(o.found)));
+  const fLoad = f => f.loft ? [Ld.loftLL, Ld.fDL] : [Ld.fLL, Ld.fDL];
+  const roofTrib = sp.span / 2 + ov, roofD = Ld.rDL * roofTrib + Ld.bcDL * sp.span / 2, roofS = Ld.ps * roofTrib;
+  out.assume.push("Roof span " + fmtLen(sp.span * FT) + " across the ridge; walls running with the ridge carry the roof (" + fmtLen(roofTrib * FT) + " of roof each, with the overhang)" + (o.roof === "hip" ? "; on a hip roof every outside wall is counted as carrying it" : "") + ".");
+  // floor joists
+  for (const f of floors) {
+    if (!joisted(f)) continue;
+    const [LL, DL] = fLoad(f), short = Math.min(f.L, f.W), oc = 16 / 12;
+    if (o.joist === "ij") { out.joists.push([fName(f), "I-joists 11⅞\" @ 16\"", fmtLen(short * FT), "—", "By the I-joist maker's span table for " + LL + "/" + DL + " psf, L/480 suggested", "SUPPLIER"]); continue; }
+    const m = engMember(o.joist === "2x12" ? "2x12" : "2x10", 1, lum), r = engMaxSpan(m, (LL + DL) * oc, LL * oc, 360, 1, 1.15);
+    const one = engOK(r.L, short), half = engOK(r.L, short / 2);
+    out.joists.push([fName(f), m.name + " @ 16\" (" + LUMBER[lum].n + ")", fmtLen(short * FT) + (one ? "" : " → " + fmtLen(short / 2 * FT) + " with a center beam"), fmtLen(r.L * FT) + " (" + r.by + ")", LL + " live + " + DL + " dead psf", one ? "OK" : half ? "NEEDS BEAM" : "CHECK"]);
+    if (!one) out.flags.push(fName(f) + ": joists can't span " + fmtLen(short * FT) + " in one piece; a center beam or bearing wall (sized by the engineer) is assumed.");
+  }
+  // roof framing
+  if (post || o.rframe === "truss") {
+    const loftF = G.floors.find(f => f.loft);
+    out.roof.push(["Trusses @ " + (post ? (o.tsp || "4") + " ft" : "24\"") + " o.c.", "Pre-engineered by the truss supplier (deferred submittal)", "TCLL " + Math.round(Ld.ps) + " psf (snow), TCDL " + (Ld.slip ? 7 : 10) + " psf, BCDL " + Ld.bcDL + " psf, BCLL " + (loftF ? Ld.loftLL + " psf over the loft room (attic trusses)" : Ld.bcLL + " psf"), "SUPPLIER"]);
+  } else {
+    const run = sp.span / 2, sf = Math.sqrt(1 + (Ld.pitch / 12) ** 2), m = engMember("2x10", 1, lum), oc = 16 / 12, r = engMaxSpan(m, (Ld.ps + Ld.rDL * sf) * oc, Ld.ps * oc, 240, 1.15, 1.15);
+    out.roof.push([m.name + " rafters @ 16\"", "Horizontal run " + fmtLen(run * FT) + "; allows " + fmtLen(r.L * FT) + " (" + r.by + ")", Math.round(Ld.ps) + " psf snow + " + Ld.rDL + " psf dead; ceiling joists or rafter ties at every pair, or a structural ridge beam", engOK(r.L, run) ? "OK" : "CHECK"]);
+  }
+  // headers
+  const ply = o.stud === "2x6" ? 3 : 2, hdone = new Map();
+  floors.forEach((f, i) => {
+    const above = floors.slice(i + 1);
+    let D = roofD + above.reduce((a, g) => a + Ld.wallDL * g.H, 0), S = roofS, L = 0;
+    for (const g of above) if (joisted(g) || (g.loft && o.rframe === "truss")) { const [LL, DL] = fLoad(g), t = (g.loft ? sp.span : Math.min(g.L, g.W)) / 2; D += DL * t; L += LL * t; }
+    const fl = above.some(g => joisted(g) || g.loft), CD = fl ? 1.0 : 1.15, lim = fl ? 360 : 240, w = D + Math.max(L, S, 0.75 * (L + S)), wl = Math.max(L, S, 0.75 * (L + S));
+    for (const q of f.opens) {
+      if (!q.out || post) continue;
+      const a = G.F.toL(q.s.points[0]), c = G.F.toL(q.s.points[1]), u = unit(a, c), bear = o.roof === "hip" || Math.abs(u.x * sp.ridge.x + u.y * sp.ridge.y) > 0.7;
+      const hs = hdrSize(q.w)[0], m = hs.startsWith("LVL") ? engMember("lvl", ply, lum, 11.875) : engMember(hs.replace("×", "x"), ply, lum), span = q.w + 0.25;
+      const key = fName(f) + "|" + Math.round(q.w * 12) + "|" + bear; if (hdone.has(key)) { hdone.get(key)[5]++; continue; }
+      let row;
+      if (!bear) row = [fName(f), fmtLen(q.w * FT), m.name, "Gable end: carries the wall above only", "—", 1, "OK"];
+      else { const r = engMaxSpan(m, w, wl, lim, CD), ok = engOK(r.L, span); row = [fName(f), fmtLen(q.w * FT), m.name, Math.round(w) + " plf (" + [Math.round(D) + " D", S ? Math.round(S) + " S" : "", L ? Math.round(L) + " L" : ""].filter(Boolean).join(" + ") + ")", fmtLen(r.L * FT) + " (" + r.by + ")", 1, ok ? "OK" : "USE " + engSuggest(span, w, wl, lim, CD, ply, lum)]; if (!ok) out.flags.push(fName(f) + " " + fmtLen(q.w * FT) + " opening: " + m.name + " header is too small; " + row[6].slice(4) + " works for these loads."); }
+      hdone.set(key, row); out.headers.push(row);
+    }
+  });
+  // footings: the most loaded outside wall
+  {
+    const H = floors.reduce((a, f) => a + Ld.wallDL * f.H, 0); let D = roofD + H, L = 0;
+    for (const f of floors) if (joisted(f) || (f.loft && o.rframe === "truss")) { const [LL, DL] = fLoad(f), t = (f.loft ? sp.span : Math.min(f.L, f.W) / (joisted(f) && Math.min(f.L, f.W) > 16 ? 2 : 1)) / 2; D += DL * t; L += LL * t; }
+    const qa = +o.soil || 1500, frost = +o.frost || 60;
+    if (post) {
+      const poc = +o.poc || 8, Pp = (roofD + roofS) * poc, A = Pp / qa, dia = Math.sqrt(4 * A / Math.PI) * 12;
+      out.foot.push(["Post footing", Math.round(Pp).toLocaleString() + " lb per post (" + poc + " ft spacing)", Math.ceil(dia) + "\" round pad or " + Math.ceil(Math.sqrt(A) * 12) + "\" square", "Pad bottom at least " + frost + "\" down", "ENGINEER"]);
+    } else if (o.found !== "none") {
+      const fw = o.found === "slab" ? 1 : 1.67, wallW = { frost: 0.667 * (frost / 12) * 150, slab: 150, crawl: 0.667 * 4 * 125, bsmt: 0.667 * 8 * 150 }[o.found] || 0, ftg = fw * 0.667 * 150;
+      D += wallW + ftg; const P = D + Math.max(L, roofS, 0.75 * (L + roofS)), need = P / qa;
+      out.foot.push([o.found === "slab" ? "Thickened slab edge" : "Wall footing", Math.round(P).toLocaleString() + " plf (" + Math.round(D) + " D" + (roofS ? " + " + Math.round(roofS) + " S" : "") + (L ? " + " + Math.round(L) + " L" : "") + ")", fmtLen(need * FT) + " wide needed at " + qa.toLocaleString() + " psf", fmtLen(fw * FT) + " wide drawn", engOK(fw, need) ? "OK" : "WIDEN"]);
+      if (!engOK(fw, need)) out.flags.push("Footing: " + fmtLen(fw * FT) + " is narrower than the " + fmtLen(need * FT) + " these loads need on " + qa.toLocaleString() + " psf soil.");
+      out.assume.push("Footing load uses the wall with the most roof on it, plus " + (o.found === "slab" ? "the slab edge" : "the foundation wall") + " and footing weight; frost depth " + frost + "\".");
+    }
+  }
+  // wall bracing: continuous sheathing (CS-WSP), panels 2 ft or longer between openings
+  if (!post) for (const f of G.floors) {
+    if (f.H < 3) continue;
+    const P = f.P, n = P.length;
+    for (let i = 0; i < n; i++) {
+      const a = P[i], c = P[(i + 1) % n], Lw = dist(a, c), u = unit(a, c); if (Lw < 2) continue;
+      const iv = f.opens.filter(q => q.out).map(q => { const p0 = G.F.toL(q.s.points[0]), p1 = G.F.toL(q.s.points[1]), m = { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 }; return { m, q }; }).filter(x => segDist(x.m, a, c) < 1.2)
+        .map(({ m, q }) => { const t = (m.x - a.x) * u.x + (m.y - a.y) * u.y; return [Math.max(0, t - q.w / 2), Math.min(Lw, t + q.w / 2)]; }).sort((p, q) => p[0] - q[0]);
+      const segs = []; let at = 0; for (const [s0, s1] of iv) { if (s0 > at) segs.push([at, s0]); at = Math.max(at, s1); } if (at < Lw) segs.push([at, Lw]);
+      const pan = segs.filter(([s0, s1]) => s1 - s0 >= 2 - 1e-6), tot = pan.reduce((x, [s0, s1]) => x + s1 - s0, 0);
+      const ends = pan.length && pan[0][0] <= 10 && pan[pan.length - 1][1] >= Lw - 10, gaps = pan.every((p, k) => !k || p[0] - pan[k - 1][1] <= 20);
+      let nn = { x: -u.y, y: u.x }; if (inPoly({ x: (a.x + c.x) / 2 + nn.x * 0.5, y: (a.y + c.y) / 2 + nn.y * 0.5 }, P)) nn = { x: -nn.x, y: -nn.y };
+      const wd = G.F.dir(nn.x, nn.y), side = Math.abs(wd.x) > Math.abs(wd.y) ? (wd.x > 0 ? "East" : "West") : (wd.y > 0 ? "South" : "North");
+      out.brace.push([fName(f), side + " wall (side " + (i + 1) + ")", fmtLen(Lw * FT), String(pan.length), fmtLen(tot * FT) + " (" + Math.round(tot / Lw * 100) + "%)", ends && gaps ? "OK" : "CHECK"]);
+    }
+  }
+  return out;
+}
 function psBuild(b) {
   PSU = psU(ps.paper);
   const [RW, RH] = PS_PAPER[ps.paper], PW = RW / PSU, PH = RH / PSU, TB = PW > 13 ? 2.1 : 1.7, M = 0.4, aw = PW - 2 * M - TB - 0.2, ah = PH - 2 * M, ax = M, ay = M;
@@ -3747,11 +3963,17 @@ function psBuild(b) {
   // ---- floor plans (raster, true scale, wall tags) ----
   const fpPages = [];
   for (const f of ord) {
-    const WL = psWalls(b, f.lv), pts = state.shapes.filter(s => s.bid === b.id && (s.level === f.lv || s.kind === "building")).flatMap(s => s.points).concat(b.points);
-    const B = bbox(pts), dh = ah - 0.6, [sIn, sTxt] = psFit((B.x1 - B.x0) / FT + 24, (B.y1 - B.y0) / FT + 24, aw, dh);
+    const WL = psWalls(b, f.lv), pts = state.shapes.filter(s => s.bid === b.id && (s.level === f.lv || (!s.level && s.kind !== "wallview" && s.kind !== "underlay")))
+      .flatMap(s => s.kind === "opening" && s.points.length >= 2 && ["door", "double"].includes(s.otype || "door") ? (() => { const [a, c] = s.points, L = dist(a, c) / (s.otype === "double" ? 2 : 1), u = unit(a, c), sd = s.side || 1, n = { x: -u.y * sd, y: u.x * sd }; return [a, c].flatMap(p => [p, { x: p.x + n.x * L, y: p.y + n.y * L }]); })() : s.points).concat(b.points);   // outward door swings count
+    // Biggest true architect's scale where the plan and its dimension strings fit. The dimension rows are spaced
+    // by paper inches (about 0.27" apart), so they don't eat the sheet at bigger scales.
+    const B = bbox(pts), dh = ah - 0.5, dimK = kr => Math.max(0.45, Math.min(1, 0.09 / kr)), padFt = kr => 9.5 * dimK(kr) + 0.15 / kr;
+    const pk = PS_ARCH.find(([kr]) => ((B.x1 - B.x0) / FT + 2 * padFt(kr)) * kr <= aw * PSU && ((B.y1 - B.y0) / FT + 2 * padFt(kr)) * kr <= dh * PSU) || PS_ARCH[PS_ARCH.length - 1];
+    const pk1 = PS_ARCH.find(([kr]) => ((B.x1 - B.x0) / FT + 24) * kr <= aw * PSU && ((B.y1 - B.y0) / FT + 24) * kr <= dh * PSU) || PS_ARCH[PS_ARCH.length - 1];
+    const sIn = pk[0] / PSU, sTxt = pk[1], K = pk1[0] >= pk[0] ? 1 : dimK(pk[0]);   // rows packed only when that buys a bigger scale
     const cx = (B.x0 + B.x1) / 2, cy = (B.y0 + B.y1) / 2, hw = aw / sIn / 2 * FT, hh = dh / sIn / 2 * FT, ext = { x0: cx - hw, y0: cy - hh, x1: cx + hw, y1: cy + hh };
-    const tags = WL.walls.map(w => { const m = { x: (w.a.x + w.c.x) / 2, y: (w.a.y + w.c.y) / 2 }, u = unit(w.a, w.c), nn = { x: -u.y, y: u.x }, off = w.ext ? 2.2 : 1.1; let q = { x: m.x + nn.x * off, y: m.y + nn.y * off }; if (w.ext && inPoly(q, WL.f.P)) q = { x: m.x - nn.x * off, y: m.y - nn.y * off }; return { tag: w.tag, p: F.toW(q) }; });
-    const R = psRaster(b, f.lv, ext, sIn, 100, tags);
+    const tags = WL.walls.map(w => { const m = { x: (w.a.x + w.c.x) / 2, y: (w.a.y + w.c.y) / 2 }, u = unit(w.a, w.c), nn = { x: -u.y, y: u.x }, off = (w.ext ? 2.2 : 1.1) * Math.max(0.5, K); let q = { x: m.x + nn.x * off, y: m.y + nn.y * off }; if (w.ext && inPoly(q, WL.f.P)) q = { x: m.x - nn.x * off, y: m.y - nn.y * off }; return { tag: w.tag, p: F.toW(q) }; });
+    const R = psRaster(b, f.lv, ext, sIn, 100, tags, { dimK: K });
     fpPages.push([f, R, sTxt, WL]);
   }
   // ---- cover ----
@@ -3951,6 +4173,75 @@ function psBuild(b) {
     const rt = `<table class="ps-tbl"><thead><tr><th>Room</th><th>Floor</th><th>Size</th><th>Area</th></tr></thead><tbody>${rooms.map(r => `<tr><td>${psE(r.name)}</td><td>${psE(levelName(r.level))}</td><td>${r.points.length === 4 ? psE(fmtLen(dist(r.points[0], r.points[1]))) + " × " + psE(fmtLen(dist(r.points[1], r.points[2]))) : ""}</td><td>${psE(fmtArea(area(r.points)))}</td></tr>`).join("") || `<tr><td colspan="4">No rooms drawn yet.</td></tr>`}</tbody></table>`;
     page("A-" + an++, "Door, window and room schedules", "", `<div class="ps-html" style="left:${ax}in;top:${ay}in;width:${n2(aw)}in;height:${n2(ah)}in"><h3>Door and window schedule</h3>${tbl}<p class="ps-note">Rough openings are the usual allowance (½" each side for windows); use the size the window or door maker lists.</p><h3>Rooms</h3>${rt}</div>`);
   }
+  // ---- engineering: notes and design criteria, framing checks, typical details ----
+  {
+    const E = engChecks(b), Ld = E.Ld, U = ENG_USE[Ld.use], nc = Math.max(1, Math.floor(aw / 6.4)), cw = (aw - (nc - 1) * 0.25) / nc, colH = (ah - 0.15) * 0.93, cpl = cw * 15.5;
+    const lines = (t, w = 1) => Math.max(1, Math.ceil(String(t).replace(/<[^>]+>/g, "").length / (cpl * w)));
+    const tbl = (title, head, rows, wts, note) => { const tw = wts.reduce((a, c) => a + c, 0); let h = 0.34 + 0.2 + (note ? 0.16 * lines(note) : 0); for (const r of rows) h += 0.05 + 0.145 * Math.max(...r.map((c, k) => lines(c, wts[k] / tw))); return { h, html: `<h3>${psE(title)}</h3><table class="ps-tbl"><thead><tr>${head.map(x => `<th>${psE(x)}</th>`).join("")}</tr></thead><tbody>${rows.map(r => `<tr>${r.map((c, k) => `<td${k === r.length - 1 && /^(OK|CHECK|USE|WIDEN|NEEDS|SUPPLIER|ENGINEER)/.test(c) ? ` class="${c === "OK" ? "ok" : /^(SUPPLIER|ENGINEER)/.test(c) ? "eng" : "bad"}"` : ""}>${psE(c)}</td>`).join("")}</tr>`).join("")}</tbody></table>${note ? `<p class="ps-note">${psE(note)}</p>` : ""}` }; };
+    const list = (title, items, ol = true) => ({ h: 0.34 + items.reduce((a, t) => a + 0.03 + 0.145 * lines(t, 0.95), 0), html: `<h3>${psE(title)}</h3><${ol ? "ol" : "ul"} class="ps-notes">${items.map(t => `<li>${psE(t)}</li>`).join("")}</${ol ? "ol" : "ul"}>` });
+    let eN = 0;
+    const sheets = (title, blocks) => {
+      const cols = [[]], hs = [0];
+      for (const bl of blocks) { if (hs[hs.length - 1] + bl.h > colH && cols[cols.length - 1].length) { cols.push([]); hs.push(0); } cols[cols.length - 1].push(bl.html); hs[hs.length - 1] += bl.h; }
+      for (let p = 0; p * nc < cols.length; p++) page(eN++ ? "S-0." + (eN - 1) : "S-0", title + (p ? " (cont.)" : ""), "", cols.slice(p * nc, p * nc + nc).map((c, i) => `<div class="ps-html" style="left:${n2(ax + i * (cw + 0.25))}in;top:${ay}in;width:${n2(cw)}in;height:${n2(ah)}in">${c.join("")}</div>`).join(""));
+    };
+    const crit = [
+      ["Code", ENG_CODE[o.code] || ENG_CODE.mn2020],
+      ["Use / occupancy", U[0] + ", " + U[1] + ", risk category " + U[2] + "; construction type V-B"],
+      ["Ground snow load, pg", Ld.pg + " psf" + ((o.code || "mn2020") === "mn2020" ? " (MN Rules 1303.1700; confirm with the county)" : " (confirm with the county)")],
+      ["Flat-roof snow, pf", "0.7 × Ce " + Ld.Ce + " × Ct " + Ld.Ct + " × Is " + Ld.Is + " × pg = " + Math.round(Ld.pf * 10) / 10 + " psf (ASCE 7-16 eq. 7.3-1)"],
+      ["Sloped-roof snow, ps", "Cs " + Math.round(Ld.Cs * 100) / 100 + " (" + Math.round(Ld.deg) + "°, " + (Ld.slip ? "slippery metal" : "shingles") + ") → " + Math.round(Ld.ps * 10) / 10 + " psf balanced; drift and unbalanced loads by the truss designer"],
+      ["Roof dead load", Ld.rDL + " psf top chord, " + Ld.bcDL + " psf ceiling"],
+      ["Floor loads", Ld.fLL + " psf live (" + Ld.loftLL + " psf loft / sleeping rooms), " + Ld.fDL + " psf dead (IRC Table R301.5)"],
+      ["Wind", (o.wind || "115") + " mph ultimate (3-second gust), exposure " + (o.exp || "C") + "; ASCE 7-16"],
+      ["Seismic", "Design category " + (o.sdc || "A")],
+      ["Frost depth", (o.frost || "60") + "\" to the bottom of footings"],
+      ["Soil", (+o.soil || 1500).toLocaleString() + " psf allowable bearing" + ((+o.soil || 1500) === 1500 ? " (IRC Table R401.4.1 presumptive; no soil report)" : " (soil report required)")],
+      ["Wood", LUMBER[E.lum].n + " (Fb " + LUMBER[E.lum].Fb + ", E " + (LUMBER[E.lum].E / 1e6).toFixed(1) + "M psi, NDS 2018); LVL Fb 2,600 psi, E 1.9M psi; treated lumber at concrete and ground"],
+      ["Concrete", "3,000 psi footings and walls, 3,500 psi air-entrained for garage floors, porches and steps (IRC Table R402.2, severe weathering)"],
+      ["Steel", "Rebar ASTM A615 grade 60; anchor bolts ASTM F1554 gr. 36; connectors G90 galvanized (G185 or stainless in treated wood)"],
+    ];
+    const gen = [
+      "This is a preliminary design drawn by the owner for a licensed engineer's review. Nothing here is for construction until an engineer seals it.",
+      "The contractor checks every dimension and condition on site and reports any difference to the engineer before building.",
+      "Framing follows IRC chapter 6 (walls), chapter 5 (floors) and chapter 8 (roofs) unless a sheet says otherwise.",
+      "Sheathe all outside walls with " + ({ osb: "7/16\" OSB", ply: "1/2\" plywood", zip: "7/16\" ZIP sheathing" }[o.wsheath] || "7/16\" OSB") + ", continuous over openings (IRC R602.10, method CS-WSP), nailed per the schedule.",
+      "Block all panel edges at braced wall panels where required; braced wall lines and panels per IRC R602.10.",
+      "Headers in outside walls as shown on the schedules and checked on S-0.1; inside non-bearing walls get a flat 2× or single header.",
+      "Anchor bolts: 1/2\" with 7\" embedment, 6'-0\" o.c. max, within 12\" of each plate end, at least 2 per plate piece (IRC R403.1.6).",
+      "Every truss or rafter gets an uplift connector at each bearing (Simpson H2.5A or equal, or as the truss reactions require).",
+      "Fasteners in treated lumber: hot-dip galvanized or stainless.",
+      "Bedrooms: one egress window each (5.7 sq ft open, 20\" wide, 24\" tall, sill 44\" max). Smoke and CO alarms per IRC R314/R315.",
+    ];
+    const subm = [
+      (E.post || o.rframe === "truss" ? "Roof trusses: sealed truss design drawings and layout from the supplier, designed for the loads on S-0, with permanent bracing per BCSI and uplift reactions shown." : "No trusses (rafters): the engineer confirms ridge support and rafter ties."),
+      ...(o.joist === "ij" ? ["I-joists: the maker's layout and span sheets for the floor loads above."] : []),
+      "Windows and doors: design pressure rating for the wind speed above.",
+      ...(E.flags.length ? ["Engineered beams/headers where S-0.1 says USE or CHECK: supplier sizing sheets."] : []),
+    ];
+    const fast = [
+      ["Stud to bottom plate", "4-8d toe or 2-16d end nails"], ["Top plate to stud", "2-16d end nails"], ["Double top plate", "16d @ 16\" o.c. face nailed"], ["Top plate splice", "8-16d each side, splices 24\" apart min"],
+      ["Top plates at corners and walls", "2-16d face nails"], ["Built-up header", "16d @ 16\" each edge, both faces"], ["Built-up corner studs", "16d @ 24\" o.c."], ["Bottom plate to floor", "16d @ 16\" o.c."],
+      ["Joist to sill or plate", "3-8d toe"], ["Rim joist to plate", "8d @ 6\" o.c. toe"], ["Truss or rafter to plate", "3-10d toe + uplift connector"], ["Blocking to plate", "3-8d toe"],
+      ["Wall sheathing", "8d common @ 6\" edges, 12\" field"], ["Roof sheathing", "8d common @ 6\" edges, 12\" field"], ["Subfloor 3/4\"", "8d common @ 6\" edges, 12\" field + glue"],
+    ];
+    sheets("Structural notes and design criteria", [
+      tbl("Design criteria", ["Item", "Value"], crit, [1, 2.6]),
+      list("General structural notes", gen),
+      list("Deferred submittals (the engineer reviews these)", subm, false),
+      tbl("Typical fastening", ["Connection", "Nails"], fast, [1.2, 1.4], "From IRC Table R602.3(1); the table governs where it differs. 8d = 2½\" × 0.131\", 10d = 3\" × 0.148\", 16d = 3½\" × 0.162\" common."),
+    ]);
+    const blocks = [];
+    if (E.flags.length) blocks.push(list("Needs attention", E.flags, false));
+    if (E.joists.length) blocks.push(tbl("Floor joists", ["Floor", "Member", "Span (short way)", "Allows", "Loads", "Result"], E.joists, [0.8, 1.4, 1.4, 1.1, 1.2, 0.8], "Simple span, L/360 under live load, repetitive members (Cr 1.15)."));
+    blocks.push(tbl("Roof framing", ["Member", "Check", "Loads", "Result"], E.roof, [1, 1.6, 2, 0.8]));
+    if (E.headers.length) blocks.push(tbl("Outside wall headers", ["Floor", "Opening", "Header", "Load", "Allows", "Qty", "Result"], E.headers.map(r => r.map(String)), [0.7, 0.7, 1, 1.5, 1.1, 0.35, 1.3], "Span = opening + 3\" of bearing. Load combinations D + S, D + L, D + 0.75(L + S); L/240 roof only, L/360 with a floor above; CD 1.15 for snow, 1.0 with floors."));
+    if (E.foot.length) blocks.push(tbl(E.post ? "Post footings" : "Footings", ["Item", "Load", "Needs", "Drawn", "Result"], E.foot, [0.9, 1.5, 1.4, 1, 0.7]));
+    if (E.brace.length) blocks.push(tbl("Wall bracing (continuous sheathing, CS-WSP)", ["Floor", "Wall line", "Length", "Panels", "Full-height sheathing", "Result"], E.brace, [0.7, 1.4, 0.7, 0.5, 1.2, 0.6], "Panels are full-height sheathed pieces 2 ft or longer between openings. OK = a panel within 10 ft of each end and no gap over 20 ft (IRC R602.10.2.2). The required total length per IRC Table R602.10.3(1)/(3) is for the engineer to confirm."));
+    blocks.push(list("Assumptions", E.assume.concat(["Members are checked as simple spans with the NDS 2018 values listed on S-0; this is a starting point for the engineer, not a sealed calculation.", "Wind uplift, lateral loads, point loads from beams and any concentrated loads are left for the engineer."]), false));
+    sheets("Framing checks", blocks);
+    page("S-0." + eN++, "Typical details", "Not to scale", svg(PS_DEFS + psTypDetails(ax, ay, aw, ah, o, E)));
+  }
   // ---- wall framing elevations ----
   {
     const items = []; for (const f of ord) for (const w of psWalls(b, f.lv).walls) items.push([f, w]);
@@ -4030,25 +4321,28 @@ function psBuild(b) {
   {
     const area0 = G.floors.reduce((a, f) => a + f.area, 0);
     const info = [["Project", proj], ["Structure", b.name], ["Type", post ? "Post-frame (pole barn)" : "Stick-framed"], ["Floors", G.floors.map(f => `${fName(f)} ${Math.round(f.area).toLocaleString()} sq ft`).join(" · ")], ["Total floor area", Math.round(area0).toLocaleString() + " sq ft"], ["Walls", post ? `${o.eave} ft posts @ ${o.poc} ft` : `${o.stud.replace("x", "×")} @ ${o.oc}" o.c., ${G.floors.map(f => fmtLen(f.H * FT)).join(" / ")}`], ["Foundation", post ? (o.pfoot === "pad" ? "Poured pads and collars" : "Precast pier pads") + ", 4½ ft deep" : ((MAT_OPTS.flatMap(g2 => g2[1]).find(x => x[0] === "found") || [0, 0, []])[2].find(x => x[0] === o.found) || ["", ""])[1]], ["Roof", `${o.roof}, ${o.pitch}/12, ${o.over}" overhang`]];
-    const notes = ["Build to the current Minnesota Residential Code (IRC) and energy code, and any county rules. These drawings don't replace an engineer or the building official.", "Check every dimension on site before cutting or ordering. Written dimensions beat scaled ones.", "Frost depth: footings at least 60\" below grade in northern Minnesota (check your county).", "Truss drawings come from the truss supplier; follow their bracing details.", "Headers shown are typical for one-story bearing walls; check them for snow load (about 60 psf ground snow in Carlton County) and anything above.", "All lumber touching concrete or the ground is pressure-treated; use hot-dip or stainless fasteners in treated wood.", "Windows: flash with tape, bottom then sides then top. Bedrooms need an egress window."];
+    const notes = ["Build to the code on sheet S-0 and any county rules. This is a preliminary set for an engineer's review: design loads and structural notes are on S-0, member checks on S-0.1, typical details after that. It is not for construction until a licensed engineer seals it.", "Check every dimension on site before cutting or ordering. Written dimensions beat scaled ones.", "Frost depth: footings at least 60\" below grade in northern Minnesota (check your county).", "Truss drawings come from the truss supplier; follow their bracing details.", "Headers shown are typical for one-story bearing walls; check them for snow load (about 60 psf ground snow in Carlton County) and anything above.", "All lumber touching concrete or the ground is pressure-treated; use hot-dip or stainless fasteners in treated wood.", "Windows: flash with tape, bottom then sides then top. Bedrooms need an egress window."];
     if (!mepCount(b).any) notes.push("No outlets, fixtures, wires or pipes are drawn yet. Add them in each wall's wall view (designer > a wall > Wall view) to get electrical and plumbing sheets and counts.");
     pages[0].body = `<div class="ps-html" style="left:${ax}in;top:${ay}in;width:${n2(aw)}in;height:${n2(ah)}in"><h1 class="ps-h1">${psE(b.name)}</h1><p class="ps-sub">${psE(proj)} · plan set printed ${psE(date)}</p>
       <div class="ps-cov"><div><h3>About this building</h3><table class="ps-tbl">${info.map(([k2, v]) => `<tr><th>${psE(k2)}</th><td>${psE(v)}</td></tr>`).join("")}</table><h3>General notes</h3><ol class="ps-notes">${notes.map(t => `<li>${psE(t)}</li>`).join("")}</ol></div>
       <div><h3>Sheets</h3><table class="ps-tbl">${pages.map(p => `<tr><td>${psE(p.no)}</td><td>${psE(p.title)}</td></tr>`).join("")}</table></div></div></div>`;
   }
   // ---- wrap each sheet with its title block ----
-  const tbX = PW - M - TB;
+  const tbX = PW - M - TB, PI = state.psInfo || {};
+  const tbInfo = [["Site", PI.addr], ["Owner", PI.owner], ["Drawn by", PI.by]].filter(r => r[1]).map(([k2, v]) => `<div class="ps-tb-i"><b>${k2}:</b> ${psE(v)}</div>`).join("");
   const out = pages.map((p, i) => `<div class="ps-page" style="width:${RW}in;height:${RH}in"><div class="ps-in" style="width:${n2(PW)}in;height:${n2(PH)}in;transform:scale(${PSU})">${p.body}<div class="ps-tb" style="left:${n2(tbX)}in;top:${M}in;width:${TB}in;height:${n2(PH - 2 * M)}in">
-    <div class="ps-tb-proj">${psE(proj)}</div><div class="ps-tb-b">${psE(b.name)}</div><div class="ps-tb-sp"></div>
+    <div class="ps-tb-proj">${psE(proj)}</div><div class="ps-tb-b">${psE(b.name)}</div>${tbInfo}<div class="ps-tb-sp"></div>
+    <table class="ps-tb-rev"><thead><tr><th>Rev</th><th>Date</th><th>What changed</th></tr></thead><tbody><tr><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td></tr></tbody></table>
+    <div class="ps-tb-seal">Engineer's seal</div>
     <div class="ps-tb-t">${psE(p.title)}</div>${p.scale ? `<div class="ps-tb-s">Scale: ${psE(p.scale)}</div>` : ""}<div class="ps-tb-s">${psE(date)}</div>
     <div class="ps-tb-n">${psE(p.no)}</div><div class="ps-tb-s">Sheet ${i + 1} of ${pages.length}</div>
-    <div class="ps-tb-d">Drawn with Site Plan. Check with your building official before building.</div></div>
+    <div class="ps-tb-d">Preliminary: for engineer review. Not for construction until sealed. Drawn with Site Plan.</div></div>
     <div class="ps-frame" style="left:${M}in;top:${M}in;width:${n2(PW - 2 * M)}in;height:${n2(PH - 2 * M)}in"></div></div></div>`);
   PSU = 1;
   return out;
 }
 
-function openPlans(b) { ps.b = b.id; ps.paper = PS_PAPER[state.psPaper] ? state.psPaper : "tabloid"; $("ps-paper").value = ps.paper; $("ps-title").textContent = "Plan set · " + b.name; if (!$("plandlg").open) $("plandlg").showModal(); renderPlans(); }
+function openPlans(b) { { const PI = state.psInfo || {}; $("ps-addr").value = PI.addr || ""; $("ps-owner").value = PI.owner || ""; $("ps-by").value = PI.by || ""; } ps.b = b.id; ps.paper = PS_PAPER[state.psPaper] ? state.psPaper : "tabloid"; $("ps-paper").value = ps.paper; $("ps-title").textContent = "Plan set · " + b.name; if (!$("plandlg").open) $("plandlg").showModal(); renderPlans(); }
 function renderPlans() {
   const b = state.shapes.find(s => s.id === ps.b && s.kind === "building"); if (!b) return;
   $("ps-msg").textContent = "Drawing the sheets…";
@@ -4070,6 +4364,7 @@ function printPlans() {
   window.addEventListener("afterprint", done);
   try { window.print(); } catch (e) { $("ps-msg").textContent = "Printing isn't available here. Open Site Plan in its own browser tab and try again."; done(); }
 }
+for (const [id, k] of [["ps-addr", "addr"], ["ps-owner", "owner"], ["ps-by", "by"]]) $(id).addEventListener("change", e => { state.psInfo = Object.assign({}, state.psInfo, { [k]: e.target.value.trim() }); save(); renderPlans(); });
 $("ps-paper").addEventListener("change", e => { ps.paper = e.target.value; state.psPaper = ps.paper; save(); renderPlans(); });
 $("ps-print").onclick = () => printPlans();
 $("ps-close").onclick = () => $("plandlg").close();
@@ -4999,7 +5294,7 @@ function buildingFrame(b) {
   };
 }
 function uniqSorted(a) { const s = [...a].sort((x, y) => x - y), o = []; for (const v of s) if (!o.length || v - o[o.length - 1] > 1 / 24) o.push(v); return o; }
-function autoDimension(b, lv) {
+function autoDimension(b, lv, k = 1) {   // k < 1 packs the rows closer (plan sets at bigger scales)
   const F = buildingFrame(b);
   state.shapes = state.shapes.filter(s => !(s.kind === "dim" && s.auto && s.bid === b.id && s.level === lv));
   const ext = state.shapes.find(s => s.bid === b.id && s.level === lv && s.kind === "wall" && s.closed);
@@ -5032,7 +5327,7 @@ function autoDimension(b, lv) {
     if (rowWalls.length > 2) rows.push(rowWalls);
     rows.push([0, len]);
     rows.forEach((row, r) => {
-      const off = 3.5 + prot + r * 3, pts = row.map(v => F.toW({ x: A.x + u.x * v, y: A.y + u.y * v }));
+      const off = (3.5 + r * 3) * k + prot, pts = row.map(v => F.toW({ x: A.x + u.x * v, y: A.y + u.y * v }));
       const ud = unit(pts[0], pts[1]), nd = { x: -ud.y, y: ud.x }, o = F.dir(out.x, out.y), sign = (o.x * nd.x + o.y * nd.y) >= 0 ? 1 : -1;
       state.shapes.push({ id: state.nextId++, kind: "dim", auto: true, name: "Dimension", bid: b.id, level: lv, points: pts, offset: sign * off * FT, closed: false, thickness: 0 });
     });
@@ -5211,6 +5506,12 @@ function dzFields() {
 function dzSelFields() {
   const s = dzSel(), isOpen = s && "otype" in s, isRoom = s && !isOpen && "w" in s && "h" in s, isWall = s && "x1" in s;
   $("dz-roombox").hidden = !isRoom; $("dz-wallbox").hidden = !isWall; $("dz-openbox").hidden = !isOpen;
+  const dm = dz.dsel != null && (dz.dims || []).find(m => m.id === dz.dsel); $("dz-dimbox").hidden = !dm;
+  if (dm) {
+    const G = dzDimGeom(dm.pts, 0), seg = []; for (let i = 1; i < G.t.length; i++) seg.push(fl(Math.abs(G.t[i] - G.t[i - 1])));
+    $("dz-dinfo").textContent = "Overall " + fl(Math.abs(G.t[G.t.length - 1] - G.t[0])) + (seg.length > 1 ? " (" + seg.join(" + ") + ")" : "");
+    if (document.activeElement !== $("dz-doff")) $("dz-doff").value = fl(Math.abs(dm.off));
+  }
   if (isWall) { $("dz-wallhead").textContent = s.ext ? "Exterior wall" : "Selected wall"; $("dz-wdel").hidden = !!s.ext; }
   if (isOpen) {
     const wIn = Math.round(s.w * 12), widths = OWIDTHS.includes(wIn) ? OWIDTHS : [...OWIDTHS, wIn].sort((a, b) => a - b);
@@ -5499,7 +5800,10 @@ function dzDrawDim(pts, off, col, live) {
 }
 function dzDrawDims() {
   if (!dz) return;
-  for (const m of dz.dims || []) dzDrawDim(m.pts, m.off, m.id === dz.dsel ? MARK : "#1D4E89");
+  for (const m of dz.dims || []) {
+    dzDrawDim(m.pts, m.off, m.id === dz.dsel ? MARK : "#1D4E89");
+    if (m.id === dz.dsel) for (const p of m.pts) { const q = dS(p.x, p.y); dctx.beginPath(); dctx.arc(q.x, q.y, 5, 0, Math.PI * 2); dctx.fillStyle = "#fff"; dctx.fill(); dctx.lineWidth = 2; dctx.strokeStyle = MARK; dctx.stroke(); }
+  }
   const d = dz.ddraft; if (!d || dz.tool !== "dim") return;
   if (d.off) { const G = dzDimGeom(d.pts, 0), p = dz.ptr || d.pts[0]; dzDrawDim(d.pts, (p.x - d.pts[0].x) * G.n.x + (p.y - d.pts[0].y) * G.n.y, MARK); }
   else if (dz.ptr) dzDrawDim([...d.pts, dzSnapPt(dz.ptr, null, shiftHeld)], 0, MARK);
@@ -5509,12 +5813,22 @@ function dzDimHit(p) {
   for (const m of [...(dz.dims || [])].reverse()) { const G = dzDimGeom(m.pts, m.off); for (let i = 1; i < G.D.length; i++) if (segDist(p, G.D[i - 1], G.D[i]) < 8 / dk) return m; }
   return null;
 }
+// Press on the picked dimension's dots (move a point) or on any dimension line (pick it, drag slides the line). True if it took the press.
+function dzDimPress(p) {
+  const cur = dz.dsel != null && (dz.dims || []).find(m => m.id === dz.dsel);
+  if (cur) { const i = cur.pts.findIndex(q => Math.hypot((q.x - p.x) * dk, (q.y - p.y) * dk) < 9); if (i >= 0) { dDrag = { mode: "dimpt", m: cur, i }; return true; } }
+  const m = dzDimHit(p); if (!m) return false;
+  if (dz.sel != null) dz.sel = null;
+  dz.dsel = m.id; dDrag = { mode: "dimoff", m }; dzSelFields(); dzDraw();
+  $("dz-hint").textContent = "Dimension picked. Drag it to slide the line in or out, drag a dot to move that point, type the distance in the panel, or press Delete to remove it.";
+  return true;
+}
 function dzDimTap(p, free) {
   const d = dz.ddraft, q = dzSnapPt(p, null, free);
   if (!d) {
+    if (dzDimPress(p)) return;
     if (dz.sel != null) { dz.sel = null; dzSelFields(); }
-    const m = dzDimHit(p); if (m) { dz.dsel = m.id; dDrag = { mode: "dimoff", m }; dzDraw(); $("dz-hint").textContent = "Dimension picked. Drag it to slide the line in or out; Delete removes it; click empty space to start a new one."; return; }
-    dz.dsel = null; dz.ddraft = { pts: [q] }; dzDraw(); return;
+    dz.dsel = null; dzSelFields(); dz.ddraft = { pts: [q] }; dzDraw(); return;
   }
   if (d.off) {   // set how far out the line sits, and keep it
     const G = dzDimGeom(d.pts, 0), off = (p.x - d.pts[0].x) * G.n.x + (p.y - d.pts[0].y) * G.n.y;
@@ -5613,6 +5927,8 @@ dzc.addEventListener("pointerdown", e => {
     if (h.ref.type === "free") Object.assign(o, { cx: h.c.x, cy: h.c.y, ux: h.u.x, uy: h.u.y, th: h.th }); else o.along = h.along;
     dz.opens.push(o); dz.sel = o.id; dz.hover = null; dz.ohover = null; dzSelFields(); dzDraw(); return;
   }
+  if (dzDimPress(p)) return;
+  if (dz.dsel != null) { dz.dsel = null; dzSelFields(); }
   const oHit = dz.opens.map(o => ({ o, E: openEnds(o) })).filter(x => x.E && segDist(p, x.E[0], x.E[1]) * dk <= Math.max(7, x.E[2].th * dk / 2 + 3))[0];
   if (oHit) { dz.sel = oHit.o.id; dDrag = { mode: "omove", o: oHit.o }; dzSelFields(); dzDraw(); return; }
   const sel = dzSel();
@@ -5643,10 +5959,13 @@ dzc.addEventListener("pointermove", e => {
   if (dDrag && dDrag.mode === "pan") { const s = dzScreen(e); dzPanBy(s.x - dDrag.last.x, s.y - dDrag.last.y); dDrag.last = s; return; }
   const p = dzLocal(e);
   dz.ptr = p;
-  if (dz.tool === "dim") {
-    if (dDrag && dDrag.mode === "dimoff") { const m = dDrag.m, G = dzDimGeom(m.pts, 0); m.off = (p.x - m.pts[0].x) * G.n.x + (p.y - m.pts[0].y) * G.n.y; dzDraw(); return; }
-    if (dz.ddraft) dzDraw(); return;
+  if (dDrag && dDrag.mode === "dimoff") { const m = dDrag.m, G = dzDimGeom(m.pts, 0); m.off = (p.x - m.pts[0].x) * G.n.x + (p.y - m.pts[0].y) * G.n.y; dzSelFields(); dzDraw(); return; }
+  if (dDrag && dDrag.mode === "dimpt") {
+    const m = dDrag.m, q = dzSnapPt(p, null, e.shiftKey), o = m.pts.filter((_, j) => j !== dDrag.i);
+    if (o.every(r => Math.hypot(r.x - q.x, r.y - q.y) > 0.05)) { m.pts[dDrag.i] = { x: q.x, y: q.y }; dzSelFields(); }
+    dzDraw(); return;
   }
+  if (dz.tool === "dim") { if (dz.ddraft) dzDraw(); return; }
   if (dz.tool === "wall" && !dz.wdraft && !dDrag) { const hv = e.shiftKey ? null : dzWallHover(p); if (hv || dz.whover) { dz.whover = hv; dzc.dataset.hover = hv ? fl(hv.lo - hv.prev) + "|" + fl(hv.next - hv.hi) + "|" + hv.near : ""; dzDraw(); } return; }
   if (dz.tool === "wall" && dz.wdraft && (dDrag || dz.wdraft.waiting)) { const end = dzWallEnd({ x: dz.wdraft.x1, y: dz.wdraft.y1 }, p, e.shiftKey); dz.wdraft.x2 = end.x; dz.wdraft.y2 = end.y; dzDraw(); return; }
   if (dz.tool === "open" && !dDrag) {
@@ -5758,6 +6077,11 @@ $("dz-ow").addEventListener("change", e => { const o = dzSel(); if (o && "otype"
 $("dz-olabel").addEventListener("input", e => { const o = dzSel(); if (o && "otype" in o) o.label = e.target.value; });
 $("dz-oswing").onclick = () => { const o = dzSel(); if (o && "otype" in o) { o.side = -o.side; dzDraw(); } };
 $("dz-ohinge").onclick = () => { const o = dzSel(); if (o && "otype" in o) { o.hinge = o.hinge ? 0 : 1; dzDraw(); } };
+$("dz-ddel").onclick = () => { if (dz.dsel == null) return; dz.dims = dz.dims.filter(m => m.id !== dz.dsel); dz.dsel = null; dzSelFields(); dzDraw(); };
+$("dz-doff").addEventListener("change", e => {
+  const m = dz && (dz.dims || []).find(x => x.id === dz.dsel), v = parseLen(e.target.value); if (!m || !(v >= 0)) { dzSelFields(); return; }
+  m.off = (m.off < 0 ? -1 : 1) * v; e.target.value = fl(v); dzSelFields(); dzDraw();
+});
 $("dz-odel").onclick = () => { dz.opens = dz.opens.filter(o => o.id !== dz.sel); dz.sel = null; dzSelFields(); dzDraw(); };
 function dzFindSpot(w, h) {
   const I = dzInner(), IP = innerPoly(), e = 0.02;
@@ -5862,16 +6186,19 @@ function guardClose(ev) {
   return true;
 }
 $("dzc-keep").onclick = () => $("dzconfirm").close();
+// Escape while the popup is up only closes the popup (keep working), never the designer behind it.
+document.addEventListener("keydown", e => { if (e.key === "Escape" && $("dzconfirm").open) { e.preventDefault(); e.stopImmediatePropagation(); $("dzconfirm").close(); } }, true);
+$("dzconfirm").addEventListener("cancel", e => { e.preventDefault(); $("dzconfirm").close(); });
 $("dzc-discard").onclick = () => { $("dzconfirm").close(); $("designer").close(); };
 $("dzc-save").onclick = () => { $("dzconfirm").close(); $("dz-save").click(); };
 $("dz-cancel").onclick = () => { if (guardClose()) return; $("designer").close(); };
-$("designer").addEventListener("cancel", e => { guardClose(e); });
+$("designer").addEventListener("cancel", e => { if ($("dzconfirm").open) { e.preventDefault(); return; } guardClose(e); });
 $("designer").addEventListener("close", () => { dz = null; clearTimeout(discardArmed); discardArmed = 0; $("dz-cancel").textContent = "Cancel"; $("dz-status").style.color = ""; renderPanel(); requestDraw(); });
 $("designer").addEventListener("keydown", e => {
   if (e.target.matches("input, select, textarea") || !dz) return;
   const k = e.key.toLowerCase();
   if ((k === "delete" || k === "backspace") && dz.sel) { e.preventDefault(); if (dz.opens.some(o => o.id === dz.sel)) $("dz-odel").onclick(); else if (dz.walls.some(w => w.id === dz.sel)) $("dz-wdel").onclick(); else if (typeof dz.sel !== "string") $("dz-del").onclick(); }
-  else if ((k === "delete" || k === "backspace") && dz.dsel && dz.tool === "dim") { e.preventDefault(); dz.dims = dz.dims.filter(m => m.id !== dz.dsel); dz.dsel = null; dzDraw(); }
+  else if ((k === "delete" || k === "backspace") && dz.dsel != null) { e.preventDefault(); $("dz-ddel").onclick(); }
   else if (k === "enter" && dz.tool === "dim" && dz.ddraft && dz.ddraft.pts.length >= 2 && !dz.ddraft.off) { e.preventDefault(); dz.ddraft.off = true; $("dz-hint").textContent = "Now click to set how far out the dimension line sits."; dzDraw(); }
   else if (k === "escape" && dz.ddraft) { e.preventDefault(); dz.ddraft = null; dzSetHint(); dzDraw(); }
   else if (/^[0-9.]$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && ((dz.tool === "wall" && (dz.whover || dz.wdraft)) || (dz.tool === "open" && dz.ohover))) { e.preventDefault(); dzLenOpen(e.key); }
@@ -5974,13 +6301,22 @@ const WV_LAYERS = [["framing", "Studs & framing", "#C99A5B"], ["openings", "Door
 const WI = v => v / 12;   // inches to feet
 const WV_ITEMS = {
   elec: { outlet: ["Outlet", 2.75, 4.5, 16], gfci: ["GFCI outlet", 2.75, 4.5, 42], out240: ["240 V outlet", 4.5, 4.5, 24], switch: ["Light switch", 2.75, 4.5, 48], switch3: ["3-way switch", 2.75, 4.5, 48],
+    wpgfci: ["Outdoor GFCI (in-use cover)", 4.5, 6, 20], porch: ["Porch / coach light", 8, 14, 66], flood: ["Motion flood light", 10, 8, 102], meter: ["Electric meter base", 11, 15, 60],
+    disc: ["AC disconnect", 8, 12, 54], ev: ["EV charger", 10, 14, 48], bell: ["Doorbell", 2, 5, 48], cam: ["Security camera", 4, 4, 100],
     data: ["Data / TV jack", 2.75, 4.5, 16], sconce: ["Wall light", 6, 10, 66], jbox: ["Junction box", 4, 4, 84], thermo: ["Thermostat", 4, 4.5, 60], panel: ["Breaker panel", 14.5, 30, 54] },
   plumb: { sink: ["Sink supply & drain", 10, 8, 20], toilet: ["Toilet supply", 3, 3, 8], valve: ["Shower valve", 8, 8, 48], head: ["Shower head", 4, 4, 80], spout: ["Tub spout", 6, 3, 22],
-    washer: ["Washer box", 10, 8, 42], bibb: ["Hose bibb", 3, 3, 18], cleanout: ["Cleanout", 4, 4, 12] },
-  finish: { shelf: ["Shelf", 36, 10, 54], floating: ["Floating shelf", 30, 2, 48], art: ["Art / photo", 24, 18, 60], photo: ["Small photo", 11, 14, 60], mirror: ["Mirror", 24, 36, 60],
+    washer: ["Washer box", 10, 8, 42], bibb: ["Hose bibb", 3, 3, 18], cleanout: ["Cleanout", 4, 4, 12],
+    dvent: ["Dryer vent hood", 6, 6, 24], fanvent: ["Bath fan wall cap", 6, 6, 90], gasm: ["Gas meter / line", 12, 16, 30], acline: ["AC line set cover", 4, 4, 30] },
+  finish: { numbers: ["House numbers", 16, 5, 72], mailbox: ["Wall mailbox", 14, 15, 48], reel: ["Hose reel", 18, 18, 30], wbox: ["Window box", 36, 8, 30], shutter: ["Shutter", 15, 55, 52], trellis: ["Trellis", 24, 72, 48],
+    rack: ["Tool rack", 36, 6, 54], sign: ["Sign", 24, 12, 84], shelf: ["Shelf", 36, 10, 54], floating: ["Floating shelf", 30, 2, 48], art: ["Art / photo", 24, 18, 60], photo: ["Small photo", 11, 14, 60], mirror: ["Mirror", 24, 36, 60],
     tv55: ["TV 55″", 48.5, 28, 54], tv65: ["TV 65″", 57, 33, 56], upper: ["Upper cabinet", 30, 30, 69], base: ["Base cabinet", 36, 34.5, 17.25], tall: ["Tall cabinet", 24, 84, 42],
     hooks: ["Coat hooks", 24, 4, 60], towel: ["Towel bar", 24, 3, 48], curtain: ["Curtain rod", 60, 3, 84], clock: ["Clock", 12, 12, 72] },
 };
+// Which items each side offers: the outside of an outside wall gets outdoor things, inside gets the rest.
+const WV_OUTSIDE = { elec: ["wpgfci", "porch", "flood", "meter", "disc", "ev", "bell", "cam", "jbox", "switch"], plumb: ["bibb", "dvent", "fanvent", "gasm", "acline", "cleanout"], finish: ["numbers", "mailbox", "reel", "wbox", "shutter", "trellis", "rack", "sign", "hooks"] };
+const WV_OUT_ONLY = new Set(["wpgfci", "porch", "flood", "meter", "disc", "ev", "bell", "cam", "dvent", "fanvent", "gasm", "acline", "numbers", "mailbox", "reel", "wbox", "shutter", "trellis", "rack", "sign"]);
+const wvItemsFor = l => Object.entries(WV_ITEMS[l]).filter(([k]) => wvOut() ? WV_OUTSIDE[l].includes(k) : !WV_OUT_ONLY.has(k) || k === "bibb");
+const wvOut = () => !!(wv && wvSideLabel(wv.S, { x: wv.nL.x * wv.face, y: wv.nL.y * wv.face }) === "Outside");
 const WV_RUNS = { wire: ["Wire", "#D9822B", 1.5], hot: ["Hot water", "#D9342B", 3], cold: ["Cold water", "#2F6BD8", 3], drain: ["Drain", "#5F5F5F", 6], vent: ["Vent", "#9A9A9A", 4] };
 // Sizes per kind: [value, label]; pipes are nominal inches. Defaults: [size, height in feet for "Straight across"].
 const WV_SUPPLY = [[0.5, "½″"], [0.75, "¾″"]];
@@ -6113,10 +6449,11 @@ function wvResize() {
   wW = r.width; wH = r.height; wvc.width = Math.round(wW * pr); wvc.height = Math.round(wH * pr); wvc.style.width = wW + "px"; wvc.style.height = wH + "px";
   wctx.setTransform(pr, 0, 0, pr, 0, 0); wvDraw();
 }
-function wvFitK() { const fr = wvFrame(), pad = 60; return Math.min((wW - pad * 2) / Math.max(fr.L, 1), (wH - pad * 2 - 40) / Math.max(dz.wallH, 1)); }
+function wvExt() { const fr = wvFrame(), R = wvRoof(); let a = 0, c = fr.L, top = dz.wallH; if (R) { a = Math.min(a, R.x0 - R.ov - 0.3); c = Math.max(c, R.x1 + R.ov + 0.3); top = Math.max(top, R.top + 0.4); } return { a, c, top }; }
+function wvFitK() { const e = wvExt(), pad = 60; return Math.min((wW - pad * 2) / Math.max(e.c - e.a, 1), (wH - pad * 2 - 40) / Math.max(e.top, 1)); }
 function wvView() {
   if (wv.view) { wk = wv.view.k; wox = wv.view.x; woy = wv.view.y; return; }
-  const fr = wvFrame(); wk = wvFitK(); wox = (wW - fr.L * wk) / 2; woy = (wH + dz.wallH * wk) / 2 + 10;
+  const e = wvExt(); wk = wvFitK(); wox = (wW - (e.c - e.a) * wk) / 2 - e.a * wk; woy = (wH + e.top * wk) / 2 + 10;
 }
 const wS = (x, y) => ({ x: wox + x * wk, y: woy - y * wk });
 function wvZoomAt(f, sx, sy) { wvView(); const fit = wvFitK(), k = Math.max(fit * 0.5, Math.min(fit * 30, wk * f)); f = k / wk; wv.view = { k, x: sx - (sx - wox) * f, y: sy - (sy - woy) * f }; wvDraw(); }
@@ -6192,14 +6529,15 @@ function wvDim(x0, y0, x1, y1, text, off, tight) {   // dimension line in view f
   g.fillStyle = "rgba(255,255,255,.9)"; g.fillRect(-tw / 2 - 3, -8, tw + 6, 16); g.fillStyle = MARK; g.fillText(text, 0, 0); g.restore();
 }
 function wvDraw() {
-  if (!wv) return; wvView();
+  if (!wv) return; wvView(); wvc.dataset.view = [wox, woy, wk].map(v => v.toFixed(3)).join("|");
   const g = wctx, fr = wvFrame(), H = dz.wallH, L = fr.L, act = wv.layer;
   g.clearRect(0, 0, wW, wH); g.fillStyle = "#F4F2EC"; g.fillRect(0, 0, wW, wH);
   const step = wk * 1 >= 14 ? 1 : wk * 2 >= 14 ? 2 : 4;   // a light foot grid
   g.strokeStyle = "rgba(0,0,0,.06)"; g.lineWidth = 1;
   for (let x = Math.floor(-wox / wk / step) * step; wS(x, 0).x < wW; x += step) { const s = wS(x, 0); g.beginPath(); g.moveTo(s.x, 0); g.lineTo(s.x, wH); g.stroke(); }
   for (let y = Math.floor((woy - wH) / wk / step) * step; wS(0, y).y > 0; y += step) { const s = wS(0, y); g.beginPath(); g.moveTo(0, s.y); g.lineTo(wW, s.y); g.stroke(); }
-  const W0 = wS(0, H), W1 = wS(L, 0);
+  const W0 = wS(0, H), W1 = wS(L, 0), RF = wvRoof();
+  wvc.dataset.roof = RF ? RF.kind : ""; const endR = RF && (RF.kind === "gable" || RF.kind === "shedend"); if (endR) wvDrawRoof(g, RF);   // gable behind the wall; an eave hangs in front of its top
   g.fillStyle = "#E9E5DA"; g.fillRect(W0.x, W0.y, W1.x - W0.x, W1.y - W0.y);
   if (wv.show.framing) for (const f of wvFraming()) {
     const a = wS(f.x, f.y + f.h); g.fillStyle = { header: "#B9884B", sill: "#C9995C", plate: "#C99A5B", added: "#E3B26E" }[f.kind] || "#D8AE73";
@@ -6214,14 +6552,19 @@ function wvDraw() {
   if (!dw) for (const q of boxes) if (q.it.layer === "elec") wvDrawItem(q, wv.sel && wv.sel.item === q.it, false);
   if (dw) {   // drywall: see-through while you work on what's behind it
     const behind = ["framing", "elec", "plumb"].includes(act);
-    g.save(); g.globalAlpha = behind ? .4 : 1; g.fillStyle = (wv.v.paint || {})[fr.vf] || "#F1EEE6"; g.fillRect(W0.x, W0.y, W1.x - W0.x, W1.y - W0.y);
-    g.strokeStyle = "rgba(0,0,0,.12)"; g.setLineDash([3, 4]);   // 4×8 sheets hung sideways
-    for (let y = 4; y < H; y += 4) { const s = wS(0, y); g.beginPath(); g.moveTo(W0.x, s.y); g.lineTo(W1.x, s.y); g.stroke(); }
-    for (let row = 0; row * 4 < H; row++) for (let x = row % 2 ? 4 : 8; x < L; x += 8) { const a = wS(x, row * 4), b = wS(x, Math.min(H, row * 4 + 4)); g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke(); }
+    g.save(); g.globalAlpha = behind ? .4 : 1;
+    if (wvOut()) { g.beginPath(); g.rect(W0.x, W0.y, W1.x - W0.x, W1.y - W0.y); g.clip(); wvDrawSiding(g, wvSideOf(), 0, 0, L, H); }
+    else {
+      g.fillStyle = (wv.v.paint || {})[fr.vf] || "#F1EEE6"; g.fillRect(W0.x, W0.y, W1.x - W0.x, W1.y - W0.y);
+      g.strokeStyle = "rgba(0,0,0,.12)"; g.setLineDash([3, 4]);   // 4×8 sheets hung sideways
+      for (let y = 4; y < H; y += 4) { const s = wS(0, y); g.beginPath(); g.moveTo(W0.x, s.y); g.lineTo(W1.x, s.y); g.stroke(); }
+      for (let row = 0; row * 4 < H; row++) for (let x = row % 2 ? 4 : 8; x < L; x += 8) { const a = wS(x, row * 4), b = wS(x, Math.min(H, row * 4 + 4)); g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke(); }
+    }
     g.restore();
     for (const q of boxes) if (q.it.layer === "elec") wvDrawItem(q, wv.sel && wv.sel.item === q.it, true);
   }
   g.strokeStyle = INK; g.lineWidth = 2; g.strokeRect(W0.x, W0.y, W1.x - W0.x, W1.y - W0.y);
+  if (RF && !endR) { g.save(); if (act === "framing") g.globalAlpha = 0.85; wvDrawRoof(g, RF); g.restore(); }
   if (wv.show.openings) for (const q of wvOpenings()) {   // openings cut through everything
     const x0 = fr.x(q.t) - q.w / 2, a = wS(x0, q.head), b = wS(x0 + q.w, q.sill), w = b.x - a.x, h = b.y - a.y;
     const win = q.o.otype === "window";
@@ -6279,9 +6622,75 @@ function wvSelGeom() {   // left edge and bottom of the selection, view feet
   if (sel.open) { const q = wvOpenings().find(q => q.o === sel.open); return q ? { x0: fr.x(q.t) - q.w / 2, y0: q.sill } : null; }
   return null;
 }
+const WV_SIDING = [["lp", "Lap siding, 7″ exposure (LP SmartSide)", "#8C7B65"], ["vinyl", "Vinyl lap, double 4″", "#E6E1D4"], ["fc", "Fiber cement lap", "#6E7F86"], ["bb", "Board and batten", "#3F4A45"],
+  ["steel", "Steel ribbed panels", "#7A2E2A"], ["cedar", "Cedar shingles", "#A87A4F"], ["stucco", "Stucco", "#D9D2C3"], ["stone", "Stone veneer", "#9C958A"]];
+function wvSideOf() {   // siding on the face seen from here: saved choice, else what the building's material list says
+  const fr = wvFrame(), sv = (wv.v.side || {})[fr.vf]; if (sv) return sv;
+  const o = dz && dz.b ? matOpt(dz.b) : {}, t = o.frame === "post" ? "steel" : WV_SIDING.some(r => r[0] === o.siding) ? o.siding : "lp";
+  return { type: t, color: WV_SIDING.find(r => r[0] === t)[2] };
+}
+// Fill a clip path (already set on g) with the siding pattern, view feet x0..x1, y0..y1.
+function wvDrawSiding(g, sd, x0, y0, x1, y1) {
+  const a = wS(x0, y1), b = wS(x1, y0); g.fillStyle = sd.color; g.fillRect(a.x, a.y, b.x - a.x, b.y - a.y);
+  const ln = (p, q, w, c) => { g.strokeStyle = c; g.lineWidth = w; g.beginPath(); g.moveTo(p.x, p.y); g.lineTo(q.x, q.y); g.stroke(); };
+  const dark = "rgba(0,0,0,.28)", lite = "rgba(255,255,255,.18)", hz = step => { for (let y = y0 + step; y < y1; y += step) { const p = wS(x0, y), q = wS(x1, y); ln(p, q, Math.max(1, wk * 0.04), dark); ln({ x: p.x, y: p.y + 1.5 }, { x: q.x, y: q.y + 1.5 }, 1, lite); } };
+  const t = sd.type;
+  if (t === "lp" || t === "fc") hz(7 / 12);
+  else if (t === "vinyl") hz(4 / 12);
+  else if (t === "bb") for (let x = Math.ceil(x0); x < x1; x += 1) { const p = wS(x, y0), q = wS(x, y1); g.fillStyle = "rgba(0,0,0,.18)"; g.fillRect(p.x - wk * 0.105, q.y, wk * 0.21, p.y - q.y); ln(p, q, 1, "rgba(0,0,0,.35)"); }
+  else if (t === "steel") for (let x = x0; x < x1; x += 0.75) { const p = wS(x, y0), q = wS(x, y1), major = Math.abs(((x - x0) / 3) - Math.round((x - x0) / 3)) < 0.01; ln(p, q, major ? 2 : Math.max(1, wk * 0.06), major ? "rgba(0,0,0,.4)" : dark); }
+  else if (t === "cedar") { let r = 0; for (let y = y0; y < y1; y += 5 / 12, r++) { const p = wS(x0, y), q = wS(x1, y); ln(p, q, 1, dark); let x = x0 + (r % 2 ? 0.3 : 0), k = r * 7; while (x < x1) { const w = 0.33 + ((k = (k * 37 + 11) % 97) / 97) * 0.5; x += w; const c = wS(x, y), d = wS(x, Math.min(y1, y + 5 / 12)); ln(c, d, 1, "rgba(0,0,0,.22)"); } } }
+  else if (t === "stone") { let r = 0; for (let y = y0; y < y1; y += 0.42, r++) { let x = x0 - (r % 2) * 0.4, k = r * 13; while (x < x1) { const w = 0.6 + ((k = (k * 29 + 7) % 89) / 89) * 0.8, p = wS(x + 0.03, y + 0.39), q = wS(x + w - 0.03, y + 0.03); g.fillStyle = (k % 3) ? "rgba(255,255,255,.12)" : "rgba(0,0,0,.1)"; g.fillRect(p.x, p.y, q.x - p.x, q.y - p.y); g.strokeStyle = "rgba(0,0,0,.3)"; g.lineWidth = 1; g.strokeRect(p.x, p.y, q.x - p.x, q.y - p.y); x += w; } } }
+  else if (t === "stucco") { for (let i = 0; i < 400; i++) { const x = x0 + ((i * 7919) % 1000) / 1000 * (x1 - x0), y = y0 + ((i * 104729) % 1000) / 1000 * (y1 - y0), p = wS(x, y); g.fillStyle = i % 2 ? "rgba(0,0,0,.08)" : "rgba(255,255,255,.15)"; g.fillRect(p.x, p.y, 2, 2); } }
+}
+// The roof over this wall, when it's an outside wall of the top floor: a gable end (wall across the ridge),
+// an eave (wall along the ridge), a hip end, or a shed end. View feet: x0..x1 = the building's ends along this wall.
+function wvRoof() {
+  if (!wv || !dz || !dz.b) return null;
+  const S = wv.S, nL = wv.nL;
+  if (wvSideLabel(S, nL) !== "Outside" && wvSideLabel(S, { x: -nL.x, y: -nL.y }) !== "Outside") return null;
+  const b = dz.b; if (dz.lv < topLv(b)) return null;
+  const o = matOpt(b); if (o.roof === "flat") return null;
+  let sp; try { sp = engSpan(b, o, matGeom(b)); } catch (e) { return null; }
+  const u = unit({ x: S.x1, y: S.y1 }, { x: S.x2, y: S.y2 }), along = Math.abs(u.x * sp.ridge.x + u.y * sp.ridge.y) > 0.7;
+  const fr = wvFrame(), xs = dz.poly.map(p => fr.x(wvT(wv.v, p))), x0 = Math.min(...xs), x1 = Math.max(...xs), p = (+o.pitch || 6) / 12, ov = (+o.over || 0) / 12, H = dz.wallH;
+  const shed = o.roof === "shed", rise = (shed ? sp.span : sp.span / 2) * p, kind = along ? "eave" : o.roof === "hip" ? "hipend" : shed ? "shedend" : "gable";
+  const oc = o.frame === "post" ? (+o.tsp || 4) : o.rframe === "rafter" ? 16 / 12 : 2;
+  return { kind, x0, x1, H, p, ov, rise, oc, o, xm: (x0 + x1) / 2, top: H + rise };
+}
+// Height of the roof line (top of the top chord) at view x, for gable and shed ends.
+const wvRoofY = (R, x) => R.kind === "shedend" ? R.H + (x - R.x0) * R.p : R.H + ((R.x1 - R.x0) / 2 - Math.abs(x - R.xm)) * R.p;
+function wvDrawRoof(g, R) {
+  const fr = wvFrame(), out = wvOut(), dw = wv.show.drywall, fram = wv.show.framing, ch = 3.5 / 12, ink = "#5B4A2E";
+  const poly = (pts, fill, stroke, lw = 1) => { g.beginPath(); pts.forEach(([x, y], i) => { const q = wS(x, y); i ? g.lineTo(q.x, q.y) : g.moveTo(q.x, q.y); }); g.closePath(); if (fill) { g.fillStyle = fill; g.fill(); } if (stroke) { g.strokeStyle = stroke; g.lineWidth = lw; g.stroke(); } };
+  const roofCol = ["metal", "seam"].includes(R.o.roofing) ? "#6F7A80" : "#5E5A55";
+  const lab = (x, y, t) => { const q = wS(x, y); g.font = '600 12px "Barlow Condensed", sans-serif'; g.textAlign = "center"; g.textBaseline = "middle"; const w = g.measureText(t).width + 8; g.fillStyle = "rgba(244,242,236,.9)"; g.fillRect(q.x - w / 2, q.y - 8, w, 16); g.fillStyle = INK; g.fillText(t, q.x, q.y); };
+  if (R.kind === "gable" || R.kind === "shedend") {
+    const xa = R.x0 - R.ov, xb = R.x1 + R.ov, tri = [[R.x0, R.H]]; for (let k = 0; k <= 40; k++) { const x = R.x0 + (R.x1 - R.x0) * k / 40; tri.push([x, wvRoofY(R, x)]); } tri.push([R.x1, R.H]);
+    poly(tri, "#E9E5DA");
+    if (out && dw) { g.save(); poly(tri); g.clip(); wvDrawSiding(g, wvSideOf(), R.x0, R.H, R.x1, R.top + 0.5); g.restore(); }
+    else if (fram) {   // gable end truss: bottom chord on the plate, studs at the wall's spacing, top chords
+      const fx = 1.5 / 12, ocf = (wv.v.oc || 16) / 12;
+      poly([[R.x0, R.H], [R.x1, R.H], [R.x1, R.H + ch], [R.x0, R.H + ch]], "#C99A5B", ink);
+      for (let x = R.x0 + ocf; x < R.x1 - 0.2; x += ocf) { const yt = wvRoofY(R, x) - ch * 1.1; if (yt - (R.H + ch) < 0.3) continue; poly([[x - fx / 2, R.H + ch], [x + fx / 2, R.H + ch], [x + fx / 2, yt], [x - fx / 2, yt]], "#D8AE73", "#7A5A30"); }
+    }
+    const top = []; for (let k = 0; k <= 40; k++) { const x = xa + (xb - xa) * k / 40; top.push([x, wvRoofY(R, x)]); }
+    poly(top.concat(top.slice().reverse().map(([x, y]) => [x, y - ch * Math.sqrt(1 + R.p * R.p)])), fram && !(out && dw) ? "#C99A5B" : "#FFFFFF", ink);   // top chord / rake board
+    poly(top.concat(top.slice().reverse().map(([x, y]) => [x, y + 0.12])), roofCol, "#2B2B2B");   // roofing edge
+    lab(R.xm, R.H + R.rise * 0.45, (R.kind === "gable" ? "Gable end" : "Shed end") + " · " + Math.round(R.p * 12) + "/12" + (fram && !(out && dw) ? " · studs @ " + (wv.v.oc || 16) + "″" : ""));
+  } else {   // eave or hip end: the roof surface rises away behind the fascia
+    const xa = R.x0 - R.ov, xb = R.x1 + R.ov, yf = R.H - R.ov * R.p;
+    if (R.kind === "eave") poly([[xa, yf], [xb, yf], [xb, R.top], [xa, R.top]], roofCol, "#2B2B2B");
+    else poly([[xa, yf], [xb, yf], [R.xm, R.top]], roofCol, "#2B2B2B");
+    g.save(); g.strokeStyle = "rgba(255,255,255,.12)"; g.lineWidth = 1; for (let y = yf + 0.6; y < R.top; y += 0.6) { const w = R.kind === "eave" ? 0 : (y - yf) / (R.top - yf) * (xb - xa) / 2, a = wS(xa + w, y), c = wS(xb - w, y); g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(c.x, c.y); g.stroke(); } g.restore();
+    if (fram && !(out && dw)) for (let x = R.x0 + 0.06; x <= R.x1; x += R.oc) poly([[x, R.H], [x + 1.5 / 12, R.H], [x + 1.5 / 12, Math.max(yf, R.H) + 0.45], [x, Math.max(yf, R.H) + 0.45]], "#D8AE73", "#7A5A30");   // truss / rafter tails
+    poly([[xa, yf - 0.46], [xb, yf - 0.46], [xb, yf], [xa, yf]], "#FFFFFF", ink);   // fascia
+    lab((xa + xb) / 2, (yf + R.top) / 2, (R.kind === "eave" ? "Roof (eave side)" : "Hip end") + " · " + Math.round(R.p * 12) + "/12" + (fram && !(out && dw) ? " · " + (R.o.frame === "post" || R.o.rframe !== "rafter" ? "trusses" : "rafters") + " @ " + fl(R.oc) : ""));
+  }
+}
 function wvSetLayer(l) {
   wv.layer = l; wv.tool = null; wv.draft = null; wv.show[l] = true;
-  $("wv-layers").innerHTML = WV_LAYERS.map(([k, name, c]) => `<div class="wv-layer"><button data-l="${k}" aria-pressed="${k === l}"><span class="sw" style="background:${c}"></span>${esc(name)}</button><label><input type="checkbox" data-show="${k}"${wv.show[k] ? " checked" : ""}> Show</label></div>`).join("");
+  $("wv-layers").innerHTML = WV_LAYERS.map(([k, name0, c]) => [k, k === "drywall" && wvOut() ? "Siding" : k === "finish" && wvOut() ? "Outside items" : name0, c]).map(([k, name, c]) => `<div class="wv-layer"><button data-l="${k}" aria-pressed="${k === l}"><span class="sw" style="background:${c}"></span>${esc(name)}</button><label><input type="checkbox" data-show="${k}"${wv.show[k] ? " checked" : ""}> Show</label></div>`).join("");
   wvTools(); wvFields(); wvTitle(); wvDraw();
 }
 function wvTitle() {
@@ -6304,11 +6713,12 @@ function wvTools() {
     <div class="field"><label for="wv-from">Layout starts at</label><select id="wv-from">${optList([["lo", "Left end"], ["hi", "Right end"]], wvFrame().s > 0 ? v.layFrom || "lo" : (v.layFrom || "lo") === "lo" ? "hi" : "lo")}</select></div></div>
     <div class="row"><button class="ghost small" id="wv-addstud" style="touch-action:none;cursor:grab" title="Drag onto the wall, or click and then tap the spot" aria-pressed="${!!(wv.tool && wv.tool.stud)}">⇕ Add a stud</button><button class="ghost small" id="wv-resetstud">Reset studs</button></div>`;
   else if (l === "openings") h = `<h3>Add a door or window</h3><div class="dz-presets">${Object.entries(OTYPES).map(([k, n]) => `<button data-addopen="${k}"><span>${esc(n)}</span><small>${esc(fl(OPEN_DEFAULT_W[k] / 12))} wide</small></button>`).join("")}</div>`;
+  else if (l === "drywall" && wvOut()) { const sd = wvSideOf(); h = `<h3>Siding on this side</h3><div class="field"><label for="wv-sidetype">Siding</label><select id="wv-sidetype">${optList(WV_SIDING.map(r => [r[0], r[1]]), sd.type)}</select></div>
+    <div class="field"><label for="wv-sidecol">Color</label><input id="wv-sidecol" type="color" value="${esc(sd.color)}" style="height:40px;padding:2px"></div><p class="muted" style="font-size:12px;margin:4px 0 0">Covers the gable too. The material list still counts the siding chosen for the whole building.</p>`; }
   else if (l === "drywall") h = `<h3>Drywall on this side</h3><div class="field"><label for="wv-paint">Paint color</label><input id="wv-paint" type="color" value="${esc((v.paint || {})[wvFrame().vf] || "#F1EEE6")}" style="height:40px;padding:2px"></div>
     <div class="field"><label for="wv-dwth">Thickness</label><select id="wv-dwth">${optList([["0.5", "½″"], ["0.625", "⅝″ (fire-rated)"]], v.dwTh || "0.5")}</select></div>`;
   else {
-    const cat = WV_ITEMS[l];
-    h = `<h3>Add to the wall</h3><div class="dz-presets">${Object.entries(cat).map(([k, d]) => `<button data-additem="${k}"><span>${esc(d[0])}</span><small>${esc(fl(WI(d[1])))} × ${esc(fl(WI(d[2])))}</small></button>`).join("")}</div>`;
+    h = `<h3>${wvOut() ? "Add to the outside" : "Add to the wall"}</h3><div class="dz-presets">${wvItemsFor(l).map(([k, d]) => `<button data-additem="${k}"><span>${esc(d[0])}</span><small>${esc(fl(WI(d[1])))} × ${esc(fl(WI(d[2])))}</small></button>`).join("")}</div>`;
     if (l === "elec" || l === "plumb") {   // wire and pipe runs: drawn with bends, or straight across the whole wall
       const pk = wv.runPick[l], noun = l === "elec" ? "wire" : "pipe", drawing = !!(wv.tool && wv.tool.run);
       h += `<h3>${l === "elec" ? "Wire runs" : "Pipe runs"}</h3><div class="${l === "plumb" ? "pair" : ""}">`
@@ -6318,8 +6728,15 @@ function wvTools() {
     }
   }
   $("wv-tools").innerHTML = h;
-  $("wv-hint").textContent = wv.tool && wv.tool.run ? `Tap to start the ${WV_RUNS[wv.tool.run][0].toLowerCase()}, tap to bend it, and tap the last point again to finish. It stays level or straight up and down; hold Shift for an angle.` : wv.tool && wv.tool.stud ? "Tap where the new stud goes, or press and slide to place it exactly." : WV_HINTS[l];
+  $("wv-hint").textContent = wv.tool && wv.tool.run ? `Tap to start the ${WV_RUNS[wv.tool.run][0].toLowerCase()}, tap to bend it, and tap the last point again to finish. It stays level or straight up and down; hold Shift for an angle.` : wv.tool && wv.tool.stud ? "Tap where the new stud goes, or press and slide to place it exactly." : wvOut() && l === "drywall" ? "Siding covers the outside of this wall and its gable. Pick the kind and color on the left." : wvOut() && ["elec", "plumb", "finish"].includes(l) ? "From outside you get outdoor things: tap one to put it on the wall, then drag it where it goes." : WV_HINTS[l];
 }
+document.addEventListener("change", e => {
+  if (!wv || !e.target || !["wv-sidetype", "wv-sidecol"].includes(e.target.id)) return;
+  const fr = wvFrame(), cur = wvSideOf(), side = Object.assign({}, wv.v.side || {});
+  if (e.target.id === "wv-sidetype") { const r = WV_SIDING.find(x => x[0] === e.target.value); side[fr.vf] = { type: e.target.value, color: r ? r[2] : cur.color }; }
+  else side[fr.vf] = { type: cur.type, color: e.target.value };
+  wv.v.side = side; wvTools(); wvDraw();
+});
 function wvField(id, label, val, type = "text") { return `<div class="field"><label for="${id}">${label}</label><input id="${id}" type="${type}" inputmode="decimal" value="${esc(val)}"></div>`; }
 function wvFields() {
   const sel = wv.sel, box = $("wv-selbox"); box.hidden = !sel;
@@ -6538,7 +6955,7 @@ $("wv-del").onclick = () => {
   else if (sel.item) wv.v.items = wv.v.items.filter(i => i !== sel.item);
   wv.sel = null; wvFields(); wvDraw();
 };
-function wvEmpty(v) { return !v.items.length && !(v.studAdd || []).length && !(v.studDel || []).length && (v.oc || 16) === 16 && (v.layFrom || "lo") === "lo" && !Object.keys(v.paint || {}).length && !v.dwTh; }
+function wvEmpty(v) { return !v.items.length && !(v.studAdd || []).length && !(v.studDel || []).length && (v.oc || 16) === 16 && (v.layFrom || "lo") === "lo" && !Object.keys(v.paint || {}).length && !v.dwTh && !Object.keys(v.side || {}).length; }
 $("wv-done").onclick = () => {
   const v = wv.v;
   if (wv.isNew && !wvEmpty(v)) dz.views.push(v);
