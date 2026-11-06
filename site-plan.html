@@ -673,6 +673,17 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
   </aside>
 </div>
 
+<dialog id="dzconfirm" aria-labelledby="dzc-title">
+  <div class="dlg" style="max-width:420px">
+    <h2 id="dzc-title">Leave without saving?</h2>
+    <p id="dzc-msg" class="muted" style="margin:6px 0 14px"></p>
+    <div class="row" style="justify-content:flex-end;flex-wrap:wrap;gap:8px">
+      <button class="ghost" id="dzc-keep">Keep working</button>
+      <button class="danger" id="dzc-discard">Close without saving</button>
+      <button class="primary" id="dzc-save">Save to plan</button>
+    </div>
+  </div>
+</dialog>
 <dialog id="designer" class="dz" aria-labelledby="dz-title">
   <div class="dz-wrap">
     <div class="dz-head">
@@ -5798,15 +5809,19 @@ function dzRotate(k) {
 }
 document.querySelectorAll("#dz-rotrow button").forEach(bt => bt.onclick = () => dzRotate(+bt.dataset.k));
 let discardArmed = 0;
+// Escape or Cancel with unsaved changes: ask (save, close without saving, or keep working).
 function guardClose(ev) {
   if (!dz) return false;
-  const d = dirtyLevels(); if (!d.size || discardArmed) return false;
+  const d = dirtyLevels(); if (dz.rot) d.add(dz.lv); if (!d.size) return false;
   if (ev) ev.preventDefault();
-  $("dz-status").textContent = `Unsaved changes on: ${[...d].map(levelName).join(", ")}. Press Cancel again to discard them, or Save to plan to keep them.`;
-  $("dz-status").style.color = "#C2410C"; $("dz-cancel").textContent = "Discard changes";
-  discardArmed = setTimeout(() => { discardArmed = 0; $("dz-cancel").textContent = "Cancel"; $("dz-status").style.color = ""; }, 5000);
+  $("dzc-msg").textContent = `You have changes on ${[...d].map(levelName).join(", ")} that aren’t saved to the plan yet.`;
+  if (!$("dzconfirm").open) $("dzconfirm").showModal();
+  setTimeout(() => $("dzc-save").focus(), 0);
   return true;
 }
+$("dzc-keep").onclick = () => $("dzconfirm").close();
+$("dzc-discard").onclick = () => { $("dzconfirm").close(); $("designer").close(); };
+$("dzc-save").onclick = () => { $("dzconfirm").close(); $("dz-save").click(); };
 $("dz-cancel").onclick = () => { if (guardClose()) return; $("designer").close(); };
 $("designer").addEventListener("cancel", e => { guardClose(e); });
 $("designer").addEventListener("close", () => { dz = null; clearTimeout(discardArmed); discardArmed = 0; $("dz-cancel").textContent = "Cancel"; $("dz-status").style.color = ""; renderPanel(); requestDraw(); });
