@@ -113,6 +113,8 @@ canvas.select{cursor:default}
 .panel section{padding:16px 16px 18px;border-bottom:1px solid var(--line)}
 .panel h2{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:20px;margin:0 0 10px}
 .proj-dirty{color:var(--accent,#e8772e);font-size:10px;margin-right:2px}
+.lenbox{position:absolute;z-index:6;width:140px;font:600 16px Barlow,sans-serif;padding:6px 8px;border-radius:6px;border:2px solid var(--accent,#e8772e);background:var(--surface,#fff);color:var(--ink,#17231f);box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.lenbox.bad{border-color:#c0392b}
 .projlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
 .projlist li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 10px;background:var(--bg);border-radius:8px}
 .projlist li small{display:block;color:var(--muted);font-size:12px}
@@ -441,6 +443,9 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
   <button class="hbtn" id="redo" title="Redo (Ctrl+X)" aria-label="Redo" disabled>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg>
   </button>
+  <button class="hbtn" id="app-reload" title="Refresh: load the newest version of Site Plan (your work is kept)" aria-label="Refresh" hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/></svg>
+  </button>
   <div class="spacer"></div>
   <div class="seg levels" id="levels" role="group" aria-label="Level"></div>
   <button class="hbtn" id="open-layers" aria-expanded="false" aria-controls="layers">
@@ -495,6 +500,7 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
   <div class="stage" id="stage">
     <canvas id="cv" aria-label="Site plan drawing area"></canvas>
     <div class="hint" id="hint"></div>
+    <input id="lenbox" class="lenbox" hidden autocomplete="off" spellcheck="false" inputmode="decimal" aria-label="Length, then Enter" placeholder="length, Enter">
     <div class="actions" id="actions" hidden>
       <button class="btn-cancel" id="cancel">Cancel</button>
       <button class="btn-done" id="done">Done</button>
@@ -1298,19 +1304,21 @@ function draw() {
     const A = toS(draft[0]); dot(A, "#FFFFFF");
     if (cursor) { const C = toS(cursor); ctx.setLineDash([5, 4]); seg2(A, C, "#FFFFFF", 1.5); ctx.setLineDash([]); }
   }
+  const tlp = lenTarget(lenTyped());
   if (tool === "rect" && state.bldShape === "poly" && draft.length) {
-    const pts = cursor ? [...draft, objSnap(cursor) || snapPoint(cursor, draft)] : draft;
+    const pts = tlp ? [...draft, tlp.pt] : cursor ? [...draft, objSnap(cursor) || snapPoint(cursor, draft)] : draft;
     drawShape(pts, pts.length >= 3, 0.1651, false, true); dot(toS(draft[0]), "#FFFFFF");
   } else if (tool === "shape" && state.shapeType === "poly" && draft.length) {
-    const pts = cursor ? [...draft, objSnap(cursor) || snapPoint(cursor, draft)] : draft;
+    const pts = tlp ? [...draft, tlp.pt] : cursor ? [...draft, objSnap(cursor) || snapPoint(cursor, draft)] : draft;
     drawShape(pts, pts.length >= 3, 0.08, false, true); dot(toS(draft[0]), "#FFFFFF");
   } else if (tool === "shape" && (state.shapeType || "circle") === "circle" && draft.length) {
     const c = draft[0]; dot(toS(c), "#FFFFFF");
     if (cursor) { const oc = objSnap(cursor), r = oc ? dist(c, oc) : roundLen(dist(c, cursor), true), cs = toS(c); ctx.beginPath(); ctx.arc(cs.x, cs.y, r * view.s, 0, Math.PI * 2); ctx.setLineDash([6, 4]); ctx.strokeStyle = "#FFFFFF"; ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]); label("⌀ " + fmtLen(r * 2), cs.x, cs.y, 0, 13); }
   } else if ((tool === "rect" || tool === "room" || tool === "stair" || tool === "deck" || tool === "addon" || tool === "shape") && draft.length) {
     const oc = cursor && objSnap(cursor);
-    if (draft.length === 1 && cursor) drawShape([draft[0], oc || rectSecond(draft[0], cursor)], false, 0.1651, false, true);
-    else if (draft.length === 2) drawShape(cursor ? rectFrom(draft[0], draft[1], oc || cursor, !!oc) : draft, !!cursor, 0.1651, false, true);
+    const tl = lenTarget(lenTyped());
+    if (draft.length === 1 && (cursor || tl)) drawShape([draft[0], tl ? tl.pt : oc || rectSecond(draft[0], cursor)], false, 0.1651, false, true);
+    else if (draft.length === 2) drawShape(tl ? tl.rect : cursor ? rectFrom(draft[0], draft[1], oc || cursor, !!oc) : draft, !!(cursor || tl), 0.1651, false, true);
     for (const p of draft) dot(toS(p), "#FFFFFF");
   }
   if (tool === "measure" && measure.length) {
@@ -6552,6 +6560,14 @@ $("proj-rename").addEventListener("change", e => {
   const before = JSON.stringify(projects), old = p.name; p.name = name;
   projChanged("Undo rename", before, `Renamed “${old}” to “${name}”.`);
 });
+// Installed app (home screen / desktop app window): there is no browser reload button, so the header gets one.
+{ const standalone = () => { try { return window.matchMedia("(display-mode: standalone)").matches || window.matchMedia("(display-mode: window-controls-overlay)").matches || navigator.standalone === true; } catch (e) { return false; } };
+  $("app-reload").hidden = !standalone();
+  $("app-reload").onclick = async () => {
+    clearTimeout(saveTimer); await kvSet(PK("plan"), JSON.stringify(state)); if (hmDirty) await saveHeightmap(); if (waterDirty) await saveWater();
+    try { const r = navigator.serviceWorker && await navigator.serviceWorker.getRegistration(); if (r) await r.update(); } catch (e) {}
+    location.reload();
+  }; }
 $("proj-save").onclick = () => fsOK ? saveToFile(false) : saveProjectToComputer();
 $("proj-saveas").onclick = () => saveToFile(true);
 $("proj-download").onclick = saveProjectToComputer;
@@ -6673,11 +6689,11 @@ window.addEventListener("resize", closeFlyouts);
 const hints = {
   select: "Tap a structure to select it. Drag a corner to reshape, drag a side to move that whole wall, or drag inside to move it.",
   rect0: "Tap the first corner of the building.",
-  poly0: "Tap the first corner of the building.", poly1: "Tap each corner in order. Tap the first corner again, or tap Done, to finish.",
-  rect1: "Tap the second corner. This sets one side.",
-  rect2: "Tap to set how deep the building is.",
+  poly0: "Tap the first corner of the building.", poly1: "Tap each corner in order (or point the way and type a length, Enter). Tap the first corner again, or tap Done, to finish.",
+  rect1: "Tap the second corner. This sets one side. Or point the way it goes, type its length (30 or 30'-6\") and press Enter.",
+  rect2: "Tap to set how deep the building is. Or type the depth and press Enter; it goes toward the side the pointer is on.",
   wall0: "Tap to place the first corner of a wall.",
-  wall1: "Tap to add corners. Tap the first corner to close it, or tap Done.",
+  wall1: "Tap to add corners, or point the way and type a length, Enter. Tap the first corner to close it, or tap Done.",
   measure: "Tap two points to measure the distance between them.",
   road0: "Tap to start the road, then tap along its center line.",
   road1: "Keep tapping along the center line. Tap the last point again, or tap Done.",
@@ -6923,8 +6939,12 @@ function tap(sx, sy) {
     const os = objSnap(w);
     if (draft.length === 0) draft.push(os || snapPoint(w, null));
     else if (draft.length === 1) draft.push(os || rectSecond(draft[0], w));
-    else {
-      const pts = rectFrom(draft[0], draft[1], os || w, !!os);
+    else return rectDone(rectFrom(draft[0], draft[1], os || w, !!os));
+    updateUI();
+  }
+}
+function rectDone(pts) {
+  {
       if (tool === "rect") return addShape(pts, true, "building");
       if (tool === "shape") { addShape(pts, true, "shape", { shapeType: "rect", color: "gray", sub: "", thickness: 0 }); const s3 = state.shapes[state.shapes.length - 1]; s3.name = "Rectangle " + state.shapes.filter(x => x.kind === "shape" && x.shapeType === "rect").length; renderPanel(); return; }
       if (tool === "deck" || tool === "addon") {
@@ -6938,9 +6958,57 @@ function tap(sx, sy) {
       if (tool === "room") return addShape(pts, true, "room", Object.assign({ style: "room", sub: "" }, lc));
       return addShape(pts, true, "stair", Object.assign({ label: stairDefault(state.level), name: "Stairs" }, lc));
     }
-    updateUI();
-  }
 }
+// ---- typed lengths while drawing: after the first point, type a number (30, 30', 30 6, 30'-6") and press Enter ----
+// Rectangles: the first length is the side toward the pointer, the second the depth toward the side the pointer is on.
+// Walls, roads, paved areas and outlines: the next corner that far along the pointer's direction.
+function lenMode() {
+  if (!draft.length || dimPhase) return null;
+  if (["rect", "room", "stair", "deck", "addon"].includes(tool) && !(tool === "rect" && state.bldShape === "poly")) return draft.length <= 2 ? "rect" : null;
+  if (tool === "shape") return state.shapeType === "rect" ? (draft.length <= 2 ? "rect" : null) : state.shapeType === "poly" ? "line" : null;
+  if (tool === "rect" || ["wall", "road", "pad"].includes(tool)) return "line";
+  return null;
+}
+function lenDir() {
+  const last = draft[draft.length - 1], c = cursor || { x: last.x + 1, y: last.y };
+  let ang = Math.atan2(c.y - last.y, c.x - last.x); if (dist(c, last) < 1e-6) ang = 0;
+  const st = shiftHeld ? 0 : angStep();
+  if (st > 0 && tool !== "road") { const base = draft.length >= 2 && lenMode() === "line" ? Math.atan2(last.y - draft[draft.length - 2].y, last.x - draft[draft.length - 2].x) : 0; ang = base + Math.round((ang - base) / st) * st; }
+  return { x: Math.cos(ang), y: Math.sin(ang) };
+}
+// What the typed length would make: { pt } for the next point, or { rect } for the finished rectangle.
+function lenTarget(L) {
+  if (!(L > 0)) return null;
+  const m = lenMode(), d = L * FT; if (!m) return null;
+  if (m === "rect" && draft.length === 2) {
+    const [p0, p1] = draft, u = unit(p0, p1), n = { x: -u.y, y: u.x }, c = cursor || p1, raw = (c.x - p1.x) * n.x + (c.y - p1.y) * n.y, sg = raw < 0 ? -1 : 1;
+    return { rect: [p0, p1, { x: p1.x + n.x * d * sg, y: p1.y + n.y * d * sg }, { x: p0.x + n.x * d * sg, y: p0.y + n.y * d * sg }] };
+  }
+  const last = draft[draft.length - 1], u = lenDir();
+  return { pt: { x: last.x + u.x * d, y: last.y + u.y * d } };
+}
+const lenBox = () => $("lenbox");
+function lenTyped() { const b = lenBox(); return b && !b.hidden ? parseLen(b.value) : NaN; }
+function lenOpen(ch) {
+  const b = lenBox(), c = cursor ? toS(cursor) : toS(draft[draft.length - 1]), r = $("stage").getBoundingClientRect(), cvr = cv.getBoundingClientRect();
+  b.hidden = false; b.value = ch || "";
+  b.style.left = Math.min(r.width - 150, Math.max(4, c.x + (cvr.left - r.left) + 18)) + "px"; b.style.top = Math.min(r.height - 40, Math.max(4, c.y + (cvr.top - r.top) + 18)) + "px";
+  b.focus(); requestDraw();
+}
+function lenClose() { const b = lenBox(); if (b.hidden) return; b.hidden = true; b.value = ""; if (document.activeElement === b) b.blur(); requestDraw(); }
+$("lenbox").addEventListener("input", () => requestDraw());
+$("lenbox").addEventListener("blur", () => setTimeout(lenClose, 0));
+$("lenbox").addEventListener("keydown", e => {
+  e.stopPropagation();
+  if (e.key === "Escape") { e.preventDefault(); lenClose(); return; }
+  if (e.key !== "Enter") return;
+  e.preventDefault();
+  const L = parseLen(e.target.value), t = lenTarget(L);
+  if (!t) { e.target.classList.add("bad"); setTimeout(() => e.target.classList.remove("bad"), 600); return; }
+  lenClose();
+  if (t.rect) { rectDone(t.rect); return; }
+  draft.push(t.pt); updateUI(); requestDraw();
+});
 
 /* ---------- pointer input ---------- */
 const pointers = new Map();
@@ -7316,7 +7384,8 @@ stage.addEventListener("drop", async e => {
   if (await loadImageBlob(f, true)) { kvSet(PK("image"), f); state.skipPhoto = false; save(); }
 });
 $("rm-photo").onclick = async () => { await kvSet(PK("image"), null); img = null; state.skipPhoto = true; save(); renderLayers(); requestDraw(); setStatus("Background image removed. Your drawings are untouched."); };
-$("skip").onclick = () => { state.skipPhoto = true; $("empty").hidden = true; save(); view.s = 4; view.x = W / 2; view.y = H / 2; requestDraw(); };
+const START_VIEW = () => { view.s = Math.min(W, H) / (500 * FT); view.x = W / 2; view.y = H / 2; };   // about 500 ft across the shorter side
+$("skip").onclick = () => { state.skipPhoto = true; $("empty").hidden = true; save(); START_VIEW(); requestDraw(); };
 
 /* ---------- data dialog ---------- */
 function exportJSON() {
@@ -7453,6 +7522,7 @@ $("panel-toggle").onclick = () => {
 document.addEventListener("keydown", e => {
   if (e.target.matches("input, textarea, select") || $("dlg").open || $("designer").open || $("v3d").open || $("matdlg").open || $("costdlg").open || $("plandlg").open) return;
   const k = e.key.toLowerCase();
+  if (/^[0-9.]$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && lenMode()) { e.preventDefault(); lenOpen(e.key); return; }
   if (k === "escape" && fplace) { fplace = null; $("hint").textContent = "Put back. Click to place it again."; requestDraw(); return; }
   if (k === "escape") { if (draft.length) { draft = []; dimPhase = false; updateUI(); } else { measure = []; selected = null; renderPanel(); requestDraw(); } }
   else if (k === "enter" && (tool in MULTI || (tool === "rect" && state.bldShape === "poly") || (tool === "shape" && state.shapeType === "poly"))) finishWall(false);
@@ -7907,7 +7977,7 @@ new ResizeObserver(resize).observe(stage);
   if (wblob) await loadWaterBlob(wblob);
   renderLayers();
   if (img || hm || waterImg) { $("empty").hidden = true; if (state.shapes.length) fit(state.shapes.flatMap(s => s.points)); else fit(); }
-  else if (state.skipPhoto) { view.s = 4; view.x = W / 2; view.y = H / 2; }
+  else if (state.skipPhoto) { if (state.shapes.length) fit(state.shapes.flatMap(s => s.points)); else START_VIEW(); }
   else $("empty").hidden = false;
   renderPanel(); updateHistory(); updateUI(); culvertWatch(); renderDirt();
   cleanStorage(loaded);
