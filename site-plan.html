@@ -6537,7 +6537,7 @@ function wvDraw() {
   for (let x = Math.floor(-wox / wk / step) * step; wS(x, 0).x < wW; x += step) { const s = wS(x, 0); g.beginPath(); g.moveTo(s.x, 0); g.lineTo(s.x, wH); g.stroke(); }
   for (let y = Math.floor((woy - wH) / wk / step) * step; wS(0, y).y > 0; y += step) { const s = wS(0, y); g.beginPath(); g.moveTo(0, s.y); g.lineTo(wW, s.y); g.stroke(); }
   const W0 = wS(0, H), W1 = wS(L, 0), RF = wvRoof();
-  wvc.dataset.roof = RF ? RF.kind : ""; const endR = RF && (RF.kind === "gable" || RF.kind === "shedend"); if (endR) wvDrawRoof(g, RF);   // gable behind the wall; an eave hangs in front of its top
+  wvc.dataset.roof = RF ? RF.kind : ""; wvc.dataset.above = RF ? RF.stack.length : 0; const endR = RF && (RF.kind === "gable" || RF.kind === "shedend"); if (endR) wvDrawRoof(g, RF);   // gable behind the wall; an eave hangs in front of its top
   g.fillStyle = "#E9E5DA"; g.fillRect(W0.x, W0.y, W1.x - W0.x, W1.y - W0.y);
   if (wv.show.framing) for (const f of wvFraming()) {
     const a = wS(f.x, f.y + f.h); g.fillStyle = { header: "#B9884B", sill: "#C9995C", plate: "#C99A5B", added: "#E3B26E" }[f.kind] || "#D8AE73";
@@ -6649,14 +6649,18 @@ function wvRoof() {
   if (!wv || !dz || !dz.b) return null;
   const S = wv.S, nL = wv.nL;
   if (wvSideLabel(S, nL) !== "Outside" && wvSideLabel(S, { x: -nL.x, y: -nL.y }) !== "Outside") return null;
-  const b = dz.b; if (dz.lv < topLv(b)) return null;
-  const o = matOpt(b); if (o.roof === "flat") return null;
+  const b = dz.b, top = topLv(b), o = matOpt(b); if (o.roof === "flat" || dz.lv > top) return null;
+  // floors above this one (faded in the view): 1 ft of floor framing, then that floor's walls; the roof sits on the top one
+  const stack = []; let yb = dz.wallH;
+  for (const l of [GROUND, GROUND + 1, GROUND + 2, GROUND + 3].filter(l => l > dz.lv && l <= top)) {
+    const Hl = l === loftLv(b, o) ? (+o.knee || 0) : (b.wallH && b.wallH[l]) || 8; stack.push({ l, y0: yb, H: Hl, loft: l === loftLv(b, o) }); yb += 1 + Hl;
+  }
   let sp; try { sp = engSpan(b, o, matGeom(b)); } catch (e) { return null; }
   const u = unit({ x: S.x1, y: S.y1 }, { x: S.x2, y: S.y2 }), along = Math.abs(u.x * sp.ridge.x + u.y * sp.ridge.y) > 0.7;
-  const fr = wvFrame(), xs = dz.poly.map(p => fr.x(wvT(wv.v, p))), x0 = Math.min(...xs), x1 = Math.max(...xs), p = (+o.pitch || 6) / 12, ov = (+o.over || 0) / 12, H = dz.wallH;
+  const fr = wvFrame(), xs = dz.poly.map(p => fr.x(wvT(wv.v, p))), x0 = Math.min(...xs), x1 = Math.max(...xs), p = (+o.pitch || 6) / 12, ov = (+o.over || 0) / 12, H = yb;
   const shed = o.roof === "shed", rise = (shed ? sp.span : sp.span / 2) * p, kind = along ? "eave" : o.roof === "hip" ? "hipend" : shed ? "shedend" : "gable";
   const oc = o.frame === "post" ? (+o.tsp || 4) : o.rframe === "rafter" ? 16 / 12 : 2;
-  return { kind, x0, x1, H, p, ov, rise, oc, o, xm: (x0 + x1) / 2, top: H + rise };
+  return { kind, x0, x1, H, p, ov, rise, oc, o, xm: (x0 + x1) / 2, top: H + rise, stack, L: fr.L };
 }
 // Height of the roof line (top of the top chord) at view x, for gable and shed ends.
 const wvRoofY = (R, x) => R.kind === "shedend" ? R.H + (x - R.x0) * R.p : R.H + ((R.x1 - R.x0) / 2 - Math.abs(x - R.xm)) * R.p;
@@ -6665,6 +6669,17 @@ function wvDrawRoof(g, R) {
   const poly = (pts, fill, stroke, lw = 1) => { g.beginPath(); pts.forEach(([x, y], i) => { const q = wS(x, y); i ? g.lineTo(q.x, q.y) : g.moveTo(q.x, q.y); }); g.closePath(); if (fill) { g.fillStyle = fill; g.fill(); } if (stroke) { g.strokeStyle = stroke; g.lineWidth = lw; g.stroke(); } };
   const roofCol = ["metal", "seam"].includes(R.o.roofing) ? "#6F7A80" : "#5E5A55";
   const lab = (x, y, t) => { const q = wS(x, y); g.font = '600 12px "Barlow Condensed", sans-serif'; g.textAlign = "center"; g.textBaseline = "middle"; const w = g.measureText(t).width + 8; g.fillStyle = "rgba(244,242,236,.9)"; g.fillRect(q.x - w / 2, q.y - 8, w, 16); g.fillStyle = INK; g.fillText(t, q.x, q.y); };
+  for (const f of R.stack || []) {   // the floors above, faded: floor framing band, then their walls
+    g.save(); g.globalAlpha = 0.6;
+    poly([[0, f.y0], [R.L, f.y0], [R.L, f.y0 + 1], [0, f.y0 + 1]], "#C99A5B", ink);
+    if (f.H > 0) {
+      poly([[0, f.y0 + 1], [R.L, f.y0 + 1], [R.L, f.y0 + 1 + f.H], [0, f.y0 + 1 + f.H]], "#E9E5DA", ink);
+      if (out && dw) { g.save(); poly([[0, f.y0 + 1], [R.L, f.y0 + 1], [R.L, f.y0 + 1 + f.H], [0, f.y0 + 1 + f.H]]); g.clip(); wvDrawSiding(g, wvSideOf(), 0, f.y0 + 1, R.L, f.y0 + 1 + f.H); g.restore(); }
+      else if (fram) { const ocf = (wv.v.oc || 16) / 12; for (let x = 0; x <= R.L + 1e-6; x += ocf) { const xx = Math.min(x, R.L - 1.5 / 12); poly([[xx, f.y0 + 1], [xx + 1.5 / 12, f.y0 + 1], [xx + 1.5 / 12, f.y0 + 1 + f.H], [xx, f.y0 + 1 + f.H]], "#D8AE73", "#7A5A30"); } }
+    }
+    g.restore();
+    lab(R.L / 2, f.y0 + 1 + Math.max(f.H, 0.6) / 2, (f.loft ? "Loft" : levelName(f.l)) + (f.H > 0 ? " · " + fl(f.H) + " walls" : " floor") + " (edit it on that floor)");
+  }
   if (R.kind === "gable" || R.kind === "shedend") {
     const xa = R.x0 - R.ov, xb = R.x1 + R.ov, tri = [[R.x0, R.H]]; for (let k = 0; k <= 40; k++) { const x = R.x0 + (R.x1 - R.x0) * k / 40; tri.push([x, wvRoofY(R, x)]); } tri.push([R.x1, R.H]);
     poly(tri, "#E9E5DA");
