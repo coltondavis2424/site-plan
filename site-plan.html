@@ -6686,8 +6686,10 @@ function wvDrawRoof(g, R) {
     if (out && dw) { g.save(); poly(tri); g.clip(); wvDrawSiding(g, wvSideOf(), R.x0, R.H, R.x1, R.top + 0.5); g.restore(); }
     else if (fram) {   // gable end truss: bottom chord on the plate, studs at the wall's spacing, top chords
       const fx = 1.5 / 12, ocf = (wv.v.oc || 16) / 12;
-      poly([[R.x0, R.H], [R.x1, R.H], [R.x1, R.H + ch], [R.x0, R.H + ch]], "#C99A5B", ink);
-      for (let x = R.x0 + ocf; x < R.x1 - 0.2; x += ocf) { const yt = wvRoofY(R, x) - ch * 1.1; if (yt - (R.H + ch) < 0.3) continue; poly([[x - fx / 2, R.H + ch], [x + fx / 2, R.H + ch], [x + fx / 2, yt], [x - fx / 2, yt]], "#D8AE73", "#7A5A30"); }
+      // bottom chord, trimmed to stop under the top chord at each heel
+      const sec = ch * Math.sqrt(1 + R.p * R.p), under = []; for (let k = 0; k <= 40; k++) { const x = R.x0 + (R.x1 - R.x0) * k / 40; under.push([x, wvRoofY(R, x) - sec]); }
+      g.save(); poly([[R.x0, R.H - 1]].concat(under).concat([[R.x1, R.H - 1]])); g.clip(); poly([[R.x0, R.H], [R.x1, R.H], [R.x1, R.H + ch], [R.x0, R.H + ch]], "#C99A5B", ink); g.restore();
+      for (let x = R.x0 + ocf; x < R.x1 - 0.2; x += ocf) { const yt = wvRoofY(R, x) - sec; if (yt - (R.H + ch) < 0.3) continue; poly([[x - fx / 2, R.H + ch], [x + fx / 2, R.H + ch], [x + fx / 2, yt], [x - fx / 2, yt]], "#D8AE73", "#7A5A30"); }
     }
     const top = []; for (let k = 0; k <= 40; k++) { const x = xa + (xb - xa) * k / 40; top.push([x, wvRoofY(R, x)]); }
     poly(top.concat(top.slice().reverse().map(([x, y]) => [x, y - ch * Math.sqrt(1 + R.p * R.p)])), fram && !(out && dw) ? "#C99A5B" : "#FFFFFF", ink);   // top chord / rake board
