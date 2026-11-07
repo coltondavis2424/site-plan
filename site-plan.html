@@ -322,6 +322,10 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
 .mat-sec td.cq{width:34%;white-space:nowrap;color:var(--muted);font-size:13px}
 .mat-sec .ctot td{font-weight:700;border-bottom:0}
 .mat-sec .cgrand td{font-size:18px;border-top:2px solid var(--ink)}
+.mat-sec tr.coff td{color:var(--muted)}.mat-sec tr.coff td.mc{text-decoration:line-through}.mat-sec tr.coff .cin,.mat-sec tr.coff .cname,.mat-sec tr.coff .linkbtn{opacity:.55}
+.con{display:inline-flex;align-items:center;margin-right:6px;vertical-align:middle}.con input{width:16px;height:16px;margin:0;accent-color:#E8590C}
+.csel{float:right;display:flex;gap:4px;font-family:Barlow,sans-serif;font-weight:400}
+.cost-bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 10px;font-size:13px}
 .cin{width:96px;background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:3px 6px;font:inherit;font-size:13px}
 .cname{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:4px 6px;font:inherit}
 .linkbtn{background:none;border:0;padding:0;font:inherit;font-weight:600;color:inherit;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
@@ -669,6 +673,9 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
       <div class="field" id="f-depth">
         <label for="d-depth">Thickness</label>
         <select id="d-depth"></select>
+      </div>
+      <div class="field" id="f-exist" hidden>
+        <label style="display:flex;gap:6px;align-items:flex-start;text-transform:none;letter-spacing:0;font-size:13px"><input type="checkbox" id="d-exist" style="width:16px;height:16px;margin-top:2px"> Already there (an existing street or road): leave it out of the project costs</label>
       </div>
       <div class="field" id="f-wall">
         <label for="d-thick">Wall type</label>
@@ -3197,71 +3204,84 @@ function v3Furn(grp, s, y0, M3) {
 // paving at unit prices you type) and your own extra lines, plus a contingency. Unit prices live in state.costs.
 const COST_DEF = { dig: 6, fill: 8, truck: 120, gravel: 22, concrete: 165, asphalt: 4.5, culv: { 12: 22, 15: 28, 18: 34, 24: 48, 30: 62, 36: 80, 48: 125 }, culvEnd: 150, cont: 10, extra: [] };
 const costs = () => { const c = Object.assign({}, COST_DEF, state.costs || {}); c.culv = Object.assign({}, COST_DEF.culv, (state.costs || {}).culv); c.extra = (state.costs || {}).extra || []; return c; };
+// A road that's already there (an imported street) isn't part of what you build: s.existing, or for roads with no
+// answer yet, the two-lane public road types (what osm_roads.py and "New project from a place" bring in)
+const roadExisting = s => s.existing != null ? !!s.existing : s.roadType === "road_paved" || s.roadType === "road_gravel";
+const costOn = (c, key) => !(c.off || {})[key];
 function siteWork() {
-  const c = costs(), rows = [];   // [label, qty, unit, price key, price, note]
+  const c = costs(), rows = [];   // [label, qty, unit, price key, price, note, on/off key]
   if (dirt && (dirt.cut > 0.01 || dirt.fill > 0.01)) {
     const cy = dirt.cut / CUYD, fy = dirt.fill / CUYD, net = Math.max(0, cy - fy) * 1.25 / 10;
-    if (cy > 0.05) rows.push(["Digging (dirt dug out)", cy, "cu yd", "dig", c.dig, `${dirt.regions.length} spot${dirt.regions.length === 1 ? "" : "s"} changed with the terrain brush`]);
-    if (fy > 0.05) rows.push(["Placing and compacting fill", fy, "cu yd", "fill", c.fill, ""]);
-    if (net > 0.05) rows.push(["Hauling extra dirt away", Math.ceil(net), "truck loads (10 yd)", "truck", c.truck, "Dug minus piled, ×1.25 for fluff"]);
+    if (cy > 0.05) rows.push(["Digging (dirt dug out)", cy, "cu yd", "dig", c.dig, `${dirt.regions.length} spot${dirt.regions.length === 1 ? "" : "s"} changed with the terrain brush`, "w:dig"]);
+    if (fy > 0.05) rows.push(["Placing and compacting fill", fy, "cu yd", "fill", c.fill, "", "w:fill"]);
+    if (net > 0.05) rows.push(["Hauling extra dirt away", Math.ceil(net), "truck loads (10 yd)", "truck", c.truck, "Dug minus piled, ×1.25 for fluff", "w:truck"]);
   }
   for (const s of state.shapes.filter(x => x.kind === "culvert" && x.points.length === 2)) {
     const L = Math.ceil(dist(s.points[0], s.points[1]) / FT);
-    rows.push([`${s.name}: ${s.size}" ${(CULV_MATS[s.mat] || CULV_MATS.cmp)[0]}`, L, "ft", "culv:" + s.size, c.culv[s.size] || 0, ""]);
-    rows.push([`${s.name}: end sections and rock`, 2, "ends", "culvEnd", c.culvEnd, ""]);
+    rows.push([`${s.name}: ${s.size}" ${(CULV_MATS[s.mat] || CULV_MATS.cmp)[0]}`, L, "ft", "culv:" + s.size, c.culv[s.size] || 0, "", "w:c" + s.id]);
+    rows.push([`${s.name}: end sections and rock`, 2, "ends", "culvEnd", c.culvEnd, "", "w:c" + s.id + "e"]);
   }
   const surf = (s, areaFt2, depthFt, label) => {
-    if (s.surface === "concrete") rows.push([label + " (concrete)", Math.ceil(areaFt2 * depthFt / 27 * 1.05 * 4) / 4, "cu yd", "concrete", c.concrete, `${Math.round(areaFt2).toLocaleString()} sq ft`]);
-    else if (s.surface === "asphalt") rows.push([label + " (asphalt)", Math.round(areaFt2), "sq ft", "asphalt", c.asphalt, ""]);
-    else if (s.surface === "gravel" || s.surface === "crushed") rows.push([label + " (" + (s.surface === "gravel" ? "Class 5" : "crushed rock") + ")", Math.ceil(areaFt2 * depthFt / 27 * 1.4), "tons", "gravel", c.gravel, `${Math.round(areaFt2).toLocaleString()} sq ft, ${Math.round(depthFt * 12)}" deep`]);
+    const k = "w:r" + s.id;
+    if (s.surface === "concrete") rows.push([label + " (concrete)", Math.ceil(areaFt2 * depthFt / 27 * 1.05 * 4) / 4, "cu yd", "concrete", c.concrete, `${Math.round(areaFt2).toLocaleString()} sq ft`, k]);
+    else if (s.surface === "asphalt") rows.push([label + " (asphalt)", Math.round(areaFt2), "sq ft", "asphalt", c.asphalt, "", k]);
+    else if (s.surface === "gravel" || s.surface === "crushed") rows.push([label + " (" + (s.surface === "gravel" ? "Class 5" : "crushed rock") + ")", Math.ceil(areaFt2 * depthFt / 27 * 1.4), "tons", "gravel", c.gravel, `${Math.round(areaFt2).toLocaleString()} sq ft, ${Math.round(depthFt * 12)}" deep`, k]);
   };
-  for (const s of state.shapes.filter(x => x.kind === "road" && x.points.length >= 2 && !x.level)) surf(s, perim(s.points, false) / FT * (s.width / FT), (s.depth || 0) / FT, s.name);
+  for (const s of state.shapes.filter(x => x.kind === "road" && x.points.length >= 2 && !x.level && !roadExisting(x))) surf(s, perim(s.points, false) / FT * (s.width / FT), (s.depth || 0) / FT, s.name);
   for (const s of state.shapes.filter(x => x.kind === "pad" && x.closed && !x.level)) surf(s, area(s.points) * SQFT, (s.depth || 4 * IN) / FT, s.name);
   return rows;
 }
 function renderCosts() {
   const c = costs(), structs = state.shapes.filter(s => ["building", "deck", "addon"].includes(s.kind) && !s.level);
-  let total = 0, h = "";
-  const sec = (t, body) => `<section class="mat-sec"><h3>${esc(t)}</h3><table><tbody>${body}</tbody></table></section>`;
+  let total = 0, h = "", nOff = 0, nAll = 0;
+  const secKeys = [];   // the on/off keys in each section, for its All / None buttons
+  const sec = (t, body, keys) => { const i = secKeys.push(keys || []) - 1; return `<section class="mat-sec"><h3>${esc(t)}${keys && keys.length > 1 ? `<span class="csel"><button class="ghost small" data-csec="${i}" data-on="1">All</button><button class="ghost small" data-csec="${i}" data-on="0">None</button></span>` : ""}</h3><table><tbody>${body}</tbody></table></section>`; };
+  const on = key => { nAll++; const v = costOn(c, key); if (!v) nOff++; return v; };
+  const box = (key, v, what) => `<label class="con" title="Count it in the totals"><input type="checkbox" data-con="${esc(key)}"${v ? " checked" : ""} aria-label="Count ${esc(what)}"></label>`;
+  costSecKeys = secKeys;
   // structures
   let sb = "", sTot = 0;
   for (const s of structs) {
-    const k = structCost(s), type = s.kind === "deck" ? "Deck" : s.kind === "addon" ? (ADDONS[s.addonType] || ADDONS.leanto).name : matOpt(s).frame === "post" ? "Post-frame building" : "Building";
-    sTot += k.tot;
-    sb += `<tr><td class="mi"><button class="linkbtn" data-copen="${s.id}">${esc(s.name)}</button> <span class="muted">${esc(type)}</span></td><td class="cq">${k.nP} of ${k.nAll} items priced</td><td class="mc">${k.nP ? esc(money(k.tot)) : "—"}</td></tr>`;
+    const k = structCost(s), type = s.kind === "deck" ? "Deck" : s.kind === "addon" ? (ADDONS[s.addonType] || ADDONS.leanto).name : matOpt(s).frame === "post" ? "Post-frame building" : "Building", key = "s:" + s.id, v = on(key);
+    if (v) sTot += k.tot;
+    sb += `<tr${v ? "" : ' class="coff"'}><td class="mi">${box(key, v, s.name)}<button class="linkbtn" data-copen="${s.id}">${esc(s.name)}</button> <span class="muted">${esc(type)}</span> <button class="ghost small" data-conly="${esc(key)}" title="Switch everything else off">Only this</button></td><td class="cq">${k.nP} of ${k.nAll} items priced</td><td class="mc">${k.nP ? esc(money(k.tot)) : "—"}</td></tr>`;
   }
   if (!structs.length) sb = `<tr><td class="muted" colspan="3">No buildings, decks or add-ons drawn yet.</td></tr>`;
-  h += sec("Buildings and structures (from each material list)", sb + `<tr class="ctot"><td>Structures</td><td></td><td class="mc">${esc(money(sTot))}</td></tr>`); total += sTot;
+  h += sec("Buildings and structures (from each material list)", sb + `<tr class="ctot"><td>Structures</td><td></td><td class="mc">${esc(money(sTot))}</td></tr>`, structs.map(s => "s:" + s.id)); total += sTot;
   // furniture
   const fu = state.shapes.filter(x => x.kind === "furn");
   if (fu.length) {
     const groups = new Map();
     for (const x of fu) { const b = x.bid && state.shapes.find(y => y.id === x.bid), key = b ? b.name : "Outside"; if (!groups.has(key)) groups.set(key, []); groups.get(key).push(x); }
     let fb = "", fTot = 0;
-    for (const [g, L] of groups) { const pr = L.filter(x => x.price != null), t = pr.reduce((a, x) => a + x.price, 0); fTot += t; fb += `<tr><td class="mi">${esc(g)}: ${L.length} item${L.length === 1 ? "" : "s"}</td><td class="cq">${pr.length} priced</td><td class="mc">${pr.length ? esc(money(t)) : "—"}</td></tr>`; }
-    h += sec("Furniture and fixtures", fb + `<tr class="ctot"><td>Furniture</td><td></td><td class="mc">${esc(money(fTot))}</td></tr>`); total += fTot;
+    for (const [g, L] of groups) { const pr = L.filter(x => x.price != null), t = pr.reduce((a, x) => a + x.price, 0), key = "f:" + g, v = on(key); if (v) fTot += t; fb += `<tr${v ? "" : ' class="coff"'}><td class="mi">${box(key, v, g + " furniture")}${esc(g)}: ${L.length} item${L.length === 1 ? "" : "s"}</td><td class="cq">${pr.length} priced</td><td class="mc">${pr.length ? esc(money(t)) : "—"}</td></tr>`; }
+    h += sec("Furniture and fixtures", fb + `<tr class="ctot"><td>Furniture</td><td></td><td class="mc">${esc(money(fTot))}</td></tr>`, [...groups.keys()].map(g => "f:" + g)); total += fTot;
   }
   // site work
   const sw = siteWork(); let wb = "", wTot = 0;
-  for (const [label, q, u, key, price, note] of sw) {
-    const cost = q * price; wTot += cost;
-    wb += `<tr><td class="mi">${esc(label)}${note ? `<br><span class="muted" style="font-size:12px">${esc(note)}</span>` : ""}</td><td class="cq">${(+q).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${esc(u)} × <input type="text" inputmode="decimal" class="cin" data-ck="${esc(key)}" value="${esc(money(price))}" aria-label="Price per ${esc(u)} for ${esc(label)}"></td><td class="mc">${esc(money(cost))}</td></tr>`;
+  for (const [label, q, u, key, price, note, ok] of sw) {
+    const cost = q * price, v = on(ok); if (v) wTot += cost;
+    wb += `<tr${v ? "" : ' class="coff"'}><td class="mi">${box(ok, v, label)}${esc(label)}${note ? `<br><span class="muted" style="font-size:12px">${esc(note)}</span>` : ""}</td><td class="cq">${(+q).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${esc(u)} × <input type="text" inputmode="decimal" class="cin" data-ck="${esc(key)}" value="${esc(money(price))}" aria-label="Price per ${esc(u)} for ${esc(label)}"></td><td class="mc">${esc(money(cost))}</td></tr>`;
   }
   if (!sw.length) wb = `<tr><td class="muted" colspan="3">No dirt work, culverts, roads or paving yet. Prices show here when you add them.</td></tr>`;
-  h += sec("Site work (typical northern Minnesota prices; type your own)", wb + `<tr class="ctot"><td>Site work</td><td></td><td class="mc">${esc(money(wTot))}</td></tr>`); total += wTot;
+  const nEx = state.shapes.filter(x => x.kind === "road" && !x.level && roadExisting(x)).length;
+  if (nEx) wb += `<tr><td class="muted" colspan="3" style="font-size:12px">${nEx} existing street${nEx === 1 ? " is" : "s are"} left out (roads that are already there). To count one, pick it on the map and untick “Already there”.</td></tr>`;
+  h += sec("Site work (typical northern Minnesota prices; type your own)", wb + `<tr class="ctot"><td>Site work</td><td></td><td class="mc">${esc(money(wTot))}</td></tr>`, sw.map(r => r[6])); total += wTot;
   // your own lines
   let eb = "", eTot = 0;
-  c.extra.forEach((x, i) => { eTot += +x.amount || 0; eb += `<tr><td class="mi"><input type="text" class="cname" data-ce="${i}" value="${esc(x.name)}" aria-label="What it is"></td><td class="cq"><button class="ghost small" data-cdel="${i}">Remove</button></td><td class="mc"><input type="text" inputmode="decimal" class="cin" data-ca="${i}" value="${esc(money(x.amount || 0))}" aria-label="Amount for ${esc(x.name)}"></td></tr>`; });
+  c.extra.forEach((x, i) => { const v = !x.off; nAll++; if (!v) nOff++; else eTot += +x.amount || 0; eb += `<tr${v ? "" : ' class="coff"'}><td class="mi">${box("e:" + i, v, x.name)}<input type="text" class="cname" data-ce="${i}" value="${esc(x.name)}" aria-label="What it is"></td><td class="cq"><button class="ghost small" data-cdel="${i}">Remove</button></td><td class="mc"><input type="text" inputmode="decimal" class="cin" data-ca="${i}" value="${esc(money(x.amount || 0))}" aria-label="Amount for ${esc(x.name)}"></td></tr>`; });
   h += sec("Other costs (permits, well, septic, power, labor…)", eb + `<tr><td colspan="3"><button class="ghost small" id="c-add">＋ Add a line</button> <span class="muted" style="font-size:13px">Quick adds:</span> ${["Building permit", "Well", "Septic system", "Power hookup", "Labor"].map(n => `<button class="ghost small" data-cquick="${esc(n)}">${esc(n)}</button>`).join(" ")}</td></tr><tr class="ctot"><td>Other</td><td></td><td class="mc">${esc(money(eTot))}</td></tr>`); total += eTot;
   const cont = total * (+c.cont || 0) / 100;
   h += `<section class="mat-sec"><table><tbody><tr class="ctot"><td>Subtotal</td><td></td><td class="mc">${esc(money(total))}</td></tr>
     <tr><td class="mi">Contingency (for surprises)</td><td class="cq"><select id="c-cont">${optList([0, 5, 10, 15, 20].map(n => [String(n), n + "%"]), String(c.cont))}</select></td><td class="mc">${esc(money(cont))}</td></tr>
     <tr class="ctot cgrand"><td>Whole project</td><td></td><td class="mc">${esc(money(total + cont))}</td></tr></tbody></table></section>
     <p class="muted" style="font-size:13px">Structures count only the items you've priced in their material lists (open one to price it). Site work uses the unit prices above; change any of them to match your quotes.</p>`;
-  $("cost-list").innerHTML = h;
-  $("cost-sum").innerHTML = `<b>${esc(money(total + cont))}</b> for the whole project · ${structs.length} structure${structs.length === 1 ? "" : "s"} · ${fu.length} furniture item${fu.length === 1 ? "" : "s"} · ${sw.length} site work line${sw.length === 1 ? "" : "s"}`;
+  const bar = `<div class="cost-bar">${nOff ? `<b>${nOff} of ${nAll} line${nAll === 1 ? "" : "s"} switched off</b> (left out of every total below) <button class="ghost small" id="c-allon">Count everything again</button>` : `<span class="muted">Untick a line to leave it out of the totals, or click “Only this” beside a structure to see just that one.</span>`}</div>`;
+  $("cost-list").innerHTML = bar + h;
+  $("cost-sum").innerHTML = `<b>${esc(money(total + cont))}</b> ${nOff ? "for the lines switched on" : "for the whole project"} · ${structs.length} structure${structs.length === 1 ? "" : "s"} · ${fu.length} furniture item${fu.length === 1 ? "" : "s"} · ${sw.length} site work line${sw.length === 1 ? "" : "s"}`;
   return { total, cont };
 }
+let costSecKeys = [];
 function setCosts(fn) { pushUndo(); const c = JSON.parse(JSON.stringify(state.costs || {})); fn(c); state.costs = c; afterChange(); renderCosts(); }
 function openCosts() { if (hm && hm0raw && !dirt) dirtCompute(); renderCosts(); if (!$("costdlg").open) $("costdlg").showModal(); }
 $("cost-list").addEventListener("change", e => {
@@ -3270,10 +3290,20 @@ $("cost-list").addEventListener("change", e => {
   else if (t.dataset.ca != null) setCosts(c => { c.extra = c.extra || []; c.extra[+t.dataset.ca].amount = isFinite(n) ? n : 0; });
   else if (t.dataset.ce != null) setCosts(c => { c.extra = c.extra || []; c.extra[+t.dataset.ce].name = t.value; });
   else if (t.id === "c-cont") setCosts(c => { c.cont = +t.value; });
+  else if (t.dataset.con) { const k = t.dataset.con, v = t.checked; setCosts(c => costSet(c, k, v)); }
 });
+function costSet(c, k, v) {   // switch one line on or off ("e:<i>" = one of your own lines, kept on the line itself)
+  if (k.startsWith("e:")) { const x = (c.extra || [])[+k.slice(2)]; if (x) { if (v) delete x.off; else x.off = true; } return; }
+  c.off = c.off || {}; if (v) delete c.off[k]; else c.off[k] = true;
+  if (!Object.keys(c.off).length) delete c.off;
+}
+function costAllKeys() { return costSecKeys.flat().concat(((state.costs || {}).extra || []).map((x, i) => "e:" + i)); }
 $("cost-list").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
   if (b.id === "c-add") setCosts(c => { c.extra = (c.extra || []).concat([{ name: "New line", amount: 0 }]); });
+  else if (b.id === "c-allon") setCosts(c => { delete c.off; for (const x of c.extra || []) delete x.off; });
+  else if (b.dataset.csec != null) { const keys = costSecKeys[+b.dataset.csec] || [], v = b.dataset.on === "1"; setCosts(c => { for (const k of keys) costSet(c, k, v); }); }
+  else if (b.dataset.conly) { const only = b.dataset.conly, keys = costAllKeys(); setCosts(c => { for (const k of keys) costSet(c, k, k === only); }); }
   else if (b.dataset.cquick) setCosts(c => { c.extra = (c.extra || []).concat([{ name: b.dataset.cquick, amount: 0 }]); });
   else if (b.dataset.cdel != null) setCosts(c => { c.extra.splice(+b.dataset.cdel, 1); });
   else if (b.dataset.copen) { const s = state.shapes.find(x => x.id === +b.dataset.copen); if (s) { $("costdlg").close(); openMat(s); } }
@@ -3282,10 +3312,10 @@ $("cost-close").onclick = () => $("costdlg").close();
 $("t-costs").onclick = () => openCosts();
 $("cost-csv").onclick = async () => {
   const q = v => `"${String(v).replace(/"/g, '""')}"`, lines = [["Part", "Item", "Quantity", "Unit", "Price", "Cost"].map(q).join(",")], c = costs();
-  for (const s of state.shapes.filter(s => ["building", "deck", "addon"].includes(s.kind) && !s.level)) { const k = structCost(s); lines.push(["Structures", s.name, k.nP + " of " + k.nAll + " priced", "", "", k.tot.toFixed(2)].map(q).join(",")); }
-  for (const x of state.shapes.filter(x => x.kind === "furn" && x.price != null)) lines.push(["Furniture", x.name, 1, "each", x.price.toFixed(2), x.price.toFixed(2)].map(q).join(","));
-  for (const [label, qq, u, , price] of siteWork()) lines.push(["Site work", label, qq, u, price.toFixed(2), (qq * price).toFixed(2)].map(q).join(","));
-  for (const x of c.extra) lines.push(["Other", x.name, 1, "", (+x.amount || 0).toFixed(2), (+x.amount || 0).toFixed(2)].map(q).join(","));
+  for (const s of state.shapes.filter(s => ["building", "deck", "addon"].includes(s.kind) && !s.level && costOn(c, "s:" + s.id))) { const k = structCost(s); lines.push(["Structures", s.name, k.nP + " of " + k.nAll + " priced", "", "", k.tot.toFixed(2)].map(q).join(",")); }
+  for (const x of state.shapes.filter(x => x.kind === "furn" && x.price != null && costOn(c, "f:" + ((x.bid && (state.shapes.find(y => y.id === x.bid) || {}).name) || "Outside")))) lines.push(["Furniture", x.name, 1, "each", x.price.toFixed(2), x.price.toFixed(2)].map(q).join(","));
+  for (const [label, qq, u, , price, , ok] of siteWork()) if (costOn(c, ok)) lines.push(["Site work", label, qq, u, price.toFixed(2), (qq * price).toFixed(2)].map(q).join(","));
+  for (const x of c.extra.filter(x => !x.off)) lines.push(["Other", x.name, 1, "", (+x.amount || 0).toFixed(2), (+x.amount || 0).toFixed(2)].map(q).join(","));
   const r = renderCosts(); lines.push(["Contingency", c.cont + "%", "", "", "", r.cont.toFixed(2)].map(q).join(","), ["Total", "Whole project", "", "", "", (r.total + r.cont).toFixed(2)].map(q).join(","));
   $("cost-msg").textContent = await saveFileOut(new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv" }), safeName((curProject() || {}).name) + " costs.csv", "Saved. Open it in Excel or Google Sheets.");
 };
@@ -7679,7 +7709,7 @@ function locClip(pts, W) {   // polyline → the pieces inside the 0..W square (
   }
   return out.filter(p => p.length >= 2 && p.some((q, i) => i && Math.hypot(q.x - p[i - 1].x, q.y - p[i - 1].y) > 0.5));
 }
-const locRoad = (rt, name, pts) => { const R = ROADS[rt]; return { name: name || R.name.replace(", two lanes", ""), kind: "road", closed: false, roadType: rt, points: pts, thickness: R.widthFt * FT, width: R.widthFt * FT, surface: R.surface, depth: R.depthIn * IN }; };
+const locRoad = (rt, name, pts) => { const R = ROADS[rt]; return { name: name || R.name.replace(", two lanes", ""), kind: "road", closed: false, existing: true, roadType: rt, points: pts, thickness: R.widthFt * FT, width: R.widthFt * FT, surface: R.surface, depth: R.depthIn * IN }; };
 async function locRoadsTNM(L, W) {
   const [x0, y0, x1, y1] = locBox(L, W), sr = locSR(L), out = [];
   const res = await Promise.all(LOC_TNM_LAYERS.map(([id]) => locFetch(`${LOC_TNM}/${id}/query?geometry=${x0},${y0},${x1},${y1}&geometryType=esriGeometryEnvelope&inSR=${sr}&outSR=${sr}&spatialRel=esriSpatialRelIntersects&outFields=name&returnGeometry=true&f=json`, 30000)));
@@ -8583,7 +8613,8 @@ function renderPanel() {
   if (!$("d-extra").contains(document.activeElement)) $("d-extra").innerHTML = extraHTML(s);
   $("f-wall").hidden = isRoad || isPad || isPlan || ["deck", "vehicle", "underlay", "addon", "shape", "culvert", "furn"].includes(s.kind);
   $("f-road").hidden = !isRoad; $("f-width").hidden = !isRoad;
-  $("f-surface").hidden = !(isRoad || isPad); $("f-depth").hidden = !(isRoad || isPad);
+  $("f-surface").hidden = !(isRoad || isPad); $("f-depth").hidden = !(isRoad || isPad); $("f-exist").hidden = !isRoad;
+  if (isRoad) $("d-exist").checked = roadExisting(s);
   if (isRoad || isPad) {
     if (isRoad) {
       $("d-road").innerHTML = Object.entries(ROADS).map(([k, r]) => `<option value="${k}">${r.name}</option>`).join("");
@@ -8646,6 +8677,7 @@ $("d-width").addEventListener("change", e => {
   const s = state.shapes.find(x => x.id === selected), v = parseFloat(e.target.value); if (!s || !(v > 0)) { renderPanel(); return; }
   pushUndo(); s.width = state.units === "m" ? v : v * FT; s.thickness = s.width; afterChange();
 });
+$("d-exist").addEventListener("change", e => { const s = state.shapes.find(x => x.id === selected); if (!s) return; pushUndo(); s.existing = e.target.checked; afterChange(); });
 $("d-surface").addEventListener("change", e => { const s = state.shapes.find(x => x.id === selected); if (!s) return; pushUndo(); s.surface = e.target.value; afterChange(); });
 $("d-depth").addEventListener("change", e => { const s = state.shapes.find(x => x.id === selected); if (!s) return; pushUndo(); s.depth = parseFloat(e.target.value) * IN; afterChange(); });
 $("road-preset").addEventListener("change", e => { state.roadPreset = e.target.value; save(); requestDraw(); });
