@@ -802,6 +802,7 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
         </div>
         <h3>Options</h3>
         <div class="field"><label for="dz-snap">Snap sizes to</label><select id="dz-snap"><option value="0.0833333">1 inch</option><option value="0.5" selected>6 inches</option><option value="1">1 foot</option></select></div>
+        <label class="check" style="margin-bottom:6px"><input type="checkbox" id="dz-below" checked> Show the floor below (faded)</label>
         <label class="check" style="margin-bottom:6px"><input type="checkbox" id="dz-genwalls" checked> Build walls around rooms</label>
         <label class="check"><input type="checkbox" id="dz-autodim" checked> Auto-dimension after saving</label>
         <p class="muted" style="font-size:13px;margin:10px 0 0">Saving keeps the walls you drew and adds walls around rooms where none exist yet; shared room edges become one wall. Turn that off to use only your own walls. Doors, windows, fixtures and notes stay where they are.</p>
@@ -5724,11 +5725,55 @@ function dzResize() {
   dctx.setTransform(pr, 0, 0, pr, 0, 0); dzDraw();
 }
 // The view fits the whole building until you zoom or pan; then dz.view {k, x, y} holds it (Fit clears it).
-function dzFitK() { const pad = 50, mg = 6; return Math.min((dW - pad * 2) / Math.max(dz.W + mg * 2, 1), (dH - pad * 2 - 30) / Math.max(dz.D + mg * 2, 1)); }
+// The floor below, faded under this one (upper floors): {lv, ext: [pts], th, walls: [{a, b, th}], rooms: [{pts, name}]} in
+// designer feet, from that floor's unsaved draft if it has one, else from the plan. null when hidden or there is none.
+function dzBelow() {
+  if (!dz || !$("dz-below").checked) return null;
+  const L = levelBelow(dz.lv); if (!L) return null;
+  const d = dz.drafts[L], out = { lv: L, ext: null, th: 0, walls: [], rooms: [] };
+  if (d) {
+    const D = d.data; out.ext = offsetPoly(D.poly, D.t / 2); out.th = D.t;
+    out.walls = D.walls.map(w => ({ a: { x: w.x1, y: w.y1 }, b: { x: w.x2, y: w.y2 }, th: w.th }));
+    out.rooms = [...D.rooms.filter(r => r.type !== "stair").map(r => ({ name: r.name, pts: [{ x: r.x, y: r.y }, { x: r.x + r.w, y: r.y }, { x: r.x + r.w, y: r.y + r.h }, { x: r.x, y: r.y + r.h }] })), ...(D.fixedRooms || []).map(r => ({ name: r.name, pts: r.pts }))];
+  } else {
+    const toL = p => dz.rot ? rotPtK(dz.F.toL(p), dz.rot, dz.rotC) : dz.F.toL(p), mine = state.shapes.filter(x => x.bid === dz.b.id && x.level === L);
+    const ew = mine.find(x => x.kind === "wall" && x.closed);
+    if (ew) { out.ext = ew.points.map(toL); out.th = (ew.thickness || 0) / FT; }
+    else if (L === GROUND) { out.ext = dz.b.points.map(toL); out.th = 0; }
+    for (const w of mine) if (w.kind === "wall" && !w.closed && w.points.length >= 2) for (let i = 1; i < w.points.length; i++) out.walls.push({ a: toL(w.points[i - 1]), b: toL(w.points[i]), th: (w.thickness || 0) / FT });
+    for (const r of mine) if (r.kind === "room" && r.points.length >= 3) out.rooms.push({ name: r.name, pts: r.points.map(toL) });
+  }
+  return out.ext || out.walls.length ? out : null;
+}
+function dzDrawBelow() {
+  const B = dzBelow(); if (!B) return; const g = dctx, col = "rgba(70,80,90,.32)";
+  g.save();
+  for (const r of B.rooms) {
+    const P = r.pts.map(q => dS(q.x, q.y)); g.setLineDash([4, 4]); g.strokeStyle = "rgba(70,80,90,.25)"; g.lineWidth = 1;
+    g.beginPath(); P.forEach((q, i) => i ? g.lineTo(q.x, q.y) : g.moveTo(q.x, q.y)); g.closePath(); g.stroke();
+    const c = P.reduce((a, q) => ({ x: a.x + q.x / P.length, y: a.y + q.y / P.length }), { x: 0, y: 0 });
+    if (r.name) { g.font = '600 12px "Barlow Condensed", "Arial Narrow", sans-serif'; g.textAlign = "center"; g.textBaseline = "middle"; g.fillStyle = "rgba(70,80,90,.45)"; g.fillText(r.name, c.x, c.y + 16); }
+  }
+  g.setLineDash([]); g.strokeStyle = col; g.lineCap = "butt";
+  for (const w of B.walls) { const a = dS(w.a.x, w.a.y), b = dS(w.b.x, w.b.y); g.lineWidth = Math.max(1.5, w.th * dk); g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke(); }
+  if (B.ext) {
+    const P = B.ext.map(q => dS(q.x, q.y)); g.lineJoin = "miter"; g.lineWidth = Math.max(2, B.th * dk);
+    g.beginPath(); P.forEach((q, i) => i ? g.lineTo(q.x, q.y) : g.moveTo(q.x, q.y)); g.closePath(); g.stroke();
+    const top = P.reduce((a, q) => (q.y < a.y - 0.5 || (Math.abs(q.y - a.y) <= 0.5 && q.x < a.x) ? q : a), P[0]);
+    g.font = '600 12px "Barlow Condensed", "Arial Narrow", sans-serif'; g.textAlign = "left"; g.textBaseline = "bottom"; g.fillStyle = "rgba(70,80,90,.6)";
+    g.fillText(levelName(B.lv) + " (below)", top.x + 4, top.y - Math.max(2, B.th * dk) / 2 - 3);
+  }
+  g.restore();
+}
+function dzFitBox() {   // this floor, plus the floor below when it shows
+  const B = dzBelow(), P = [...dz.poly, ...(B && B.ext ? B.ext : [])], b = bbox(P);
+  return { x: b.x0, y: b.y0, w: b.x1 - b.x0, h: b.y1 - b.y0 };
+}
+function dzFitK() { const pad = 50, mg = 6, f = dzFitBox(); return Math.min((dW - pad * 2) / Math.max(f.w + mg * 2, 1), (dH - pad * 2 - 30) / Math.max(f.h + mg * 2, 1)); }
 function dzView() {
   if (dz.view) { dk = dz.view.k; dox = dz.view.x; doy = dz.view.y; return; }
-  dk = dzFitK();
-  dox = (dW - dz.W * dk) / 2 - dz.ox * dk; doy = (dH - dz.D * dk) / 2 + 15 - dz.oy * dk;
+  dk = dzFitK(); const f = dzFitBox();
+  dox = (dW - f.w * dk) / 2 - f.x * dk; doy = (dH - f.h * dk) / 2 + 15 - f.y * dk;
 }
 function dzZoomAt(f, sx, sy) {
   if (!dz) return; dzView();
@@ -5840,6 +5885,7 @@ function dzDraw() {
   for (let x = gx0; x <= gx1; x++) { g.strokeStyle = x % 5 ? "rgba(0,0,0,.06)" : "rgba(0,0,0,.14)"; const sx = Math.round(x * dk + dox) + .5; g.beginPath(); g.moveTo(sx, 0); g.lineTo(sx, dH); g.stroke(); }
   for (let y = gy0; y <= gy1; y++) { g.strokeStyle = y % 5 ? "rgba(0,0,0,.06)" : "rgba(0,0,0,.14)"; const sy = Math.round(y * dk + doy) + .5; g.beginPath(); g.moveTo(0, sy); g.lineTo(dW, sy); g.stroke(); }
   for (const u of state.shapes) if (u.kind === "underlay" && u.bid === dz.b.id && u.level === dz.lv && !u.hidden) drawUnderlayOn(dctx, u, u.points.map(p => { const q = dz.F.toL(p); return dS(q.x, q.y); }), false);
+  dzDrawBelow();   // the floor below, faded
   for (const e of extSides()) dzDrawWall(Object.assign({}, e, { x1: e.x1, y1: e.y1 }), dz.sel === e.id ? MARK : INK, false, true);
   for (const r of dz.rooms) dzDrawRoom(r, r.id === dz.sel, dz.rooms.some(q => q !== r && (q.type === "stair") === (r.type === "stair") && overlaps(q, r)), false);   // stairs sit inside rooms; only same-kind overlaps are flagged
   for (const r of dz.fixedRooms || []) dzDrawPRoom(r, r.id === dz.sel);   // rooms of any shape
@@ -6411,6 +6457,7 @@ function dzSetFoot() {
 }
 for (const id of ["dz-w", "dz-d", "dz-x", "dz-y", "dz-ext"]) $(id).addEventListener("change", dzSetFoot);
 $("dz-snap").addEventListener("change", e => { if (dz) dz.snap = parseFloat(e.target.value); });
+$("dz-below").addEventListener("change", () => { if (dz) dzDraw(); });
 $("dz-rname").addEventListener("input", e => { const r = dzSel(); if (r && "h" in r) { r.name = e.target.value; dzDraw(); } });
 for (const [id, key] of [["dz-rw", "w"], ["dz-rh", "h"]]) $(id).addEventListener("change", e => {
   const r = dzSel(), v = parseLen(e.target.value); if (r && "h" in r && v > 0.5) r[key] = v; dzSelFields(); dzDraw();
