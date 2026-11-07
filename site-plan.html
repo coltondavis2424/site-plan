@@ -373,6 +373,9 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
 .dz-side .pair{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .dz-side .field{margin-bottom:8px}
 .dz-presets{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.dz-roommenu{border:1px solid var(--line);border-radius:10px;padding:8px;margin-top:6px;background:var(--surface)}
+.dz-roommenu input[type=search]{width:100%;box-sizing:border-box;margin:0 0 8px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 9px;font:inherit}
+#dz-addroom{flex:1}
 .dz-presets button{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 8px;text-align:left;display:flex;flex-direction:column;line-height:1.2}
 .dz-presets button:hover{border-color:var(--flag)}
 .dz-presets small{color:var(--muted);font-family:"Barlow Condensed",sans-serif;font-size:13px}
@@ -737,8 +740,13 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
         <h3>Rotate the whole build</h3>
         <div class="row" id="dz-rotrow"><button class="ghost small" data-k="3" title="Turn a quarter turn left">⟲ 90°</button><button class="ghost small" data-k="1" title="Turn a quarter turn right">⟳ 90°</button><button class="ghost small" data-k="2">180°</button></div>
         <p class="muted" style="font-size:13px;margin:6px 0 0">Turns every level together around the building’s center. To set its exact angle on the property, use the rotate buttons in the building’s side panel.</p>
-        <h3>Add a room</h3>
-        <div class="dz-presets" id="dz-presets"></div>
+        <div class="row" style="margin-top:14px"><button class="primary" id="dz-addroom" aria-expanded="false" aria-controls="dz-roommenu">＋ Add a room</button></div>
+        <div class="dz-roommenu" id="dz-roommenu" hidden>
+          <input type="search" id="dz-roomq" placeholder="Find a room (bedroom, bath…)" autocomplete="off" aria-label="Find a room">
+          <div class="dz-presets" id="dz-presets"></div>
+          <p class="muted" id="dz-roomnone" hidden style="font-size:13px;margin:4px 0 0">No room by that name. Pick one close to it and rename it, or draw any size with the Rectangle tool.</p>
+          <p class="muted" style="font-size:12px;margin:8px 0 0">Click one to add it. Or draw any size with the Rectangle tool.</p>
+        </div>
         <div id="dz-roombox" hidden>
           <h3>Selected room</h3>
           <div class="field"><label for="dz-rname">Name</label><input id="dz-rname" type="text" autocomplete="off"></div>
@@ -5504,7 +5512,7 @@ const fl = v => fmtLen(v * FT);
 const DZ_HINTS = {
   move: "Drag a room or wall to move it. Drag edges, corners or wall ends to resize. Drag empty space to pan; scroll or pinch to zoom.",
   rect: "Drag from one corner to the opposite corner to draw a rectangle, then name it.",
-  wall: "Point at a wall to see how far you are from the walls and openings along it; click to start a new wall on its face. Type a number + Enter to start it exactly that far (clear) from the orange end. After the start, type the wall's length + Enter, or click its end. Shift: any angle, no snapping.",
+  wall: "Point at a wall to see how far you are from the walls and openings along it; click to start a new wall on its face. Type a number + Enter to start it exactly that far (clear) from the orange end. After the start, type the wall's length + Enter, or click its end. Walls snap straight or at 45°; Shift: any angle, no snapping.",
   open: "Point at a wall to see how far the opening would be from the walls and openings beside it; click to place it, or type a number + Enter to put it exactly that far from the orange end (to its edge, or its center with Type to center). Drag an opening in Select to move it; the distances show while you drag.",
   dim: "Click where the dimension starts, then each point along it (they snap to wall faces and corners). Right-click (or Enter, or click the last point again) to end it, then move to slide the line out and click. Drag a dimension to move its line; Delete removes it.",
 };
@@ -5623,6 +5631,7 @@ function openDesigner(b, keep) {
   const lvName = (state.levels.find(l => l.id === lv) || {}).name || "";
   $("dz-title").textContent = `Design floor plan: ${b.name}`;
   $("dz-level").innerHTML = optList(state.levels.map(l => [l.id, l.name]), lv);
+  dzRoomMenu(false);
   $("dz-presets").innerHTML = PRESETS.map((p, i) => `<button data-p="${i}"><span>${esc(p[0])}</span><small>${esc(fl(p[1]))} × ${esc(fl(p[2]))}</small></button>`).join("");
   $("dz-ext").value = String(Math.round(t * 12 * 2) / 2);
   dz.base = levelKey();
@@ -5855,10 +5864,23 @@ function dzSnapVal(v, axis, exclude, free) {
   return best != null ? best : Math.round(v / dz.snap) * dz.snap;
 }
 function dzSnapPt(p, exclude, free) { return { x: dzSnapVal(p.x, "x", exclude, free), y: dzSnapVal(p.y, "y", exclude, free) }; }
+// The pointer's direction from a wall's start, snapped to the nearest 45°: straight across, straight up/down or diagonal.
+function dzDir8(dx, dy) {
+  const a = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4), c = Math.round(Math.cos(a)), r = Math.round(Math.sin(a));
+  return c && r ? { x: c * Math.SQRT1_2, y: r * Math.SQRT1_2, diag: true } : { x: c, y: r, diag: false };
+}
 function dzWallEnd(start, p, shift) {
   if (shift) return { x: p.x, y: p.y };
-  const dx = p.x - start.x, dy = p.y - start.y;
-  return Math.abs(dx) >= Math.abs(dy) ? { x: dzSnapVal(p.x, "x", null), y: start.y } : { x: start.x, y: dzSnapVal(p.y, "y", null) };
+  const dx = p.x - start.x, dy = p.y - start.y, u = dzDir8(dx, dy);
+  if (!u.diag) return u.x ? { x: dzSnapVal(p.x, "x", null), y: start.y } : { x: start.x, y: dzSnapVal(p.y, "y", null) };
+  // 45°: the end lands on a nearby line of another wall or room if one is close, else the length rounds to the snap size
+  let L = Math.max(0, dx * u.x + dy * u.y);
+  const tol = 9 / dk; let best = null, bd = tol;
+  for (const ax of ["x", "y"]) for (const c of dzCands(ax, null)) {
+    const l = (c - start[ax]) / u[ax], d = Math.abs(l - L) * Math.SQRT1_2; if (l > 0 && d < bd) { bd = d; best = l; }
+  }
+  L = best != null ? best : Math.round(L / dz.snap) * dz.snap;
+  return { x: start.x + u.x * L, y: start.y + u.y * L };
 }
 function wallDist(w, p) { return segDist(p, { x: w.x1, y: w.y1 }, { x: w.x2, y: w.y2 }); }
 // Where things stop along a wall line L (feet from its start): its ends, the edges of its openings, and the faces of the
@@ -6040,7 +6062,7 @@ function dzLenApply(L) {
     const d = dz.wdraft, st = { x: d.x1, y: d.y1 }, pp = dz.ptr || st; let dx = pp.x - st.x, dy = pp.y - st.y;
     if (Math.hypot(dx, dy) < 0.3 && d.n0) { dx = d.n0.x; dy = d.n0.y; }
     if (Math.hypot(dx, dy) < 1e-6) { dx = 1; dy = 0; }
-    const dir = Math.abs(dx) >= Math.abs(dy) ? { x: Math.sign(dx), y: 0 } : { x: 0, y: Math.sign(dy) };
+    const dir = dzDir8(dx, dy);
     d.x2 = st.x + dir.x * L; d.y2 = st.y + dir.y * L; dzCommitWall(); return true;
   }
   const h = dz.whover; if (!h) return false;
@@ -6293,7 +6315,24 @@ $("dz-presets").addEventListener("click", e => {
   const [name, w, h, kind] = PRESETS[+b.dataset.p], spot = dzFindSpot(w, h);
   const r = { id: dz.nid++, name, sub: "", style: kind === "open" ? "open" : "room", type: kind === "stair" ? "stair" : "room", x: spot.x, y: spot.y, w, h };
   if (kind === "stair") r.label = stairDefault(dz.lv);
-  dz.rooms.push(r); dz.sel = r.id; dzSetTool("move"); dz.sel = r.id; dzSelFields(); dzDraw();
+  dz.rooms.push(r); dz.sel = r.id; dzSetTool("move"); dz.sel = r.id; dzRoomMenu(false); dzSelFields(); dzDraw();
+});
+// one "＋ Add a room" button: opens the list of rooms (with a search box); picking one adds it and closes the list
+function dzRoomMenu(open) {
+  $("dz-roommenu").hidden = !open; $("dz-addroom").setAttribute("aria-expanded", String(open));
+  $("dz-addroom").textContent = open ? "Close the room list" : "＋ Add a room";
+  if (open) { $("dz-roomq").value = ""; dzRoomFilter(); setTimeout(() => $("dz-roomq").focus(), 0); }
+}
+function dzRoomFilter() {
+  const q = $("dz-roomq").value.trim().toLowerCase(); let n = 0;
+  for (const b of $("dz-presets").querySelectorAll("button[data-p]")) { const ok = !q || PRESETS[+b.dataset.p][0].toLowerCase().includes(q); b.hidden = !ok; if (ok) n++; }
+  $("dz-roomnone").hidden = n > 0;
+}
+$("dz-addroom").onclick = () => dzRoomMenu($("dz-roommenu").hidden);
+$("dz-roomq").addEventListener("input", dzRoomFilter);
+$("dz-roomq").addEventListener("keydown", e => {
+  if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); dzRoomMenu(false); $("dz-addroom").focus(); }
+  else if (e.key === "Enter") { e.preventDefault(); const b = [...$("dz-presets").querySelectorAll("button[data-p]")].find(x => !x.hidden); if (b) b.click(); }
 });
 function dzSetFoot() {
   const w = parseLen($("dz-w").value), d = parseLen($("dz-d").value), x = parseLen($("dz-x").value || "0"), y = parseLen($("dz-y").value || "0");
