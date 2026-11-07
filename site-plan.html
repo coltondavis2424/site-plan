@@ -760,6 +760,8 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
           <div class="field"><label for="dz-rstyle">Kind</label><select id="dz-rstyle"><option value="room">Room</option><option value="open">Open to below/above</option><option value="stair">Stairs</option></select></div>
           <div class="field" id="dz-sgo-f" hidden><label for="dz-sgo">Goes</label><select id="dz-sgo"></select></div>
           <div class="row"><button class="ghost small" id="dz-rot">Turn 90°</button><button class="ghost small" id="dz-dup">Duplicate</button><button class="ghost small" id="dz-raddc" aria-pressed="false" title="Then press on a side of the room where the corner goes, and drag it">＋ Add a corner</button><button class="ghost small" id="dz-rshape" title="Turn it into a room you can give any shape: move its corners, add corners">Change its shape</button><button class="danger small" id="dz-del">Remove</button></div>
+          <div id="dz-rfloorbox" hidden><div class="row"><button class="ghost small" id="dz-rfloor" title="Upper floors over part of the building: this floor's outside walls go around this room">Make this floor this room's size</button></div>
+          <p class="muted" style="font-size:13px;margin:4px 0 0">The outside walls of this floor go right around this room (its sides become their inside faces). Inside walls along its sides or outside it are taken out.</p></div>
           <div id="dz-rviews"><p class="muted" style="font-size:13px;margin:10px 0 6px">Wall views from inside this room</p>
           <div class="row"><button class="ghost small" data-side="0">Top wall</button><button class="ghost small" data-side="1">Right wall</button><button class="ghost small" data-side="2">Bottom wall</button><button class="ghost small" data-side="3">Left wall</button></div></div>
         </div>
@@ -5694,6 +5696,7 @@ function dzSelFields() {
   }
   if (isWall) { $("dz-wallhead").textContent = s.ext ? "Exterior wall" : "Selected wall"; $("dz-wdel").hidden = !!s.ext; }
   $("dz-wendbox").hidden = !(isWall && !s.ext && dz.lv !== GROUND);
+  $("dz-rfloorbox").hidden = !(isRoom && s.type !== "stair" && dz.lv !== GROUND);
   if (isOpen) {
     const wIn = Math.round(s.w * 12), widths = OWIDTHS.includes(wIn) ? OWIDTHS : [...OWIDTHS, wIn].sort((a, b) => a - b);
     $("dz-osel").innerHTML = optList(Object.entries(OTYPES), s.otype);
@@ -6362,7 +6365,13 @@ function dzEndAt(w) {
   const NP = out.filter((p, i) => Math.hypot(p.x - out[(i + 1) % out.length].x, p.y - out[(i + 1) % out.length].y) > 1e-4)
     .map(p => ({ x: Math.round(p.x * 1e6) / 1e6 + 0, y: Math.round(p.y * 1e6) / 1e6 + 0 }));
   if (NP.length < 3 || polyArea(NP) < 4 || polyArea(NP) > polyArea(P) - 1) { $("dz-hint").textContent = "This wall doesn't cut the floor anywhere, so nothing changed."; return; }
-  const at = dz.opens.map(o => { const g = (o.ref.type === "ext" || (o.ref.type === "wall" && o.ref.wid === w.id)) && openGeom(o); return g ? g.c : null; });
+  dzSetFloorPoly(NP, [w], "This floor now ends at that wall");
+}
+// Give this floor a new outline NP. Doors and windows on the outside walls, or on the inside walls in `gone` (taken out),
+// stay where they are on the nearest new outside wall; those no longer on one are taken out. Says what happened.
+function dzSetFloorPoly(NP, gone, what) {
+  const goneIds = new Set(gone.map(w => w.id));
+  const at = dz.opens.map(o => { const g = (o.ref.type === "ext" || (o.ref.type === "wall" && goneIds.has(o.ref.wid))) && openGeom(o); return g ? g.c : null; });
   dz.poly = NP; syncBox();
   const E = extSides(); let lost = 0;
   dz.opens = dz.opens.filter((o, k) => {
@@ -6373,13 +6382,24 @@ function dzEndAt(w) {
     if (!best || bd > 1 || bt < o.w / 2 - 0.01 || bt > l - o.w / 2 + 0.01) { lost++; return false; }
     o.ref = { type: "ext", idx: best.idx }; o.along = bt; return true;
   });
-  dz.walls = dz.walls.filter(x => x !== w);
+  dz.walls = dz.walls.filter(x => !goneIds.has(x.id));
   const IN = innerPoly(), off = dz.rooms.filter(r => !inPoly({ x: r.x + r.w / 2, y: r.y + r.h / 2 }, IN)).length;
   dz.sel = null; dzFields(); dzSelFields(); dzDraw();
-  $("dz-hint").textContent = "This floor now ends at that wall (" + fmtLen(dz.W * FT) + " × " + fmtLen(dz.D * FT) + ")."
+  $("dz-hint").textContent = what + " (" + fmtLen(dz.W * FT) + " × " + fmtLen(dz.D * FT) + ")."
     + (lost ? " " + lost + (lost > 1 ? " doors/windows" : " door/window") + " on the part cut off came out." : "")
     + (off ? " " + off + (off > 1 ? " rooms are" : " room is") + " now outside the floor: move or remove them." : "") + " Ctrl+Z puts it back.";
 }
+// "Make this floor this room's size": the outside walls go around the room (room sides = their inside faces).
+function dzFloorToRoom(r) {
+  const t = dz.t, x0 = r.x - t, y0 = r.y - t, x1 = r.x + r.w + t, y1 = r.y + r.h + t, near = 0.4;
+  const onEdge = w => { const tol = w.th / 2 + near; return (Math.abs(w.x1 - w.x2) < 1e-3 && [r.x, r.x + r.w].some(e => Math.abs(w.x1 - e) <= tol)) || (Math.abs(w.y1 - w.y2) < 1e-3 && [r.y, r.y + r.h].some(e => Math.abs(w.y1 - e) <= tol)); };
+  const out = q => q.x < r.x - near || q.x > r.x + r.w + near || q.y < r.y - near || q.y > r.y + r.h + near;
+  const gone = dz.walls.filter(w => onEdge(w) || (out({ x: w.x1, y: w.y1 }) && out({ x: w.x2, y: w.y2 }) && out({ x: (w.x1 + w.x2) / 2, y: (w.y1 + w.y2) / 2 })));
+  dz.ox = x0; dz.oy = y0; dz.W = x1 - x0; dz.D = y1 - y0;
+  const keep = dz.poly; setRectPoly(); const NP = dz.poly; dz.poly = keep;
+  dzSetFloorPoly(NP, gone, "This floor is now the size of " + (r.name || "the room"));
+}
+$("dz-rfloor").onclick = () => { const r = dzSel(); if (r && "h" in r && r.type !== "stair") dzFloorToRoom(r); };
 $("dz-wend").onclick = () => { const w = dzSel(); if (w && "x1" in w && !w.ext) dzEndAt(w); };
 function dzSetFoot() {
   const w = parseLen($("dz-w").value), d = parseLen($("dz-d").value), x = parseLen($("dz-x").value || "0"), y = parseLen($("dz-y").value || "0");
@@ -7165,7 +7185,7 @@ function wvCompass() {
   $("wv-compass").dataset.facing = name; $("wv-compass").dataset.north = deg.toFixed(1);
 }
 // The next wall at this wall's left (dir -1) or right (dir +1) end, the way you'd turn standing where you are: inside a room
-// the corner wall, outside around the corner. Only the stretch up to the next wall meeting it on your side is shown.
+// the corner wall, outside around the corner. The whole wall is shown.
 function wvNextSeg(dir) {
   const fr = wvFrame(), n = { x: wv.nL.x * wv.face, y: wv.nL.y * wv.face }, A = wvPt(wv.v, fr.t(0)), B = wvPt(wv.v, fr.t(fr.L));
   let r = unit(A, B); const E = dir > 0 ? B : A; if (dir < 0) r = { x: -r.x, y: -r.y };
@@ -7184,15 +7204,7 @@ function wvNextSeg(dir) {
   if (!best) return null;
   const { L, d, P } = best, dn = d.x * n.x + d.y * n.y, dr = d.x * r.x + d.y * r.y;
   const nn = { x: -dn * r.x + dr * n.x, y: -dn * r.y + dr * n.y };   // d turned a quarter further (from r toward n): the side you're on
-  let end = best.avail;
-  for (const W of all) {   // the first wall meeting it on your side
-    if (W === L || (W.ext && L.ext && W.idx === L.idx) || (!W.ext && !L.ext && W.id === L.id)) continue;
-    for (const [q, o] of [[{ x: W.x1, y: W.y1 }, { x: W.x2, y: W.y2 }], [{ x: W.x2, y: W.y2 }, { x: W.x1, y: W.y1 }]]) {
-      const s1 = (q.x - P.x) * d.x + (q.y - P.y) * d.y, off = (q.x - P.x) * nn.x + (q.y - P.y) * nn.y;
-      if (s1 > 0.5 && s1 < end && Math.abs(off) <= L.th / 2 + W.th + 0.35 && ((o.x - q.x) * nn.x + (o.y - q.y) * nn.y) > 0.3) end = s1;
-    }
-  }
-  const seg = Object.assign(dzWallSeg(L), { x1: P.x, y1: P.y, x2: P.x + d.x * end, y2: P.y + d.y * end }), m = { x: P.x + d.x * end / 2, y: P.y + d.y * end / 2 };
+  const seg = dzWallSeg(L), m = { x: (L.x1 + L.x2) / 2, y: (L.y1 + L.y2) / 2 };   // the whole wall
   return { seg, from: { x: m.x + nn.x * (L.th / 2 + 1), y: m.y + nn.y * (L.th / 2 + 1) } };
 }
 function wvGo(dir) {
