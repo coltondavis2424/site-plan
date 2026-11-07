@@ -5566,12 +5566,13 @@ function dzSetTool(t) {
   dzDraw();
 }
 function openDesigner(b, keep) {
-  const prev = keep && dz ? { drafts: dz.drafts, nid: dz.nid, F: dz.F, tool: dz.tool, openType: dz.openType, openW: dz.openW, rot: dz.rot, rotC: dz.rotC, view: dz.view } : null;
+  const prev = keep && dz ? { drafts: dz.drafts, nid: dz.nid, F: dz.F, tool: dz.tool, openType: dz.openType, openW: dz.openW, rot: dz.rot, rotC: dz.rotC, view: dz.view, extSide: dz.extSide, extGable: dz.extGable } : null;
   const F = prev ? prev.F : buildingFrame(b), lv = state.level, ext = state.shapes.find(s => s.bid === b.id && s.level === lv && s.kind === "wall" && s.closed);
   const t = ext ? ext.thickness / FT : 6.5 / 12;
   const poly = ext ? offsetPoly(orientPoly(ext.points.map(F.toL)), -t / 2) : orientPoly(b.points.map(F.toL));
   dz = { b, lv, F, t, poly, drafts: prev ? prev.drafts : {}, rot: prev ? prev.rot : 0, rotC: prev ? prev.rotC : null, ox: 0, oy: 0, W: 0, D: 0, rooms: [], walls: [], opens: [], openType: "door", openW: 36, sel: null, snap: +$("dz-snap").value || 0.5, nid: prev ? prev.nid : 1, tool: "move", wallTh: +$("dz-wth").value / 12, view: prev ? prev.view : null };
   syncBox();
+  if (prev) { dz.extSide = prev.extSide; dz.extGable = prev.extGable; }
   dz.roomIds = []; dz.fixedRooms = [];   // rectangles load as rooms; any other shape as a shaped room (dz.fixedRooms, edited by its corners)
   for (const r of state.shapes.filter(s => s.bid === b.id && s.level === lv && s.kind === "room" && !["fixture", "porch"].includes(s.style))) {
     const L = r.points.map(F.toL), B = bbox(L), at = (v, a, c) => Math.abs(v - a) < 0.05 || Math.abs(v - c) < 0.05;
@@ -6384,7 +6385,7 @@ let discardArmed = 0;
 // Escape or Cancel with unsaved changes: ask (save, close without saving, or keep working).
 function guardClose(ev) {
   if (!dz) return false;
-  const d = dirtyLevels(); if (dz.rot) d.add(dz.lv); if (!d.size) return false;
+  const d = dirtyLevels(); if (dz.rot || dz.extSide || dz.extGable) d.add(dz.lv); if (!d.size) return false;
   if (ev) ev.preventDefault();
   $("dzc-msg").textContent = `You have changes on ${[...d].map(levelName).join(", ")} that aren’t saved to the plan yet.`;
   if (!$("dzconfirm").open) $("dzconfirm").showModal();
@@ -6467,6 +6468,21 @@ $("dz-save").onclick = () => {
   }
   const todo = Object.values(dz.drafts).filter(sn => sn.lv === cur || snapDirty(sn));
   for (const sn of todo) { restoreSnap(sn); saveCurrentLevel(); }
+  if (dz.extSide || dz.extGable) {   // "whole outside" / "every gable end": the building's own choice, and older per-wall choices dropped
+    const b = dz.b, ex = dz.extSide, eg = dz.extGable; b.build = Object.assign({}, b.build);
+    if (ex) {
+      if (!b.build.frame || b.build.frame !== "post") { if (MAT_OPTS.flatMap(g => g[1]).find(r => r[0] === "siding")[2].some(([k]) => k === ex.type)) b.build.siding = ex.type; }
+      b.build.wvSide = { type: ex.type, color: ex.color, for: wvSideKey(matOpt(b)) };
+    }
+    if (eg) { if (eg.same) delete b.build.gableSide; else b.build.gableSide = { type: eg.type, color: eg.color }; }
+    for (const x of state.shapes) if (x.kind === "wallview" && x.bid === b.id && x.data) {
+      for (const [key, e] of [["side", ex], ["gside", eg]]) {
+        if (!e || !x.data[key]) continue;
+        const keep = {}; for (const [f, c] of Object.entries(x.data[key])) if ((c.at || 0) > e.at) keep[f] = c;
+        if (Object.keys(keep).length) x.data[key] = keep; else delete x.data[key];
+      }
+    }
+  }
   const b = dz.b; state.level = cur; renderLevels();
   selected = b.id; $("designer").close(); afterChange();
 };
@@ -6582,7 +6598,7 @@ function openWallView(S, from) {
   if (from) face = (from.x - mid.x) * nL.x + (from.y - mid.y) * nL.y >= 0 ? 1 : -1;
   else { const inL = wvSideLabel(S, nL), inR = wvSideLabel(S, { x: -nL.x, y: -nL.y }); face = inL === "Outside" ? -1 : inR === "Outside" ? 1 : inL !== "Inside" ? 1 : inR !== "Inside" ? -1 : 1; }
   wv = { v, S, nL, face, isNew, layer: "framing", runPick: { elec: { type: "wire", size: "14/2" }, plumb: { type: "cold", size: 0.5 } }, show: { framing: true, openings: true, elec: true, plumb: true, drywall: false, finish: true }, sel: null, tool: null, view: null,
-    undo: JSON.stringify({ v, opens: dz.opens, wallH: dz.wallH }) };
+    undo: JSON.stringify({ v, opens: dz.opens, wallH: dz.wallH, extSide: dz.extSide || null, extGable: dz.extGable || null }) };
   wvSetLayer("framing");
   $("wallview").showModal(); wvHist = { u: [], r: [], last: wvKey() }; stepButtons(); requestAnimationFrame(wvResize);
 }
@@ -6894,16 +6910,30 @@ function wvSelGeom() {   // left edge and bottom of the selection, view feet
 }
 const WV_SIDING = [["lp", "Lap siding, 7″ exposure (LP SmartSide)", "#8C7B65"], ["vinyl", "Vinyl lap, double 4″", "#E6E1D4"], ["fc", "Fiber cement lap", "#6E7F86"], ["bb", "Board and batten", "#3F4A45"],
   ["steel", "Steel ribbed panels", "#7A2E2A"], ["cedar", "Cedar shingles", "#A87A4F"], ["stucco", "Stucco", "#D9D2C3"], ["stone", "Stone veneer", "#9C958A"]];
-function wvSideOf() {   // siding on the face seen from here: saved choice, else what the building's material list says
-  const fr = wvFrame(), sv = (wv.v.side || {})[fr.vf]; if (sv) return sv;
-  const o = dz && dz.b ? matOpt(dz.b) : {}, t = o.frame === "post" ? "steel" : WV_SIDING.some(r => r[0] === o.siding) ? o.siding : "lp";
+// Siding on the face seen from here: this wall's own choice, unless "Use on the whole outside" was clicked after it
+// (dz.extSide, saved to the building with the plan); else the building's matched siding (b.build.wvSide, while the
+// material list's siding is still the one it was matched with); else what the material list says.
+const wvSideKey = o => o.frame === "post" ? "post" : o.siding;
+function wvSideOf() {
+  const fr = wvFrame(), sv = (wv.v.side || {})[fr.vf], ex = dz && dz.extSide;
+  if (sv && !(ex && (sv.at || 0) < ex.at)) return sv;
+  if (ex) return ex;
+  const o = dz && dz.b ? matOpt(dz.b) : {}, e = dz && dz.b && dz.b.build && dz.b.build.wvSide;
+  if (e && e.for === wvSideKey(o)) return e;
+  const t = o.frame === "post" ? "steel" : WV_SIDING.some(r => r[0] === o.siding) ? o.siding : "lp";
   return { type: t, color: WV_SIDING.find(r => r[0] === t)[2] };
 }
 // Fill a clip path (already set on g) with the siding pattern, view feet x0..x1, y0..y1.
-function wvGableSide() {   // siding on the gable triangle seen from here: its own choice (v.gside[vf]), else the wall's
-  const gv = (wv.v.gside || {})[wvFrame().vf]; return gv || wvSideOf();
+// Gable end siding in effect: {type, color}, or null = the same as the wall. This gable's own choice (v.gside[vf], which
+// may be {same:true}), unless "Use on every gable end" came after it (dz.extGable); else the building's (b.build.gableSide).
+function wvGableRaw() {
+  const gv = (wv.v.gside || {})[wvFrame().vf], ex = dz && dz.extGable;
+  let r = gv; if (ex && (!gv || (gv.at || 0) < ex.at)) r = ex;
+  if (!r) r = (dz && dz.b && dz.b.build && dz.b.build.gableSide) || null;
+  return r && !r.same ? r : null;
 }
-const wvGableOwn = () => !!(wv.v.gside || {})[wvFrame().vf];
+function wvGableSide() { return wvGableRaw() || wvSideOf(); }
+const wvGableOwn = () => !!wvGableRaw();
 function wvDrawSiding(g, sd, x0, y0, x1, y1) {
   const a = wS(x0, y1), b = wS(x1, y0); g.fillStyle = sd.color; g.fillRect(a.x, a.y, b.x - a.x, b.y - a.y);
   const ln = (p, q, w, c) => { g.strokeStyle = c; g.lineWidth = w; g.beginPath(); g.moveTo(p.x, p.y); g.lineTo(q.x, q.y); g.stroke(); };
@@ -7017,11 +7047,14 @@ function wvTools() {
     <div class="field"><label>&nbsp;</label><button class="ghost small" id="wv-addblock" aria-pressed="${!!(wv.tool && wv.tool.block)}">▭ Add blocking</button></div></div>`;
   else if (l === "openings") h = `<h3>Add a door or window</h3><div class="dz-presets">${Object.entries(OTYPES).map(([k, n]) => `<button data-addopen="${k}"><span>${esc(n)}</span><small>${esc(fl(OPEN_DEFAULT_W[k] / 12))} wide</small></button>`).join("")}</div>`;
   else if (l === "drywall" && wvOut()) { const sd = wvSideOf(); h = `<h3>Siding on this side</h3><div class="field"><label for="wv-sidetype">Siding</label><select id="wv-sidetype">${optList(WV_SIDING.map(r => [r[0], r[1]]), sd.type)}</select></div>
-    <div class="field"><label for="wv-sidecol">Color</label><input id="wv-sidecol" type="color" value="${esc(sd.color)}" style="height:40px;padding:2px"></div>${(() => { const RG = wvRoof(); if (!RG || !(RG.kind === "gable" || RG.kind === "shedend")) return ""; const own = wvGableOwn(), gs = wvGableSide();
+    <div class="field"><label for="wv-sidecol">Color</label><input id="wv-sidecol" type="color" value="${esc(sd.color)}" style="height:40px;padding:2px"></div>
+    <div class="row"><button class="ghost small" id="wv-sideall" title="Every outside wall of this building, on every floor">Use on the whole outside</button></div>
+    ${dz.extSide ? `<p class="muted" style="font-size:12px;margin:4px 0 0">Every outside wall gets this siding when you click Save to plan.</p>` : ""}${(() => { const RG = wvRoof(); if (!RG || !(RG.kind === "gable" || RG.kind === "shedend")) return ""; const own = wvGableOwn(), gs = wvGableSide();
       return `<h3>Gable end siding</h3><p class="muted" style="font-size:12px;margin:0 0 6px">The triangle up under the roof. Pick something different to set it apart (board and batten, shakes, another color).</p>
       <div class="field"><label for="wv-gsidetype">Siding</label><select id="wv-gsidetype">${optList([["same", "Same as the wall"]].concat(WV_SIDING.map(r => [r[0], r[1]])), own ? gs.type : "same")}</select></div>`
-      + (own ? `<div class="field"><label for="wv-gsidecol">Color</label><input id="wv-gsidecol" type="color" value="${esc(gs.color)}" style="height:40px;padding:2px"></div>` : ""); })()}
-    <p class="muted" style="font-size:12px;margin:4px 0 0">The material list still counts the siding chosen for the whole building.</p>`; }
+      + (own ? `<div class="field"><label for="wv-gsidecol">Color</label><input id="wv-gsidecol" type="color" value="${esc(gs.color)}" style="height:40px;padding:2px"></div>` : "")
+      + `<div class="row"><button class="ghost small" id="wv-gableall">Use on every gable end</button></div>`; })()}
+    <p class="muted" style="font-size:12px;margin:4px 0 0">The material list counts the building’s siding. “Use on the whole outside” changes that too (when it’s one the list knows).</p>`; }
   else if (l === "drywall") h = `<h3>Drywall on this side</h3><div class="field"><label for="wv-paint">Paint color</label><input id="wv-paint" type="color" value="${esc((v.paint || {})[wvFrame().vf] || "#F1EEE6")}" style="height:40px;padding:2px"></div>
     <div class="field"><label for="wv-dwth">Thickness</label><select id="wv-dwth">${optList([["0.5", "½″"], ["0.625", "⅝″ (fire-rated)"]], v.dwTh || "0.5")}</select></div>`;
   else {
@@ -7041,16 +7074,24 @@ document.addEventListener("change", e => {
   if (!wv || !e.target || !["wv-sidetype", "wv-sidecol", "wv-gsidetype", "wv-gsidecol"].includes(e.target.id)) return;
   if (e.target.id === "wv-gsidetype" || e.target.id === "wv-gsidecol") {   // gable end: its own siding, or back to the wall's
     const fr = wvFrame(), cur = wvGableSide(), gside = Object.assign({}, wv.v.gside || {});
-    if (e.target.id === "wv-gsidecol") gside[fr.vf] = { type: cur.type, color: e.target.value };
-    else if (e.target.value === "same") delete gside[fr.vf];
-    else { const r = WV_SIDING.find(x => x[0] === e.target.value); gside[fr.vf] = { type: e.target.value, color: r ? r[2] : cur.color }; }
+    const at = Date.now();
+    if (e.target.id === "wv-gsidecol") gside[fr.vf] = { type: cur.type, color: e.target.value, at };
+    else if (e.target.value === "same") gside[fr.vf] = { same: true, at };
+    else { const r = WV_SIDING.find(x => x[0] === e.target.value); gside[fr.vf] = { type: e.target.value, color: r ? r[2] : cur.color, at }; }
     if (Object.keys(gside).length) wv.v.gside = gside; else delete wv.v.gside;
     wvTools(); wvDraw(); return;
   }
   const fr = wvFrame(), cur = wvSideOf(), side = Object.assign({}, wv.v.side || {});
-  if (e.target.id === "wv-sidetype") { const r = WV_SIDING.find(x => x[0] === e.target.value); side[fr.vf] = { type: e.target.value, color: r ? r[2] : cur.color }; }
-  else side[fr.vf] = { type: cur.type, color: e.target.value };
+  if (e.target.id === "wv-sidetype") { const r = WV_SIDING.find(x => x[0] === e.target.value); side[fr.vf] = { type: e.target.value, color: r ? r[2] : cur.color, at: Date.now() }; }
+  else side[fr.vf] = { type: cur.type, color: e.target.value, at: Date.now() };
   wv.v.side = side; wvTools(); wvDraw();
+});
+document.addEventListener("click", e => {
+  if (!wv || !e.target || !["wv-sideall", "wv-gableall"].includes(e.target.id)) return;
+  const at = Date.now();
+  if (e.target.id === "wv-sideall") { const sd = wvSideOf(); dz.extSide = { type: sd.type, color: sd.color, at }; $("wv-hint").textContent = "Every outside wall of this building gets this siding when you save to the plan. Gable ends with their own siding keep it."; }
+  else { const g = wvGableRaw(); dz.extGable = g ? { type: g.type, color: g.color, at } : { same: true, at }; $("wv-hint").textContent = g ? "Every gable end gets this siding when you save to the plan." : "Every gable end matches its wall when you save to the plan."; }
+  wvTools(); wvDraw();
 });
 function wvField(id, label, val, type = "text") { return `<div class="field"><label for="${id}">${label}</label><input id="${id}" type="${type}" inputmode="decimal" value="${esc(val)}"></div>`; }
 function wvFields() {
@@ -7310,7 +7351,7 @@ $("wv-done").onclick = () => {
 $("wv-cancel").onclick = () => {
   const u = JSON.parse(wv.undo);
   if (!wv.isNew) { const i = dz.views.indexOf(wv.v); if (i >= 0) dz.views[i] = u.v; }
-  dz.opens = u.opens; dz.wallH = u.wallH; wv.cancelled = true; $("wallview").close();
+  dz.opens = u.opens; dz.wallH = u.wallH; dz.extSide = u.extSide || undefined; dz.extGable = u.extGable || undefined; wv.cancelled = true; $("wallview").close();
 };
 $("wallview").addEventListener("cancel", e => { e.preventDefault(); if (wv && (wv.draft || wv.tool)) { wv.draft = null; wv.tool = null; wv.ghost = null; wvTools(); wvDraw(); } else $("wv-done").onclick(); });
 $("wallview").addEventListener("close", () => { wv = null; wvPtrs.clear(); wvPinch = null; if (dz) { dz.sel = null; dzSelFields(); dzDraw(); $("dz-status").textContent = "Wall view changes are kept here. Save to plan to keep them for good."; } });
@@ -7358,7 +7399,7 @@ dzc.addEventListener("dblclick", e => {
 // Steps are found by comparing a snapshot after each tap, drag, change or key, so every edit is covered
 // without hooks in each handler. A drag is one step; typing in a box is one step when you leave the box.
 let dzHist = {}, wvHist = null;   // designer: per floor {u, r, last}; wall view: {u, r, last}
-function wvKey() { return JSON.stringify({ v: wv.v, opens: dz.opens, wallH: dz.wallH }); }
+function wvKey() { return JSON.stringify({ v: wv.v, opens: dz.opens, wallH: dz.wallH, extSide: dz.extSide || null, extGable: dz.extGable || null }); }
 function stepCommit() {
   if (wv && wvHist && $("wallview").open) { const k = wvKey(); if (k !== wvHist.last) { wvHist.u.push(wvHist.last); wvHist.r = []; wvHist.last = k; } }
   else if (dz && $("designer").open && !dDrag) {   // wall view changes land here as one step when it closes; a drag is one step, recorded when it ends
@@ -7386,7 +7427,7 @@ function wvStep(back) {
   if (!from.length) { $("wv-hint").textContent = back ? "Nothing to undo in this wall view." : "Nothing to redo."; return; }
   to.push(H.last); H.last = from.pop();
   const s = JSON.parse(H.last); for (const k of Object.keys(wv.v)) delete wv.v[k]; Object.assign(wv.v, s.v);
-  dz.opens = s.opens; dz.wallH = s.wallH; wv.sel = null; wv.ghost = null; wv.draft = null;
+  dz.opens = s.opens; dz.wallH = s.wallH; dz.extSide = s.extSide || undefined; dz.extGable = s.extGable || undefined; wv.sel = null; wv.ghost = null; wv.draft = null;
   wvSetLayer(wv.layer); stepButtons();
   $("wv-hint").textContent = back ? "Undid the last change. Ctrl+X (or ↷) puts it back." : "Redid the change.";
 }
