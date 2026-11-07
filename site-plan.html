@@ -7157,7 +7157,7 @@ function wvTools() {
     }
   }
   $("wv-tools").innerHTML = h;
-  $("wv-hint").textContent = wv.tool && wv.tool.run ? `Tap to start the ${WV_RUNS[wv.tool.run][0].toLowerCase()}, tap to bend it, and tap the last point again to finish. It stays level or straight up and down; hold Shift for an angle.` : wv.tool && wv.tool.stud ? "Tap where the new stud goes, or press and slide to place it exactly." : wv.tool && wv.tool.block ? "Tap between two studs at the height you want the blocking; keep holding to slide it up or down. Tap Add blocking again when you are done." : wvOut() && l === "drywall" ? "Siding covers the outside of this wall. Pick the kind and color on the left; a gable end can have its own." : wvOut() && ["elec", "plumb", "finish"].includes(l) ? "From outside you get outdoor things: tap one to put it on the wall, then drag it where it goes." : WV_HINTS[l];
+  $("wv-hint").textContent = wv.tool && wv.tool.run ? `Tap to start the ${WV_RUNS[wv.tool.run][0].toLowerCase()}, tap to bend it, and tap the last point again to finish. It stays level or straight up and down; hold Shift for an angle.` : wv.tool && wv.tool.stud ? "Tap where the new stud goes, or press and slide to place it exactly." : wv.tool && wv.tool.block ? "Tap between two studs at the height you want the blocking; keep holding to slide it up or down. Press on a block that is already there to pick it or drag it. Tap Add blocking again when you are done." : wvOut() && l === "drywall" ? "Siding covers the outside of this wall. Pick the kind and color on the left; a gable end can have its own." : wvOut() && ["elec", "plumb", "finish"].includes(l) ? "From outside you get outdoor things: tap one to put it on the wall, then drag it where it goes." : WV_HINTS[l];
 }
 document.addEventListener("change", e => {
   if (!wv || !e.target || !["wv-sidetype", "wv-sidecol", "wv-gsidetype", "wv-gsidecol"].includes(e.target.id)) return;
@@ -7346,7 +7346,9 @@ wvc.addEventListener("pointerdown", e => {
   if (wvPtrs.size > 2) return;
   const fr = wvFrame();
   if (wv.tool && wv.tool.stud) { const t = wvStudT(p.x); wvAddStud(t); wvDrag = { stud: true, t0: t, start: p }; return; }   // keep holding to slide it
-  if (wv.tool && wv.tool.block) {   // a block in the bay under the pointer, centered on it; keep holding to slide it
+  if (wv.tool && wv.tool.block) {   // on a block already there: pick it and slide it; else a new block in the bay, centered on it
+    const tol = 6 / wk, fb = wvFraming().find(f => f.kind === "block" && p.x >= f.x - tol && p.x <= f.x + f.w + tol && p.y >= f.y - tol && p.y <= f.y + f.h + tol), old = fb && (wv.v.blocks || []).find(b => b.id === fb.id);
+    if (old) { wv.sel = { block: old.id }; wvDrag = { block: old, o: { ...old }, start: p }; wvFields(); wvDraw(); return; }
     const sz = wv.blockSize || "2x8", h = WI(WV_BLOCK[sz]), bk = { id: Date.now() + Math.random(), t: fr.t(p.x), y: wvSnap(Math.max(WI(1.5), Math.min(wvHt() - WI(3) - h, p.y - h / 2))), size: sz };
     wv.v.blocks = [...(wv.v.blocks || []), bk]; wv.sel = { block: bk.id }; wvDrag = { block: bk, o: { ...bk }, start: p }; wvFields(); wvDraw(); return;
   }
