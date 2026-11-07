@@ -727,9 +727,17 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
           </div>
           <div class="field"><label for="dz-rstyle">Kind</label><select id="dz-rstyle"><option value="room">Room</option><option value="open">Open to below/above</option><option value="stair">Stairs</option></select></div>
           <div class="field" id="dz-sgo-f" hidden><label for="dz-sgo">Goes</label><select id="dz-sgo"></select></div>
-          <div class="row"><button class="ghost small" id="dz-rot">Turn 90°</button><button class="ghost small" id="dz-dup">Duplicate</button><button class="danger small" id="dz-del">Remove</button></div>
+          <div class="row"><button class="ghost small" id="dz-rot">Turn 90°</button><button class="ghost small" id="dz-dup">Duplicate</button><button class="ghost small" id="dz-rshape" title="Turn it into a room you can give any shape: move its corners, add corners">Change its shape</button><button class="danger small" id="dz-del">Remove</button></div>
           <div id="dz-rviews"><p class="muted" style="font-size:13px;margin:10px 0 6px">Wall views from inside this room</p>
           <div class="row"><button class="ghost small" data-side="0">Top wall</button><button class="ghost small" data-side="1">Right wall</button><button class="ghost small" data-side="2">Bottom wall</button><button class="ghost small" data-side="3">Left wall</button></div></div>
+        </div>
+        <div id="dz-proombox" hidden>
+          <h3>Selected room (any shape)</h3>
+          <div class="field"><label for="dz-pname">Name</label><input id="dz-pname" type="text" autocomplete="off"></div>
+          <div class="field"><label for="dz-pstyle">Kind</label><select id="dz-pstyle"><option value="room">Room</option><option value="open">Open to below/above</option></select></div>
+          <p class="muted" id="dz-pinfo" style="margin:0 0 6px"></p>
+          <p class="muted" style="margin:0 0 8px;font-size:12px">Drag inside to move it. Drag a corner to move that corner; drag a small dot in the middle of a side to add a corner there. Walls aren't made from this room's sides: draw them with the Wall tool.</p>
+          <div class="row"><button class="ghost small" id="dz-pcdel" disabled>Remove corner</button><button class="danger small" id="dz-pdel">Remove</button></div>
         </div>
         <div id="dz-dimbox" hidden>
           <h3>Selected dimension</h3>
@@ -2532,7 +2540,8 @@ function stickList(b) {
   const stud = o.stud, stories = fl.length, joistBelow = lv => lv > GROUND || ["crawl", "bsmt"].includes(o.found);
   const jd = { "2x10": 9.25, "2x12": 11.25, ij: 11.875 }[o.joist] / 12 + 0.75 / 12;   // joist + subfloor depth, ft
   const pitch = +o.pitch / 12, k = o.roof === "flat" ? 1 : Math.sqrt(1 + pitch * pitch), ov = +o.over / 12;
-  const topF = fl.reduce((a, f) => f.area > a.area + 1 ? f : a, fl[0]), rect = matRect(topF.P);   // the roof covers the biggest floor
+  const low = lowerRoofs(b, o), topF = low.length ? fl[fl.length - 1] : fl.reduce((a, f) => f.area > a.area + 1 ? f : a, fl[0]), rect = matRect(topF.P);   // the main roof covers the top floor; lower roofs (wings, the part of a floor sticking out past the one above) are added below
+  const lowA = low.reduce((a, r) => a + r.area, 0), lowEdge = low.reduce((a, r) => a + r.edge, 0), lowWall = low.reduce((a, r) => a + r.wallF, 0);
   const roofShape = o.roof !== "flat" && !rect ? "hip" : o.roof;   // gable and shed need a rectangle
   const r01 = rect && ridgeFirst(b, o, topF.P, buildingFrame(b)), RW = rect ? dist(topF.P[r01 ? 1 : 0], topF.P[r01 ? 2 : 1]) : topF.W, RL = rect ? dist(topF.P[r01 ? 0 : 1], topF.P[r01 ? 1 : 2]) : topF.L;
   const rise = roofShape === "shed" ? RW * pitch : roofShape === "flat" ? 0 : RW / 2 * pitch;
@@ -2693,7 +2702,7 @@ function stickList(b) {
   }
 
   // ---------- roof ----------
-  const RP = offsetPoly(orientPoly(topF.P), -ov), planA = Math.abs(polyArea(RP)), roofA = planA * k, Lo = RL + 2 * ov, Wo = RW + 2 * ov;
+  const RP = offsetPoly(orientPoly(topF.P), -ov), planA = Math.abs(polyArea(RP)), roofA = planA * k + lowA, Lo = RL + 2 * ov, Wo = RW + 2 * ov;
   let eave, rake = 0, ridge = 0, hips = 0;
   if (roofShape === "gable") { eave = 2 * Lo; rake = 4 * (Wo / 2) * k; ridge = Lo; }
   else if (roofShape === "shed") { eave = Lo; rake = 2 * Wo * k; ridge = Lo; }
@@ -2701,6 +2710,7 @@ function stickList(b) {
   else if (rect) { eave = 2 * (Lo + Wo); ridge = Math.max(0, Lo - Wo); hips = 4 * Math.sqrt(2 * (Wo / 2) ** 2 + (Wo / 2 * pitch) ** 2); }
   else { eave = perim(RP, true); hips = eave * 0.68 * Math.sqrt(1 + pitch * pitch / 2); }
   const valleys = rect || roofShape === "flat" ? 0 : topF.concave * Math.sqrt(2 * (RW / 2) ** 2 + (RW / 2 * pitch) ** 2);
+  const eaveMain = eave; eave += lowEdge;   // the lower roofs' outside edges get fascia, drip edge, ice and water, gutters
   section("Roof framing");
   if (o.roof !== roofShape) row("Note", "—", "", "A gable or shed roof needs a rectangle; this outline is counted as a hip roof.");
   if (o.rframe === "truss") {
@@ -2725,6 +2735,13 @@ function stickList(b) {
     row("Collar ties 2×6 × 12 ft", Math.ceil(RL / 4), "pcs", "Every 4 ft");
     row("Hurricane ties (H2.5A)", n, "each");
   }
+  for (const r of low) {
+    const sl = r.depth * k, len = stockFor(sl + 0.5, [8, 10, 12, 14, 16, 18, 20, 22, 24]), n = Math.ceil(r.plan / (Math.max(r.depth, 1) * 16 / 12)) + 1;   // one rafter per 16" strip of roof
+    row(`${r.name} roof: rafters ${r.depth > 12 ? "2×10" : "2×8"} × ${len} ft`, Math.ceil(n * waste * (r.rect ? 1 : 1.15)), "pcs", `${sf(r.plan)} of lower roof, rafters about ${fmtLen(sl * FT)} long, 16" on center (estimate; trusses work too)`);
+    if (r.wallF > 1) row(`${r.name} roof: ledger 2×${r.depth > 12 ? "10" : "8"} on the wall above`, pcs(r.wallF), "pcs 16 ft", `${lf(r.wallF)}, lag-screwed or through-bolted to the framing`);
+    row(`${r.name} roof: hurricane ties (H2.5A)`, n, "each");
+  }
+  if (lowWall > 1) row("Step and apron flashing where a lower roof meets a wall", Math.ceil(lowWall * 1.1), "lin ft", "Plus kick-out flashing at each bottom end");
   row("Fascia board 2×6 or 1×6 × 16 ft", pcs(eave + rake), "pcs", lf(eave + rake));
   if (ov > 0) { row("Soffit, vented vinyl or aluminum 12\" × 12 ft", Math.ceil(eave * ov / 12 * waste), "panels", `${lf(eave)} × ${o.over}" overhang`); row("Soffit J-channel or F-channel, 12 ft", Math.ceil(eave * 2 / 12 * waste), "pcs"); }
   row("Fascia cover (aluminum), 12 ft", Math.ceil((eave + rake) / 12 * waste), "pcs");
@@ -2760,7 +2777,7 @@ function stickList(b) {
     row("Pipe boots / roof vents", "as needed", "", "One for each plumbing vent and bath fan");
   }
   if (o.gutter === "yes") {
-    const gL = roofShape === "gable" ? 2 * Lo : roofShape === "shed" ? Lo : eave, nD = Math.max(2, Math.ceil(gL / 35));
+    const gL = (roofShape === "gable" ? 2 * Lo : roofShape === "shed" ? Lo : eaveMain) + lowEdge, nD = Math.max(2, Math.ceil(gL / 35));
     section("Gutters");
     row("5\" K-style gutter, 10 ft", Math.ceil(gL / 10 * 1.1), "pcs", lf(gL));
     row("Downspouts 2×3, 10 ft", nD * Math.ceil((wallHtot + 1) / 10), "pcs", `${nD} downspouts`);
@@ -3414,6 +3431,25 @@ function hipField(P, ovr) {
   };
 }
 // One roof for each floor that has open sky over part of it, at that floor's own wall height.
+// Roofs below the top one (from psRoofs): where a lower floor isn't covered by the floors above. Each:
+// {name, plan (sq ft flat), area (sloped), edge (open outside edge, ft), wallF (upper walls standing on it, ft), depth (ft), rect}
+function lowerRoofs(b, o) {
+  if (b.kind !== "building" || o.frame === "post") return [];
+  let R; try { R = psRoofs(b, o); } catch (e) { return []; }
+  const top = R.fl.length - 1, k = o.roof === "flat" ? 1 : Math.sqrt(1 + R.pitch * R.pitch), out = [];
+  for (const r of R.roofs) {
+    if (r.i >= top) continue;
+    const B = bbox(r.out), st = 0.5, open = q => !r.ups.some(U => inPoly(q, U)); let cells = 0, run = 0;
+    for (let x = B.x0 + st / 2; x < B.x1; x += st) for (let y = B.y0 + st / 2; y < B.y1; y += st) { const q = { x, y }; if (inPoly(q, r.out) && open(q)) { cells++; if (!r.flat && R.pitch > 0) run = Math.max(run, (r.fn(q)[0] - r.E) / R.pitch); } }
+    const plan = cells * st * st; if (plan < 4) continue;
+    const along = (A, keep) => { let L = 0; for (let j = 0; j < A.length; j++) { const p = A[j], q = A[(j + 1) % A.length], d = dist(p, q), n = Math.max(1, Math.ceil(d / 0.25)); for (let m = 0; m < n; m++) { const t = (m + 0.5) / n, c = { x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t }; if (keep(c)) L += d / n; } } return L; };
+    const edge = along(r.out, open), wallF = r.ups.reduce((a, U) => a + along(U, c => inPoly(c, r.P) && segDistPoly(c, r.P) > 0.75), 0);
+    const f = R.fl[r.i], depth = run > 0.5 ? run : wallF > 1 ? Math.min(plan / wallF, 30) : Math.sqrt(plan);   // eave to ridge (or to the wall above), level
+    out.push({ name: f.loft ? "Loft" : levelName(f.lv), plan, area: plan * k, edge, wallF, depth, rect: !!matRect(r.P) });
+  }
+  return out;
+}
+const segDistPoly = (q, P) => { let m = Infinity; for (let j = 0; j < P.length; j++) m = Math.min(m, segDist(q, P[j], P[(j + 1) % P.length])); return m; };
 function psRoofs(b, o) {
   const G = matGeom(b), fl = G.floors, post = o.frame === "post", jd = post ? 0 : 1, wHt = f => post ? +o.eave : f.H;
   let base = 0; const bases = fl.map(f => { const v = base; base += wHt(f) + jd; return v; }), tops = fl.map((f, i) => bases[i] + wHt(f));
@@ -5464,10 +5500,13 @@ function openDesigner(b, keep) {
   const poly = ext ? offsetPoly(orientPoly(ext.points.map(F.toL)), -t / 2) : orientPoly(b.points.map(F.toL));
   dz = { b, lv, F, t, poly, drafts: prev ? prev.drafts : {}, rot: prev ? prev.rot : 0, rotC: prev ? prev.rotC : null, ox: 0, oy: 0, W: 0, D: 0, rooms: [], walls: [], opens: [], openType: "door", openW: 36, sel: null, snap: +$("dz-snap").value || 0.5, nid: prev ? prev.nid : 1, tool: "move", wallTh: +$("dz-wth").value / 12, view: prev ? prev.view : null };
   syncBox();
-  dz.roomIds = []; dz.fixedRooms = [];   // rectangles load as rooms here; any other shape stays as drawn on the map (shown dashed)
+  dz.roomIds = []; dz.fixedRooms = [];   // rectangles load as rooms; any other shape as a shaped room (dz.fixedRooms, edited by its corners)
   for (const r of state.shapes.filter(s => s.bid === b.id && s.level === lv && s.kind === "room" && !["fixture", "porch"].includes(s.style))) {
     const L = r.points.map(F.toL), B = bbox(L), at = (v, a, c) => Math.abs(v - a) < 0.05 || Math.abs(v - c) < 0.05;
-    if (!(L.length === 4 && L.every(q => at(q.x, B.x0, B.x1) && at(q.y, B.y0, B.y1)))) { dz.fixedRooms.push({ name: r.name, pts: L }); continue; }
+    if (!(L.length === 4 && L.every(q => at(q.x, B.x0, B.x1) && at(q.y, B.y0, B.y1)))) {   // any other shape: a shaped room, edited by its corners
+      const { id, kind, points, bid, level, closed, name, sub, style, ...extra } = r;
+      dz.roomIds.push(r.id); dz.fixedRooms.push({ id: dz.nid++, name: r.name || "", sub: r.sub || "", style: r.style || "room", pts: L, extra, sid: r.id, orig: JSON.stringify(L), opts: r.points }); continue;   // unchanged corners save back exactly
+    }
     dz.roomIds.push(r.id);
     dz.rooms.push({ id: dz.nid++, name: r.name, sub: r.sub || "", style: r.style || "room", type: "room", x: B.x0, y: B.y0, w: B.x1 - B.x0, h: B.y1 - B.y0 });
   }
@@ -5519,8 +5558,7 @@ function openDesigner(b, keep) {
   if (!$("designer").open) $("designer").showModal();
   stepCommit();   // this floor's starting point for undo
   requestAnimationFrame(dzResize);
-  const nf = dz.fixedRooms.length;
-  $("dz-status").textContent = (lvName ? `Editing the ${lvName}.` : "") + (nf ? ` ${nf} room${nf > 1 ? "s have" : " has"} a shape other than a rectangle: shown dashed and kept as is. Change ${nf > 1 ? "them" : "it"} on the map.` : "");
+  $("dz-status").textContent = lvName ? `Editing the ${lvName}.` : "";
 }
 // Stairs in the designer: dir = which way it climbs (0 up the screen, 1 right, 2 down, 3 left),
 // hand = which side the first corner is on, so saving puts the points back in the same order.
@@ -5549,6 +5587,13 @@ function dzFields() {
 function dzSelFields() {
   const s = dzSel(), isOpen = s && "otype" in s, isRoom = s && !isOpen && "w" in s && "h" in s, isWall = s && "x1" in s;
   $("dz-roombox").hidden = !isRoom; $("dz-wallbox").hidden = !isWall; $("dz-openbox").hidden = !isOpen;
+  const pr = dzSelP(); $("dz-proombox").hidden = !pr;
+  if (pr) {
+    if (document.activeElement !== $("dz-pname")) $("dz-pname").value = pr.name;
+    $("dz-pstyle").value = pr.style === "open" ? "open" : "room";
+    $("dz-pinfo").textContent = Math.round(Math.abs(polyArea(pr.pts))) + " sq ft · " + pr.pts.length + " corners" + (dz.pcorner != null ? " · corner " + (dz.pcorner + 1) + " picked" : "");
+    $("dz-pcdel").disabled = dz.pcorner == null || pr.pts.length <= 3;
+  }
   const dm = dz.dsel != null && (dz.dims || []).find(m => m.id === dz.dsel); $("dz-dimbox").hidden = !dm;
   if (dm) {
     const G = dzDimGeom(dm.pts, 0), seg = []; for (let i = 1; i < G.t.length; i++) seg.push(fl(Math.abs(G.t[i] - G.t[i - 1])));
@@ -5668,9 +5713,27 @@ function dzDrawRoom(r, sel, bad, preview) {
   g.font = `500 ${ns * .8}px "Barlow Condensed", "Arial Narrow", sans-serif`;
   const sz = `${fl(r.w)} × ${fl(r.h)}` + (r.type === "stair" ? (r.label === "DN" ? " · DN" : " · UP") : ""); if (g.measureText(sz).width < w - 4) g.fillText(sz, a.x + w / 2, a.y + h / 2 + (r.name ? ns * .6 : 0));
 }
+// A room of any shape: outline, name and area at its middle; when picked, its corners (drag) and side dots (add a corner)
+const pCenter = P => { let A = 0, cx = 0, cy = 0; for (let i = 0; i < P.length; i++) { const p = P[i], q = P[(i + 1) % P.length], c = p.x * q.y - q.x * p.y; A += c; cx += (p.x + q.x) * c; cy += (p.y + q.y) * c; } return Math.abs(A) < 1e-9 ? P[0] : { x: cx / (3 * A), y: cy / (3 * A) }; };
+function dzDrawPRoom(r, sel) {
+  const g = dctx, S = r.pts.map(q => dS(q.x, q.y));
+  g.beginPath(); S.forEach((a, i) => i ? g.lineTo(a.x, a.y) : g.moveTo(a.x, a.y)); g.closePath();
+  g.fillStyle = "rgba(255,106,19,.07)"; g.fill(); g.strokeStyle = sel ? MARK : INK; g.lineWidth = sel ? 2.5 : 1.5; g.stroke();
+  if (r.style === "open") { const B = bbox(S); g.save(); g.clip(); g.setLineDash([5, 4]); g.strokeStyle = "rgba(0,0,0,.35)"; g.lineWidth = 1; g.beginPath(); g.moveTo(B.x0, B.y0); g.lineTo(B.x1, B.y1); g.moveTo(B.x1, B.y0); g.lineTo(B.x0, B.y1); g.stroke(); g.restore(); }
+  const c = dS(pCenter(r.pts).x, pCenter(r.pts).y), ns = 13;
+  g.fillStyle = INK; g.textAlign = "center"; g.textBaseline = "middle";
+  g.font = `700 ${ns}px "Barlow Condensed", "Arial Narrow", sans-serif`; if (r.name) g.fillText(r.name, c.x, c.y - ns * .55);
+  g.font = `500 ${ns * .8}px "Barlow Condensed", "Arial Narrow", sans-serif`; g.fillText(Math.round(Math.abs(polyArea(r.pts))) + " sq ft", c.x, c.y + (r.name ? ns * .6 : 0));
+  if (!sel) return;
+  S.forEach((a, i) => {
+    const b2 = S[(i + 1) % S.length]; g.beginPath(); g.arc((a.x + b2.x) / 2, (a.y + b2.y) / 2, 3.5, 0, Math.PI * 2); g.fillStyle = "#fff"; g.fill(); g.lineWidth = 1.5; g.strokeStyle = MARK; g.stroke();
+  });
+  S.forEach((a, i) => { g.beginPath(); g.arc(a.x, a.y, 5.5, 0, Math.PI * 2); g.fillStyle = dz.pcorner === i ? MARK : "#fff"; g.fill(); g.lineWidth = 2; g.strokeStyle = MARK; g.stroke(); });
+}
+const dzSelP = () => dz && dz.sel != null && (dz.fixedRooms || []).find(r => r.id === dz.sel);
 let lastDirtySig = "";
 function dzDraw() {
-  if (!dz) return; dzView();
+  if (!dz) return; dzView(); dzc.dataset.view = [dox, doy, dk].map(v => v.toFixed(3)).join("|");   // for tests
   const sig = [...dirtyLevels()].join(","); if (sig !== lastDirtySig) { lastDirtySig = sig; dzLevelLabels(); }
   const g = dctx; g.clearRect(0, 0, dW, dH);
   const o = dS(dz.ox, dz.oy), wpx = dz.W * dk, hpx = dz.D * dk;
@@ -5683,12 +5746,7 @@ function dzDraw() {
   for (const u of state.shapes) if (u.kind === "underlay" && u.bid === dz.b.id && u.level === dz.lv && !u.hidden) drawUnderlayOn(dctx, u, u.points.map(p => { const q = dz.F.toL(p); return dS(q.x, q.y); }), false);
   for (const e of extSides()) dzDrawWall(Object.assign({}, e, { x1: e.x1, y1: e.y1 }), dz.sel === e.id ? MARK : INK, false, true);
   for (const r of dz.rooms) dzDrawRoom(r, r.id === dz.sel, dz.rooms.some(q => q !== r && (q.type === "stair") === (r.type === "stair") && overlaps(q, r)), false);   // stairs sit inside rooms; only same-kind overlaps are flagged
-  for (const r of dz.fixedRooms || []) {   // odd-shaped rooms from the map: shown, kept, edited on the map
-    dctx.save(); dctx.setLineDash([6, 4]); dctx.strokeStyle = "#6B6B6B"; dctx.lineWidth = 1.5; dctx.fillStyle = "rgba(120,120,120,.08)"; dctx.beginPath();
-    r.pts.forEach((q, i) => { const a = dS(q.x, q.y); i ? dctx.lineTo(a.x, a.y) : dctx.moveTo(a.x, a.y); }); dctx.closePath(); dctx.fill(); dctx.stroke();
-    const c = r.pts.reduce((m, q) => ({ x: m.x + q.x / r.pts.length, y: m.y + q.y / r.pts.length }), { x: 0, y: 0 }), sc = dS(c.x, c.y);
-    dctx.setLineDash([]); dctx.fillStyle = "#555"; dctx.font = '600 12px "Barlow Condensed", sans-serif'; dctx.textAlign = "center"; dctx.fillText((r.name || "Room") + " (edit on the map)", sc.x, sc.y); dctx.restore();
-  }
+  for (const r of dz.fixedRooms || []) dzDrawPRoom(r, r.id === dz.sel);   // rooms of any shape
   dzDrawBelowStairs();   // on top, so a stairwell that lines up with this floor's stairs still shows
   if (dz.rdraft && dz.rdraft.w > 0 && dz.rdraft.h > 0) dzDrawRoom(Object.assign({ name: "", type: "room", style: "room" }, dz.rdraft), false, false, true);
   for (const w of dz.walls) dzDrawWall(w, w.id === dz.sel ? MARK : INK, false);
@@ -5936,6 +5994,7 @@ function dzUndoDrag() {   // a second finger landed: put back what the first one
   if (!dDrag) return;
   if ((dDrag.mode === "move" || dDrag.mode === "size") && dDrag.o) Object.assign(dDrag.r, dDrag.o);
   if (dDrag.mode === "wmove") Object.assign(dDrag.w, dDrag.o);
+  if (dDrag.mode === "pmove") dDrag.r.pts = dDrag.o;
   if (dDrag.mode === "ext") { dz.poly = dDrag.o; syncBox(); }
   dDrag = null; dz.rdraft = null; if (dz.wdraft && !dz.wdraft.waiting) dz.wdraft = null;
 }
@@ -5974,6 +6033,13 @@ dzc.addEventListener("pointerdown", e => {
   if (dz.dsel != null) { dz.dsel = null; dzSelFields(); }
   const oHit = dz.opens.map(o => ({ o, E: openEnds(o) })).filter(x => x.E && segDist(p, x.E[0], x.E[1]) * dk <= Math.max(7, x.E[2].th * dk / 2 + 3))[0];
   if (oHit) { dz.sel = oHit.o.id; dDrag = { mode: "omove", o: oHit.o }; dzSelFields(); dzDraw(); return; }
+  const psel = dzSelP();
+  if (psel) {   // the picked shaped room: a corner (move it), or a side's middle dot (add a corner there and move it)
+    const ci = psel.pts.findIndex(q => Math.hypot((q.x - p.x) * dk, (q.y - p.y) * dk) < 9);
+    if (ci >= 0) { dz.pcorner = ci; dDrag = { mode: "pcorner", r: psel, i: ci }; dzSelFields(); dzDraw(); return; }
+    const mi = psel.pts.findIndex((q, i) => { const n = psel.pts[(i + 1) % psel.pts.length]; return Math.hypot(((q.x + n.x) / 2 - p.x) * dk, ((q.y + n.y) / 2 - p.y) * dk) < 8; });
+    if (mi >= 0) { const q = psel.pts[mi], n = psel.pts[(mi + 1) % psel.pts.length]; psel.pts.splice(mi + 1, 0, { x: (q.x + n.x) / 2, y: (q.y + n.y) / 2 }); dz.pcorner = mi + 1; dDrag = { mode: "pcorner", r: psel, i: mi + 1 }; dzSelFields(); dzDraw(); return; }
+  }
   const sel = dzSel();
   if (sel && "h" in sel) { const i = dzHandles(sel).findIndex(([x, y]) => Math.hypot((x - p.x) * dk, (y - p.y) * dk) < 11); if (i >= 0) { dDrag = { mode: "size", r: sel, edges: HANDLE_EDGES[i], o: { ...sel } }; return; } }
   if (sel && "x1" in sel && !sel.ext) {
@@ -5988,6 +6054,12 @@ dzc.addEventListener("pointerdown", e => {
     $("dz-hint").textContent = "Outside wall picked. To change the building size, type it in the panel on the left."; return;
   }
   const hits = dz.rooms.filter(r => p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h).sort((a, b) => a.w * a.h - b.w * b.h);
+  const phit = (dz.fixedRooms || []).filter(r => inPoly(p, r.pts)).sort((a, b) => Math.abs(polyArea(a.pts)) - Math.abs(polyArea(b.pts)))[0];
+  if (phit && (!hits.length || Math.abs(polyArea(phit.pts)) < hits[0].w * hits[0].h)) {
+    if (dz.sel !== phit.id) dz.pcorner = null;
+    dz.sel = phit.id; dDrag = { mode: "pmove", r: phit, start: p, o: phit.pts.map(q => ({ ...q })) }; dzSelFields(); dzDraw(); return;
+  }
+  dz.pcorner = null;
   if (hits.length) { dz.sel = hits[0].id; dDrag = { mode: "move", r: hits[0], start: p, o: { ...hits[0] } }; }
   else { dz.sel = null; dDrag = { mode: "pan", last: dzScreen(e) }; }
   dzSelFields(); dzDraw();
@@ -6049,6 +6121,11 @@ dzc.addEventListener("pointermove", e => {
     const nx = dzSnapVal(o.x1 + dx, "x", w.id, e.shiftKey) - o.x1, ny = dzSnapVal(o.y1 + dy, "y", w.id, e.shiftKey) - o.y1;
     w.x1 = o.x1 + nx; w.x2 = o.x2 + nx; w.y1 = o.y1 + ny; w.y2 = o.y2 + ny; dzDraw(); return;
   }
+  if (dDrag.mode === "pmove") {   // move a shaped room, its first corner snapping like a room's corner
+    const r = dDrag.r, o = dDrag.o, x = dzSnapVal(o[0].x + p.x - dDrag.start.x, "x", r.id, e.shiftKey), y = dzSnapVal(o[0].y + p.y - dDrag.start.y, "y", r.id, e.shiftKey);
+    r.pts = o.map(q => ({ x: q.x + x - o[0].x, y: q.y + y - o[0].y })); dzSelFields(); dzDraw(); return;
+  }
+  if (dDrag.mode === "pcorner") { const q = dzSnapPt(p, null, e.shiftKey); dDrag.r.pts[dDrag.i] = { x: q.x, y: q.y }; dzSelFields(); dzDraw(); return; }
   const r = dDrag.r, o = dDrag.o;
   if (dDrag.mode === "move") {
     let x = o.x + p.x - dDrag.start.x, y = o.y + p.y - dDrag.start.y;
@@ -6162,7 +6239,18 @@ $("dz-rstyle").addEventListener("change", e => { const r = dzSel(); if (!r || !(
 $("dz-sgo").addEventListener("change", e => { const r = dzSel(); if (r && r.type === "stair") { r.label = e.target.value; dzDraw(); } });
 $("dz-rot").onclick = () => { const r = dzSel(); if (r && "h" in r) { [r.w, r.h] = [r.h, r.w]; if (r.type === "stair") r.dir = ((r.dir || 0) + 1) % 4; dzSelFields(); dzDraw(); } };
 $("dz-dup").onclick = () => { const r = dzSel(); if (!r || !("h" in r)) return; const s = dzFindSpot(r.w, r.h), c = Object.assign({}, r, { id: dz.nid++, x: s.x, y: s.y }); dz.rooms.push(c); dz.sel = c.id; dzSelFields(); dzDraw(); };
-$("dz-del").onclick = () => { dz.rooms = dz.rooms.filter(x => x.id !== dz.sel); dz.sel = null; dzSelFields(); dzDraw(); };
+$("dz-del").onclick = () => { dz.rooms = dz.rooms.filter(x => x.id !== dz.sel); dz.fixedRooms = (dz.fixedRooms || []).filter(x => x.id !== dz.sel); dz.sel = null; dz.pcorner = null; dzSelFields(); dzDraw(); };
+$("dz-pdel").onclick = () => $("dz-del").onclick();
+$("dz-pcdel").onclick = () => { const r = dzSelP(); if (!r || dz.pcorner == null || r.pts.length <= 3) return; r.pts.splice(dz.pcorner, 1); dz.pcorner = null; dzSelFields(); dzDraw(); };
+$("dz-pname").addEventListener("input", e => { const r = dzSelP(); if (r) { r.name = e.target.value; dzDraw(); } });
+$("dz-pstyle").addEventListener("change", e => { const r = dzSelP(); if (r) { r.style = e.target.value; dzDraw(); } });
+$("dz-rshape").onclick = () => {   // a rectangle becomes a room of any shape (same corners), picked and ready to reshape
+  const r = dzSel(); if (!r || !("h" in r) || r.type === "stair") return;
+  dz.rooms = dz.rooms.filter(x => x !== r);
+  const p = { id: r.id, name: r.name, sub: r.sub || "", style: r.style || "room", pts: [{ x: r.x, y: r.y }, { x: r.x + r.w, y: r.y }, { x: r.x + r.w, y: r.y + r.h }, { x: r.x, y: r.y + r.h }], extra: {} };
+  dz.fixedRooms = [...(dz.fixedRooms || []), p]; dz.sel = p.id; dz.pcorner = null; dzSelFields(); dzDraw();
+  $("dz-hint").textContent = "Drag a corner to move it, or drag a dot in the middle of a side to add a corner there.";
+};
 function levelKey() { return JSON.stringify({ t: dz.t, poly: dz.poly, ox: dz.ox, oy: dz.oy, W: dz.W, D: dz.D, rooms: dz.rooms, walls: dz.walls, opens: dz.opens, stairIds: dz.stairIds, roomIds: dz.roomIds, fixedRooms: dz.fixedRooms, views: dz.views, wallH: dz.wallH, dims: dz.dims, dimIds: dz.dimIds }); }
 function levelSnap() { return { lv: dz.lv, base: dz.base, data: JSON.parse(levelKey()) }; }
 function restoreSnap(sn) { Object.assign(dz, sn.data); dz.lv = sn.lv; dz.base = sn.base; dz.sel = null; }
@@ -6334,6 +6422,7 @@ function saveCurrentLevel() {
   b.wallH = Object.assign({}, b.wallH, { [lv]: dz.wallH || 8 });
   let n = 0;
   for (const r of rooms) add({ kind: "room", name: r.name.trim() || "Room " + (++n), sub: r.sub, style: r.style, closed: true, points: [[r.x, r.y], [r.x + r.w, r.y], [r.x + r.w, r.y + r.h], [r.x, r.y + r.h]].map(([x, y]) => F.toW({ x, y })) });
+  for (const r of dz.fixedRooms || []) if (r.pts.length >= 3) add(Object.assign({}, r.extra, r.sid != null ? { id: r.sid } : {}, { kind: "room", name: r.name.trim() || "Room " + (++n), sub: r.sub, style: r.style, closed: true, points: r.orig === JSON.stringify(r.pts) ? r.opts : r.pts.map(q => F.toW(q)) }));
   for (const r of dz.rooms.filter(r => r.type === "stair")) add(Object.assign({}, r.extra, { kind: "stair", name: r.name || "Stairs", label: r.label || "UP", closed: true, points: dzStairPts(r).map(([x, y]) => F.toW({ x, y })) }));
   if (lv === GROUND) b.points = dz.poly.map(p => F.toW(p));
   if ($("dz-autodim").checked) autoDimension(b, lv);
@@ -6425,6 +6514,32 @@ function openWallView(S, from) {
   wvSetLayer("framing");
   $("wallview").showModal(); wvHist = { u: [], r: [], last: wvKey() }; stepButtons(); requestAnimationFrame(wvResize);
 }
+// The loft floor (a half story under the roof): {o, LH (loftHeads), knee, ceil, Hv}; null on other floors.
+function wvLoft() {
+  if (!wv || !dz || !dz.b || dz.rot) return null;
+  if (wv.loftC === undefined) {
+    const b = dz.b, o = matOpt(b); let LH = null;
+    if (dz.lv === loftLv(b, o)) { try { LH = loftHeads(b, o); } catch (e) { LH = null; } }
+    wv.loftC = LH ? { o, LH, knee: +o.knee || 0, ceil: LH.f.ceil, Hv: Math.min(LH.f.ceil, 12) } : null;
+  }
+  return wv.loftC;
+}
+// Top of the wall at view x: the floor's wall height, or on a loft the knee wall / the underside of the roof / the ceiling.
+function wvTopX(x) {
+  const Lf = wvLoft(); if (!Lf) return dz.wallH;
+  const R = wvRoof();
+  if (R) return R.kind === "gable" || R.kind === "shedend" ? Math.max(0, Math.min(wvRoofY(R, x) - 3.5 / 12 * Math.sqrt(1 + R.p * R.p), R.top)) : R.H;
+  const fr = wvFrame(), q = wvPt(wv.v, fr.t(Math.max(0, Math.min(fr.L, x))));
+  return Math.max(0, Math.min(Lf.ceil, Lf.LH.roofAt(q) + 0.1));
+}
+// The tallest the wall gets (feet): what items and openings are kept under.
+function wvHt() { const Lf = wvLoft(); if (!Lf) return dz.wallH; const L = wvFrame().L; let m = 0; for (let i = 0; i <= 48; i++) m = Math.max(m, wvTopX(L * i / 48)); return m; }
+// The wall's outline in view feet, left to right along the top: [[x, y], ...] (a rectangle off the loft).
+function wvOutline() {
+  const L = wvFrame().L; if (!wvLoft()) return [[0, 0], [L, 0], [L, dz.wallH], [0, dz.wallH]];
+  const pts = [[0, 0], [L, 0]]; for (let i = 64; i >= 0; i--) { const x = L * i / 64; pts.push([x, wvTopX(x)]); }
+  return pts;
+}
 function wvFrame() {   // view x runs left to right as seen from the chosen face
   const { S, v, nL, face } = wv, n = { x: nL.x * face, y: nL.y * face }, d = { x: -n.x, y: -n.y }, r = { x: -d.y, y: d.x }, u = wvU(v);
   const ta = wvT(v, { x: S.x1, y: S.y1 }), tb = wvT(v, { x: S.x2, y: S.y2 }), lo = Math.min(ta, tb), hi = Math.max(ta, tb), s = u.x * r.x + u.y * r.y >= 0 ? 1 : -1;
@@ -6439,7 +6554,7 @@ function wvOpenings() {   // openings on this wall, with their center t and widt
     const c = { x: (E[0].x + E[1].x) / 2, y: (E[0].y + E[1].y) / 2 };
     if (Math.abs((c.x - v.p1.x) * n.x + (c.y - v.p1.y) * n.y) > 0.6) continue;
     const t = wvT(v, c); if (t < fr.lo - 0.1 || t > fr.hi + 0.1) continue;
-    out.push({ o, t, w: o.w, ...openVert(o, dz.wallH) });
+    out.push({ o, t, w: o.w, ...openVert(o, wvLoft() ? wvLoft().Hv : dz.wallH) });
   }
   return out;
 }
@@ -6501,14 +6616,15 @@ const blockName = k => (k || "2x8").replace("x", "×");
 // Studs, plates, headers, sills and cripples for this wall (view feet). Each: {x, y, w, h, kind, t?}
 function wvFraming() {
   const fr = wvFrame();
-  return framingAlong(wv.v, fr.lo, fr.hi, dz.wallH, wvOpenings()).map(r => { const x0 = fr.x(r.t0), x1 = fr.x(r.t1); return { x: Math.min(x0, x1), w: Math.abs(x1 - x0), y: r.y, h: r.h, kind: r.kind, t: r.t, id: r.id, size: r.size }; });
+  const Lf = wvLoft();
+  return framingAlong(wv.v, fr.lo, fr.hi, Lf ? Math.max(wvHt(), WI(4)) : dz.wallH, wvOpenings(), Lf ? t => wvTopX(fr.x(t)) : undefined).map(r => { const x0 = fr.x(r.t0), x1 = fr.x(r.t1); return { x: Math.min(x0, x1), w: Math.abs(x1 - x0), y: r.y, h: r.h, kind: r.kind, t: r.t, id: r.id, size: r.size }; });
 }
 function wvResize() {
   const r = wvc.parentElement.getBoundingClientRect(), pr = window.devicePixelRatio || 1;
   wW = r.width; wH = r.height; wvc.width = Math.round(wW * pr); wvc.height = Math.round(wH * pr); wvc.style.width = wW + "px"; wvc.style.height = wH + "px";
   wctx.setTransform(pr, 0, 0, pr, 0, 0); wvDraw();
 }
-function wvExt() { const fr = wvFrame(), R = wvRoof(); let a = 0, c = fr.L, top = dz.wallH; if (R) { a = Math.min(a, R.x0 - R.ov - 0.3); c = Math.max(c, R.x1 + R.ov + 0.3); top = Math.max(top, R.top + 0.4); } return { a, c, top }; }
+function wvExt() { const fr = wvFrame(), R = wvRoof(); let a = 0, c = fr.L, top = Math.max(wvHt(), 1); if (R) { a = Math.min(a, R.x0 - R.ov - 0.3); c = Math.max(c, R.x1 + R.ov + 0.3); top = Math.max(top, R.top + 0.4); } return { a, c, top }; }
 function wvFitK() { const e = wvExt(), pad = 60; return Math.min((wW - pad * 2) / Math.max(e.c - e.a, 1), (wH - pad * 2 - 40) / Math.max(e.top, 1)); }
 function wvView() {
   if (wv.view) { wk = wv.view.k; wox = wv.view.x; woy = wv.view.y; return; }
@@ -6589,7 +6705,8 @@ function wvDim(x0, y0, x1, y1, text, off, tight) {   // dimension line in view f
 }
 function wvDraw() {
   if (!wv) return; wvView(); wvc.dataset.view = [wox, woy, wk].map(v => v.toFixed(3)).join("|");
-  const g = wctx, fr = wvFrame(), H = dz.wallH, L = fr.L, act = wv.layer;
+  const g = wctx, fr = wvFrame(), H = wvHt(), L = fr.L, act = wv.layer, OL = wvOutline();
+  const wallPath = () => { g.beginPath(); OL.forEach(([x, y], i) => { const q = wS(x, y); i ? g.lineTo(q.x, q.y) : g.moveTo(q.x, q.y); }); g.closePath(); };
   g.clearRect(0, 0, wW, wH); g.fillStyle = "#F4F2EC"; g.fillRect(0, 0, wW, wH);
   const step = wk * 1 >= 14 ? 1 : wk * 2 >= 14 ? 2 : 4;   // a light foot grid
   g.strokeStyle = "rgba(0,0,0,.06)"; g.lineWidth = 1;
@@ -6597,7 +6714,13 @@ function wvDraw() {
   for (let y = Math.floor((woy - wH) / wk / step) * step; wS(0, y).y > 0; y += step) { const s = wS(0, y); g.beginPath(); g.moveTo(0, s.y); g.lineTo(wW, s.y); g.stroke(); }
   const W0 = wS(0, H), W1 = wS(L, 0), RF = wvRoof();
   wvc.dataset.roof = RF ? RF.kind : ""; wvc.dataset.above = RF ? RF.stack.length : 0; const endR = RF && (RF.kind === "gable" || RF.kind === "shedend"); if (endR) wvDrawRoof(g, RF);   // gable behind the wall; an eave hangs in front of its top
-  g.fillStyle = "#E9E5DA"; g.fillRect(W0.x, W0.y, W1.x - W0.x, W1.y - W0.y);
+  g.fillStyle = "#E9E5DA"; wallPath(); g.fill();
+  if (wv.show.framing && wvLoft() && H > 0.2) {   // loft: the double top plate follows the roof
+    const P2 = WI(3), xs = []; for (let i = 0; i <= 64; i++) xs.push(L * i / 64);
+    g.beginPath(); xs.forEach((x, i) => { const q = wS(x, wvTopX(x)); i ? g.lineTo(q.x, q.y) : g.moveTo(q.x, q.y); });
+    xs.slice().reverse().forEach(x => { const q = wS(x, Math.max(0, wvTopX(x) - P2)); g.lineTo(q.x, q.y); }); g.closePath();
+    g.fillStyle = "#C99A5B"; g.fill(); g.strokeStyle = "#7A5A30"; g.lineWidth = 1; g.stroke();
+  }
   if (wv.show.framing) for (const f of wvFraming()) {
     const a = wS(f.x, f.y + f.h); g.fillStyle = { header: "#B9884B", sill: "#C9995C", plate: "#C99A5B", added: "#E3B26E" }[f.kind] || "#D8AE73";
     g.fillRect(a.x, a.y, f.w * wk, f.h * wk); g.strokeStyle = "#7A5A30"; g.lineWidth = 1; g.strokeRect(a.x, a.y, f.w * wk, f.h * wk);
@@ -6619,9 +6742,10 @@ function wvDraw() {
   if (dw) {   // drywall: see-through while you work on what's behind it
     const behind = ["framing", "elec", "plumb"].includes(act);
     g.save(); g.globalAlpha = behind ? .4 : 1;
-    if (wvOut()) { g.beginPath(); g.rect(W0.x, W0.y, W1.x - W0.x, W1.y - W0.y); g.clip(); wvDrawSiding(g, wvSideOf(), 0, 0, L, H); }
+    wallPath(); g.clip();
+    if (wvOut()) { wvDrawSiding(g, wvSideOf(), 0, 0, L, H); }
     else {
-      g.fillStyle = (wv.v.paint || {})[fr.vf] || "#F1EEE6"; g.fillRect(W0.x, W0.y, W1.x - W0.x, W1.y - W0.y);
+      g.fillStyle = (wv.v.paint || {})[fr.vf] || "#F1EEE6"; g.fill();
       g.strokeStyle = "rgba(0,0,0,.12)"; g.setLineDash([3, 4]);   // 4×8 sheets hung sideways
       for (let y = 4; y < H; y += 4) { const s = wS(0, y); g.beginPath(); g.moveTo(W0.x, s.y); g.lineTo(W1.x, s.y); g.stroke(); }
       for (let row = 0; row * 4 < H; row++) for (let x = row % 2 ? 4 : 8; x < L; x += 8) { const a = wS(x, row * 4), b = wS(x, Math.min(H, row * 4 + 4)); g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke(); }
@@ -6629,7 +6753,8 @@ function wvDraw() {
     g.restore();
     for (const q of boxes) if (q.it.layer === "elec") wvDrawItem(q, wv.sel && wv.sel.item === q.it, true);
   }
-  g.strokeStyle = INK; g.lineWidth = 2; g.strokeRect(W0.x, W0.y, W1.x - W0.x, W1.y - W0.y);
+  g.strokeStyle = INK; g.lineWidth = 2; wallPath(); g.stroke();
+  if (wvLoft() && H < 0.2) { const q = wS(L / 2, 0.6); g.save(); g.font = '600 13px "Barlow Condensed", sans-serif'; g.textAlign = "center"; g.fillStyle = INK; g.fillText("No wall here: the roof comes down to the loft floor (knee wall 0)", q.x, q.y); g.restore(); }
   if (RF && !endR) { g.save(); if (act === "framing") g.globalAlpha = 0.85; wvDrawRoof(g, RF); g.restore(); }
   if (wv.show.openings) for (const q of wvOpenings()) {   // openings cut through everything
     const x0 = fr.x(q.t) - q.w / 2, a = wS(x0, q.head), b = wS(x0 + q.w, q.sill), w = b.x - a.x, h = b.y - a.y;
@@ -6647,7 +6772,7 @@ function wvDraw() {
   if (wv.draft) wvDrawRun({ it: { type: wv.tool.run, size: wv.tool.size }, pts: [...wv.draft, wv.cursor].filter(Boolean).map(p => ({ x: fr.x(p.t), y: p.y })) }, true);
   // Overall size, and where the selected thing sits.
   const chain = wv.show.framing && act === "framing";
-  wvDim(0, H, L, H, fl(L), chain ? -48 : -18); wvDim(0, 0, 0, H, fl(H), -18);
+  wvDim(0, H, L, H, fl(L), chain ? -48 : -18); wvDim(0, 0, 0, wvTopX(0), fl(wvTopX(0)), -18); if (wvLoft() && Math.abs(wvTopX(L) - wvTopX(0)) > 0.01) wvDim(L, 0, L, wvTopX(L), fl(wvTopX(L)), 18);
   if (wv.ghost != null) {   // a stud being placed
     const x = fr.x(wv.ghost), a = wS(x - WI(.75), H - WI(3)), b = wS(x + WI(.75), WI(1.5));
     g.save(); g.fillStyle = "rgba(217,72,15,.35)"; g.strokeStyle = MARK; g.lineWidth = 2; g.fillRect(a.x, a.y, b.x - a.x, b.y - a.y); g.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y); g.restore();
@@ -6667,7 +6792,7 @@ function wvStudChain() {   // stud centers left to right (view feet), with a stu
   return xs.sort((a, b) => a - b);
 }
 function wvStudDims(x) {   // a stud's center to both wall ends, and to the nearest door or window within 10 ft each way
-  const fr = wvFrame(), L = fr.L, H = dz.wallH, y1 = H * .3, y2 = H * .55;
+  const fr = wvFrame(), L = fr.L, H = wvHt(), y1 = H * .3, y2 = H * .55;
   wvDim(0, y1, x, y1, fl(x), 0, true); wvDim(x, y1, L, y1, fl(L - x), 0, true);
   const ops = wvOpenings().map(q => { const c = fr.x(q.t); return { a: c - q.w / 2, b: c + q.w / 2 }; });
   const left = ops.filter(o => o.b <= x && x - o.b <= 10).sort((p, q) => q.b - p.b)[0], right = ops.filter(o => o.a >= x && o.a - x <= 10).sort((p, q) => p.a - q.a)[0];
@@ -6717,7 +6842,9 @@ function wvRoof() {
   if (wvSideLabel(S, nL) !== "Outside" && wvSideLabel(S, { x: -nL.x, y: -nL.y }) !== "Outside") return null;
   const b = dz.b, top = topLv(b), o = matOpt(b); if (o.roof === "flat" || dz.lv > top) return null;
   // floors above this one (faded in the view): 1 ft of floor framing, then that floor's walls; the roof sits on the top one
-  const stack = []; let yb = dz.wallH;
+  const LF = wvLoft(); if (LF && LF.o.roof === "flat") return null;
+  const ck = dz.wallH + "|" + wv.face + "|" + fr0Key(); if (wv.roofC && wv.roofC.k === ck) return wv.roofC.r;
+  const stack = []; let yb = LF ? LF.knee : dz.wallH;
   for (const l of [GROUND, GROUND + 1, GROUND + 2, GROUND + 3].filter(l => l > dz.lv && l <= top)) {
     const Hl = l === loftLv(b, o) ? (+o.knee || 0) : (b.wallH && b.wallH[l]) || 8; stack.push({ l, y0: yb, H: Hl, loft: l === loftLv(b, o) }); yb += 1 + Hl;
   }
@@ -6726,8 +6853,10 @@ function wvRoof() {
   const fr = wvFrame(), xs = dz.poly.map(p => fr.x(wvT(wv.v, p))), x0 = Math.min(...xs), x1 = Math.max(...xs), p = (+o.pitch || 6) / 12, ov = (+o.over || 0) / 12, H = yb;
   const shed = o.roof === "shed", rise = (shed ? sp.span : sp.span / 2) * p, kind = along ? "eave" : o.roof === "hip" ? "hipend" : shed ? "shedend" : "gable";
   const oc = o.frame === "post" ? (+o.tsp || 4) : o.rframe === "rafter" ? 16 / 12 : 2;
-  return { kind, x0, x1, H, p, ov, rise, oc, o, xm: (x0 + x1) / 2, top: H + rise, stack, L: fr.L };
+  const r = { kind, x0, x1, H, p, ov, rise, oc, o, xm: (x0 + x1) / 2, top: H + rise, stack, L: fr.L, loft: !!LF };
+  wv.roofC = { k: ck, r }; return r;
 }
+const fr0Key = () => { const f = wvFrame(); return f.lo.toFixed(3) + "," + f.hi.toFixed(3) + "," + f.s; };
 // Height of the roof line (top of the top chord) at view x, for gable and shed ends.
 const wvRoofY = (R, x) => R.kind === "shedend" ? R.H + (x - R.x0) * R.p : R.H + ((R.x1 - R.x0) / 2 - Math.abs(x - R.xm)) * R.p;
 function wvDrawRoof(g, R) {
@@ -6748,8 +6877,9 @@ function wvDrawRoof(g, R) {
   }
   if (R.kind === "gable" || R.kind === "shedend") {
     const xa = R.x0 - R.ov, xb = R.x1 + R.ov, tri = [[R.x0, R.H]]; for (let k = 0; k <= 40; k++) { const x = R.x0 + (R.x1 - R.x0) * k / 40; tri.push([x, wvRoofY(R, x)]); } tri.push([R.x1, R.H]);
-    poly(tri, "#E9E5DA");
-    if (out && dw) { g.save(); poly(tri); g.clip(); wvDrawSiding(g, wvSideOf(), R.x0, R.H, R.x1, R.top + 0.5); g.restore(); }
+    if (!R.loft) poly(tri, "#E9E5DA");
+    if (R.loft) {}
+    else if (out && dw) { g.save(); poly(tri); g.clip(); wvDrawSiding(g, wvSideOf(), R.x0, R.H, R.x1, R.top + 0.5); g.restore(); }
     else if (fram) {   // gable end truss: bottom chord on the plate, studs at the wall's spacing, top chords
       const fx = 1.5 / 12, ocf = (wv.v.oc || 16) / 12;
       // bottom chord, trimmed to stop under the top chord at each heel
@@ -6780,7 +6910,11 @@ function wvTitle() {
   const { S, nL, face } = wv, n = { x: nL.x * face, y: nL.y * face }, here = wvSideLabel(S, n), other = wvSideLabel(S, { x: -n.x, y: -n.y });
   $("wv-title").textContent = `Wall view · ${here === "Inside" || here === "Outside" ? here : here + " side"}`;
   $("wv-flip").innerHTML = `<span class="hide-sm">Look from ${esc(other === "Inside" || other === "Outside" ? other.toLowerCase() : other)}</span><span class="show-sm">Flip</span>`;
-  $("wv-h").value = fl(dz.wallH); $("wv-len").value = fl(wvFrame().L);
+  const Lf = wvLoft();
+  $("wv-h").value = fl(Lf ? wvHt() : dz.wallH); $("wv-len").value = fl(wvFrame().L);
+  $("wv-h").readOnly = !!Lf; $("wv-h").title = Lf ? "Loft: knee walls " + fl(Lf.knee) + (isFinite(Lf.ceil) ? ", ceiling " + fl(Lf.ceil) : ", open to the ridge") + ". Change them in the Material list, Loft group." : "";
+  $("wv-h").previousElementSibling.textContent = Lf ? "Tallest point (loft)" : "Wall height (this floor)";
+  if (Lf) $("wv-title").textContent += " · Loft";
 }
 const WV_HINTS = {
   framing: "Drag Add a stud onto the wall to place one. Drag studs you placed to move them; tap any other stud, then Move or Remove.",
@@ -6881,7 +7015,7 @@ $("wv-selfields").addEventListener("change", e => {
   if (sel.block != null) {
     const bk = (wv.v.blocks || []).find(b => b.id === sel.block); if (!bk) return;
     if (id === "wv-bsz") bk.size = e.target.value;
-    const hh = WI(WV_BLOCK[bk.size] || 7.25), lim = y => Math.max(WI(1.5), Math.min(dz.wallH - WI(3) - hh, y));
+    const hh = WI(WV_BLOCK[bk.size] || 7.25), lim = y => Math.max(WI(1.5), Math.min(wvHt() - WI(3) - hh, y));
     if (id === "wv-by") { const v = wvLen(id); if (isFinite(v)) bk.y = lim(v); }
     if (id === "wv-bc") { const v = wvLen(id); if (isFinite(v)) bk.y = lim(v - hh / 2); }
   }
@@ -6890,8 +7024,8 @@ $("wv-selfields").addEventListener("change", e => {
     const o = sel.open, q = wvOpenings().find(q => q.o === o); if (!q) return;
     if (id === "wv-otype") { o.otype = e.target.value; delete o.sill; delete o.head; }
     if (id === "wv-ow") { const v = wvLen(id); if (v > 0.5) { o.w = v; wvMoveOpening(o, q.t); } }
-    if (id === "wv-oh") { const v = wvLen(id); if (v > 0.5) o.head = Math.min(dz.wallH - 0.25, q.sill + v); }
-    if (id === "wv-osill") { const v = wvLen(id); if (v >= 0) { const ht = q.head - q.sill; o.sill = Math.min(v, dz.wallH - 1); o.head = Math.min(dz.wallH - 0.25, o.sill + ht); } }
+    if (id === "wv-oh") { const v = wvLen(id); if (v > 0.5) o.head = Math.min(wvHt() - 0.25, q.sill + v); }
+    if (id === "wv-osill") { const v = wvLen(id); if (v >= 0) { const ht = q.head - q.sill; o.sill = Math.min(v, wvHt() - 1); o.head = Math.min(wvHt() - 0.25, o.sill + ht); } }
     if (id === "wv-ox") { const v = wvLen(id); if (isFinite(v)) wvMoveOpening(o, fr.t(v + q.w / 2)); }
   } else if (sel.item) {
     const it = sel.item, fin = it.layer === "finish";
@@ -6899,7 +7033,7 @@ $("wv-selfields").addEventListener("change", e => {
     if (id === "wv-rsize") it.size = it.type === "wire" ? e.target.value : +e.target.value;
     if (it.run && ["wv-ry", "wv-rx", "wv-rl"].includes(id)) {   // a level run: height, where it starts, how long
       const v = wvLen(id), xs = it.pts.map(p => fr.x(p.t)), x0 = Math.min(...xs), i0 = xs.indexOf(x0), i1 = 1 - i0;
-      if (id === "wv-ry" && isFinite(v)) for (const p of it.pts) p.y = Math.max(0, Math.min(dz.wallH, v));
+      if (id === "wv-ry" && isFinite(v)) for (const p of it.pts) p.y = Math.max(0, Math.min(wvHt(), v));
       if (id === "wv-rx" && isFinite(v)) for (const p of it.pts) p.t = fr.t(fr.x(p.t) + v - x0);
       if (id === "wv-rl" && v > 0) it.pts[i1].t = fr.t(x0 + v);
     }
@@ -6970,7 +7104,7 @@ function wvHit(p) {   // what's under the pointer: the layer you're on first, th
   return null;
 }
 function wvRunPt(p, last, free) {   // the next point of a run: level or straight up from the last one unless Shift is held
-  const fr = wvFrame(); let x = wvSnap(p.x), y = wvSnap(Math.max(0, Math.min(dz.wallH, p.y)));
+  const fr = wvFrame(); let x = wvSnap(p.x), y = wvSnap(Math.max(0, Math.min(wvHt(), p.y)));
   if (last && !free) { const lx = fr.x(last.t); if (Math.abs(x - lx) >= Math.abs(y - last.y)) y = last.y; else x = lx; }
   return { t: fr.t(x), y };
 }
@@ -6988,7 +7122,7 @@ wvc.addEventListener("pointerdown", e => {
   const fr = wvFrame();
   if (wv.tool && wv.tool.stud) { const t = wvStudT(p.x); wvAddStud(t); wvDrag = { stud: true, t0: t, start: p }; return; }   // keep holding to slide it
   if (wv.tool && wv.tool.block) {   // a block in the bay under the pointer, centered on it; keep holding to slide it
-    const sz = wv.blockSize || "2x8", h = WI(WV_BLOCK[sz]), bk = { id: Date.now() + Math.random(), t: fr.t(p.x), y: wvSnap(Math.max(WI(1.5), Math.min(dz.wallH - WI(3) - h, p.y - h / 2))), size: sz };
+    const sz = wv.blockSize || "2x8", h = WI(WV_BLOCK[sz]), bk = { id: Date.now() + Math.random(), t: fr.t(p.x), y: wvSnap(Math.max(WI(1.5), Math.min(wvHt() - WI(3) - h, p.y - h / 2))), size: sz };
     wv.v.blocks = [...(wv.v.blocks || []), bk]; wv.sel = { block: bk.id }; wvDrag = { block: bk, o: { ...bk }, start: p }; wvFields(); wvDraw(); return;
   }
   if (wv.tool && wv.tool.run) {
@@ -7023,7 +7157,7 @@ wvc.addEventListener("pointermove", e => {
   if (wvDrag.block) {   // slide it up and down, or over into another bay
     const bk = wvDrag.block, o = wvDrag.o, fr = wvFrame(), h = WI(WV_BLOCK[bk.size] || 7.25);
     bk.t = fr.t(Math.max(0.01, Math.min(fr.L - 0.01, fr.x(o.t) + p.x - wvDrag.start.x)));
-    bk.y = Math.max(WI(1.5), Math.min(dz.wallH - WI(3) - h, wvSnap(o.y + p.y - wvDrag.start.y)));
+    bk.y = Math.max(WI(1.5), Math.min(wvHt() - WI(3) - h, wvSnap(o.y + p.y - wvDrag.start.y)));
     wvFields(); wvDraw(); return;
   }
   if (wvDrag.stud) { wvMoveStudTo(wvStudT(wvFrame().x(wvDrag.t0) + p.x - wvDrag.start.x)); wvFields(); wvDraw(); return; }
@@ -7031,9 +7165,9 @@ wvc.addEventListener("pointermove", e => {
   const fr = wvFrame(), dx = p.x - wvDrag.start.x, dy = p.y - wvDrag.start.y;
   if (wvDrag.open) {
     const o = wvDrag.open; wvMoveOpening(o, fr.t(wvSnap(fr.x(wvDrag.t0) + dx)));
-    if (o.otype === "window") { const ht = wvDrag.head0 - wvDrag.sill0, s = Math.max(0.5, Math.min(dz.wallH - 0.25 - ht, wvSnap(wvDrag.sill0 + dy))); o.sill = s; o.head = s + ht; }
+    if (o.otype === "window") { const ht = wvDrag.head0 - wvDrag.sill0, s = Math.max(0.5, Math.min(wvHt() - 0.25 - ht, wvSnap(wvDrag.sill0 + dy))); o.sill = s; o.head = s + ht; }
   } else if (wvDrag.target && !wvDrag.target.run) {
-    const it = wvDrag.target, o = wvDrag.o; it.t = fr.t(wvSnap(fr.x(o.t) + dx)); it.cy = Math.max(it.h / 2, Math.min(dz.wallH - it.h / 2, wvSnap(o.cy + dy)));
+    const it = wvDrag.target, o = wvDrag.o; it.t = fr.t(wvSnap(fr.x(o.t) + dx)); it.cy = Math.max(it.h / 2, Math.min(wvHt() - it.h / 2, wvSnap(o.cy + dy)));
   } else if (wvDrag.target) {
     const it = wvDrag.target, o = wvDrag.o; it.pts = o.pts.map(q => ({ t: fr.t(wvSnap(fr.x(q.t) + dx)), y: wvSnap(q.y + dy) }));
   }
@@ -7148,7 +7282,7 @@ function dzStep(back) {
   stepCommit(); const H = dzHist[dz.lv], from = back ? H.u : H.r, to = back ? H.r : H.u;
   if (!from.length) { $("dz-status").textContent = back ? "Nothing to undo on this floor." : "Nothing to redo."; return; }
   to.push(H.last); H.last = from.pop();
-  Object.assign(dz, JSON.parse(H.last)); dz.sel = null; dz.wdraft = null; dz.rdraft = null;
+  Object.assign(dz, JSON.parse(H.last)); dz.sel = null; dz.pcorner = null; dz.wdraft = null; dz.rdraft = null;
   dzFields(); dzSelFields(); dzLevelLabels(); dzDraw(); stepButtons();
   $("dz-status").textContent = back ? "Undid the last change. Ctrl+X (or ↷) puts it back." : "Redid the change.";
 }
@@ -8508,12 +8642,13 @@ function v3Build() {
   far.rotateX(-Math.PI / 2); far.scale.set(eW * 12, eH * 12, 1); far.position.set(ext.x0 + eW / 2, -0.4, ext.y0 + eH / 2); grp.add(far);
   // buildings
   const wallM = new T.MeshLambertMaterial({ color: 0xE6E0D2, side: T.DoubleSide }), roofM = new T.MeshLambertMaterial({ color: 0x5A5550, side: T.DoubleSide });
-  let nb = 0; const bmap = new Map();
+  let nb = 0, nRoofs = 0; const bmap = new Map();
   for (const b of site.filter(s => s.kind === "building" && s.closed && s.points.length >= 3)) {
-    const m = v3Building(b, H); if (!m) continue; nb++; bmap.set(b.id, m);
+    const m = v3Building(b, H); if (!m) continue; nb++; bmap.set(b.id, m); nRoofs += m.nRoofs || 1;
     grp.add(new T.Mesh(m.walls, wallM)); if ($("v3-roof").checked) grp.add(new T.Mesh(m.roof, roofM));
   }
   try { v3.extras = v3Extras(grp, site, H, bmap, base, ex); } catch (e) { v3.extras = null; console.warn("3D extras:", e); }
+  $("v3c").dataset.roofs = nRoofs;   // for tests
   $("v3c").dataset.parts = v3.extras ? Object.entries(v3.extras).map(([k, v]) => k + ":" + v).join(" ") : "";   // for tests
   $("v3-info").textContent = `${nb} building${nb === 1 ? "" : "s"}${hm ? ` · heights ×${ex}` : " · no terrain added, so the ground is flat"}`;
   v3Render();
@@ -8549,6 +8684,7 @@ function v3Texture(ext, site) {
 // foundation that reaches the highest ground under the building. A rectangle gets a 6-in-12 gable along its long side.
 function v3Building(b, H) {
   const T = v3.T, P = b.points, gs = P.map(H), g0 = Math.min(...gs), g1 = Math.max(...gs);
+  if (!(b.build && b.build.frame === "post")) { const mf = v3Floors(b, g0, g1); if (mf) return mf; }   // floors of different sizes: each its own walls and roof
   let top = GROUND; for (const x of state.shapes) if (x.bid === b.id && x.level > top && x.level <= 4 && ["wall", "room", "opening", "stair"].includes(x.kind)) top = x.level;
   const lft = loftLv(b); let hFt = 0; for (let lv = GROUND; lv <= top; lv++) hFt += (lv === lft ? +matOpt(b).knee || 0 : (b.wallH && b.wallH[lv]) || 8) + (lv > GROUND ? 1 : 0);
   if (b.build && b.build.frame === "post") hFt = +matOpt(b).eave;
@@ -8579,6 +8715,48 @@ function v3Building(b, H) {
   }
   const mk = arr => { const gq = new T.BufferGeometry(); gq.setAttribute("position", new T.Float32BufferAttribute(arr, 3)); gq.computeVertexNormals(); return gq; };
   return { walls: mk(wp), roof: mk(rp), b, top, floor0: g1 + 0.45, eave: y1 };
+}
+// Floors that aren't all the same size (a one-story wing, a smaller upper floor): each floor's walls on its own outline,
+// gable ends filled up to its roof, and every roof from the plan set (psRoofs) at its own height, left out under the floors above.
+function v3Floors(b, g0, g1) {
+  let R; try { R = psRoofs(b, matOpt(b)); } catch (e) { return null; }
+  if (R.roofs.length < 2) return null;   // one roof over everything: the simple model is right
+  const T = v3.T, Fr = R.G.F, y0 = g0 - 0.3, fz = g1 + 0.45, Y = ft => fz + ft * FT, W = q => Fr.toW(q), wp = [], rp = [];
+  const v = (q, y) => { const w = W(q); return [w.x, y, w.y]; };
+  const quad = (a, b2, c2, d) => wp.push(...a, ...b2, ...c2, ...a, ...c2, ...d);
+  const nf = R.fl.length;
+  R.fl.forEach((f, i) => {
+    const yA = i === 0 ? y0 : Y(R.bases[i]), yT = Y(R.tops[i]), yB = Y(R.tops[i] + (i < nf - 1 ? R.jd : 0)), P = f.P, r = R.roofs.find(x => x.i === i), ups = R.fl.slice(i + 1).map(u => u.P);
+    for (let j = 0; j < P.length; j++) {
+      const p = P[j], q = P[(j + 1) % P.length], L = dist(p, q); if (L < 1e-6) continue;
+      const u = { x: (q.x - p.x) / L, y: (q.y - p.y) / L }; let nI = { x: -u.y, y: u.x };
+      const mid = { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 }; if (!inPoly({ x: mid.x + nI.x * 0.3, y: mid.y + nI.y * 0.3 }, P)) nI = { x: -nI.x, y: -nI.y };
+      // the floor framing above this floor shows only where a floor above stands on this wall; elsewhere the roof sits on it
+      const n0 = Math.max(1, Math.ceil(L / 0.5)), under = k => { const t = (k + 0.5) / n0, c = { x: p.x + (q.x - p.x) * t + nI.x * 0.3, y: p.y + (q.y - p.y) * t + nI.y * 0.3 }; return ups.some(U => inPoly(c, U)); };
+      let k0 = 0;
+      while (k0 < n0) { const uu = under(k0); let k1 = k0 + 1; while (k1 < n0 && under(k1) === uu) k1++; const a = { x: p.x + (q.x - p.x) * k0 / n0, y: p.y + (q.y - p.y) * k0 / n0 }, c = { x: p.x + (q.x - p.x) * k1 / n0, y: p.y + (q.y - p.y) * k1 / n0 }, yy = uu ? yB : yT; quad(v(a, yA), v(c, yA), v(c, yy), v(a, yy)); k0 = k1; }
+      if (!r || r.flat) continue;
+      const n = Math.max(1, Math.ceil(dist(p, q) / 0.5)), top = R.tops[i];   // gable ends: wall up to the roof along this side
+      for (let k = 0; k < n; k++) {
+        const a = { x: p.x + (q.x - p.x) * k / n, y: p.y + (q.y - p.y) * k / n }, c = { x: p.x + (q.x - p.x) * (k + 1) / n, y: p.y + (q.y - p.y) * (k + 1) / n };
+        const m = { x: (a.x + c.x) / 2, y: (a.y + c.y) / 2 }; if (r.ups.some(U => inPoly(m, U))) continue;
+        const ha = r.fn(a)[0], hc = r.fn(c)[0]; if (ha < top + 0.05 && hc < top + 0.05) continue;
+        quad(v(a, Y(top)), v(c, Y(top)), v(c, Y(Math.max(top, hc))), v(a, Y(Math.max(top, ha))));
+      }
+    }
+  });
+  for (const r of R.roofs) {   // each roof: small squares clipped to its outline, at the roof's height; none under a floor above
+    const B = bbox(r.out), st = Math.max(Math.max(B.x1 - B.x0, B.y1 - B.y0) / 90, 0.25);
+    for (let x = B.x0; x < B.x1; x += st) for (let y = B.y0; y < B.y1; y += st) {
+      const c = { x: x + st / 2, y: y + st / 2 };
+      if (r.ups.some(U => inPoly(c, U)) || (r.upsOut.some(U => inPoly(c, U)) && !inPoly(c, r.P))) continue;
+      const pc = v3ClipRect(r.out, x, y, x + st, y + st); if (pc.length < 3) continue;
+      const hv = pc.map(q => v(q, Y(r.flat ? R.tops[r.i] + 0.6 : r.fn(q)[0])));
+      for (let k = 1; k < pc.length - 1; k++) rp.push(...hv[0], ...hv[k], ...hv[k + 1]);
+    }
+  }
+  const mk = arr => { const gq = new T.BufferGeometry(); gq.setAttribute("position", new T.Float32BufferAttribute(arr, 3)); gq.computeVertexNormals(); return gq; };
+  return { walls: mk(wp), roof: mk(rp), b, top: topLv(b), floor0: fz, eave: Y(R.tops[0]), nRoofs: R.roofs.length };
 }
 // Hip roof for any outline: the roof rises at `pitch` with the distance from the nearest outside wall (a hip roof on a
 // rectangle, hips and valleys on an L or T). Built from small squares clipped to the outline.
