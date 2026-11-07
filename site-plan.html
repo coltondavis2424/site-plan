@@ -184,6 +184,14 @@ dialog::backdrop{background:rgba(5,10,8,.55)}
 .locwrap{position:relative;width:100%;max-width:420px;aspect-ratio:1;margin:8px auto 4px;border-radius:8px;overflow:hidden;background:var(--bg);border:1px solid var(--line);cursor:crosshair}
 .locwrap img{width:100%;height:100%;display:block;object-fit:cover}
 .locwrap .pin{position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px;border:2px solid #fff;border-radius:50%;box-shadow:0 0 0 2px #E8590C;pointer-events:none}
+.locsrc{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:6px 0 10px}
+.locsrc button{display:flex;flex-direction:column;align-items:stretch;gap:2px;text-align:left;padding:6px;border:2px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);cursor:pointer;font:inherit}
+.locsrc button[aria-pressed="true"]{border-color:#E8590C;box-shadow:0 0 0 2px rgba(232,89,12,.25)}
+.locsrc .th{position:relative;display:block;aspect-ratio:1;border-radius:5px;overflow:hidden;background:var(--line)}
+.locsrc .th img{width:100%;height:100%;object-fit:cover;display:block}
+.locsrc .th i{display:none;position:absolute;inset:0;align-items:center;justify-content:center;font-style:normal;font-size:12px;color:var(--muted)}
+.locsrc button.bad .th i{display:flex}.locsrc button.bad .th img{visibility:hidden}
+.locsrc b{font-size:13px;line-height:1.2;margin-top:4px}.locsrc small{font-size:11.5px;color:var(--muted);line-height:1.25}
 .locwrap .wait{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px;pointer-events:none}
 .dlg{padding:20px}
 .dlg h2{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:24px;margin:0 0 6px}
@@ -604,6 +612,7 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
           <div class="field"><label for="zmin">Lowest elevation (m)</label><input id="zmin" type="number" step="0.01" inputmode="decimal"></div>
           <div class="field"><label for="zrange">Height range (m)</label><input id="zrange" type="number" step="0.01" min="0.01" inputmode="decimal"></div>
         </div>
+        <div class="row" id="l-rephotow" hidden style="margin:0 0 8px"><button class="ghost small" id="l-rephoto">Choose a different photo…</button></div>
         <p id="z-note">Both numbers are in <code>unreal_settings.txt</code> in your PropertySim_Terrain folder.</p>
         <p id="s-water"></p>
         <div class="row"><label class="ghost small" for="f-water">Add water_overlay.png</label><button class="ghost small" id="w-calc">Work out water flow here</button></div>
@@ -908,17 +917,22 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
   <div class="dlg">
     <h2 id="loc-title">New project from a place</h2>
     <p class="muted" style="font-size:13px;margin:0 0 10px">Type coordinates or an address. Site Plan downloads the ground shape (USGS lidar elevation), an aerial photo and the roads for a square around that spot, and starts a new project with them. Works anywhere in the United States.</p>
+    <div id="loc-search">
     <div class="field"><label for="loc-q">Coordinates or address</label><input id="loc-q" type="text" autocomplete="off" placeholder="46.7052, -92.4651  or  123 Main St, Esko, MN"></div>
     <div class="row"><button class="ghost" id="loc-find">Find it</button></div>
     <p class="muted" style="font-size:12px;margin:6px 0 0">Have a parcel ID? Look the parcel up on your county’s property map, copy the coordinates of a spot on it, and paste them here.</p>
+    </div>
     <div id="loc-prev" hidden>
       <div class="locwrap" id="loc-wrap" title="Click to move the center of the square there"><img id="loc-img" alt="Aerial photo of the area"><div class="pin"></div><div class="wait" id="loc-wait">Loading photo…</div></div>
       <p class="muted" id="loc-where" style="font-size:13px;margin:0 0 8px;text-align:center"></p>
-      <div class="pair">
+      <h3 style="font-family:'Barlow Condensed',sans-serif;font-size:18px;margin:6px 0 2px">Photo</h3>
+      <p class="muted" style="font-size:12px;margin:0">Pick the one that looks best. The big picture above shows your pick. These are the photos that are free to keep in your project (Google’s and Esri’s aren’t).</p>
+      <div class="locsrc" id="loc-srcs"></div>
+      <div class="pair" id="loc-opts">
         <div class="field"><label for="loc-size">Area</label><select id="loc-size"><option value="250">250 m square (820 ft)</option><option value="500" selected>500 m square (1,640 ft)</option><option value="1000">1 km square (3,280 ft)</option><option value="2000">2 km square (6,560 ft)</option></select></div>
         <div class="field"><label for="loc-name">Project name</label><input id="loc-name" type="text" autocomplete="off"></div>
       </div>
-      <label class="muted" style="font-size:13px;display:flex;gap:6px;align-items:center"><input type="checkbox" id="loc-roads" checked> Also bring in the roads (OpenStreetMap, or the USGS road map when it’s busy)</label>
+      <label class="muted" id="loc-roadsf" style="font-size:13px;display:flex;gap:6px;align-items:center"><input type="checkbox" id="loc-roads" checked> Also bring in the roads (OpenStreetMap, or the USGS road map when it’s busy)</label>
     </div>
     <div class="status" id="loc-status" role="status"></div>
     <div class="row" style="justify-content:flex-end"><button class="ghost" id="loc-close">Cancel</button><button class="primary" id="loc-go" disabled>Get the data</button></div>
@@ -1594,6 +1608,7 @@ function renderLayers() {
   $("s-water").textContent = waterImg ? "Water map loaded. It updates by itself after you reshape the ground with the terrain brush." : hm ? "Add the water map made by water_flow.py, or work it out here from your terrain." : "Add the water map made by water_flow.py.";
   $("t-dl").hidden = !hm; $("t-reset").hidden = !hmOrig; $("w-calc").disabled = !hm || waterBusy;
   $("zmin").value = state.zmin; $("zrange").value = state.zrange;
+  $("l-rephotow").hidden = !state.geo;
   if (state.geo) $("z-note").textContent = `Set when this project was made from a place (${state.geo.lat.toFixed(5)}, ${state.geo.lon.toFixed(5)}, UTM zone ${state.geo.zone}N; ${state.geo.size} m square from USGS elevation, ${state.geo.got}). Use these two numbers if you bring the heightmap into Unreal.`;
 }
 function updateReadout(w) {
@@ -7680,10 +7695,23 @@ const locSize = () => +$("loc-size").value || 500;
 const locBox = (L = loc, W = locSize()) => [L.E - W / 2, L.N - W / 2, L.E + W / 2, L.N + W / 2];   // xmin, ymin, xmax, ymax (UTM m)
 const locSR = (L = loc) => 32600 + L.zone;
 function locStatus(t) { $("loc-status").textContent = t; }
-function openLoc() {
+function openLoc(mode) {
+  locMode = mode === "photo" ? "photo" : "new";
   if ($("projdlg").open) $("projdlg").close();
+  const ph = locMode === "photo", g = state.geo;
+  $("loc-title").textContent = ph ? "Choose a different photo" : "New project from a place";
+  $("loc-search").hidden = ph; $("loc-opts").hidden = ph; $("loc-roadsf").hidden = ph;
+  $("loc-go").textContent = ph ? "Use this photo" : "Get the data";
+  $("loc-wrap").style.cursor = ph ? "default" : "";
+  if (ph) {   // this project's own square
+    const E = g.xmin + g.size / 2, N = g.ymax - g.size / 2, ll = utmInv(E, N, g.zone);
+    loc = { lat: ll.lat, lon: ll.lon, zone: g.zone, E, N, label: g.label || "" };
+    $("loc-size").value = String(g.size);
+  } else if (loc && loc.fromGeo) loc = null;
+  if (loc && ph) loc.fromGeo = true;
   locStatus(""); $("loc-go").disabled = !loc; $("loc-prev").hidden = !loc;
-  $("locdlg").showModal(); setTimeout(() => $("loc-q").focus(), 30);
+  $("locdlg").showModal();
+  if (ph) locPreview(); else setTimeout(() => $("loc-q").focus(), 30);
 }
 function locSet(lat, lon, label) {
   const zone = utmZone(lon), u = utmFwd(lat, lon, zone);
@@ -7691,15 +7719,86 @@ function locSet(lat, lon, label) {
   if (!$("loc-name").value.trim() || $("loc-name").dataset.auto === "1") { $("loc-name").value = (label ? label.split(",").slice(0, 2).join(",").trim() : `Site at ${lat.toFixed(4)}, ${lon.toFixed(4)}`).slice(0, 60); $("loc-name").dataset.auto = "1"; }
   locPreview();
 }
-function locPreview() {
-  if (!loc) return;
-  $("loc-prev").hidden = false; $("loc-go").disabled = false;
-  const W = locSize(), ft = Math.round(W / FT).toLocaleString();
-  $("loc-where").textContent = `${loc.lat.toFixed(5)}, ${loc.lon.toFixed(5)}${loc.label ? " · " + loc.label : ""} · ${W >= 1000 ? W / 1000 + " km" : W + " m"} (${ft} ft) square. Click the photo to move the center.`;
+// Photo choices for the square. Only photos that are free to save with a project (public domain or open):
+// nationwide USDA NAIP (natural color and infrared, from the USGS server) and the USGS photo map, plus a state's
+// own photos where its server is known (Minnesota: county, metro and FSA photos from MnGeo, often 3-6 inches).
+const LOC_NAIP = "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer";
+const LOC_MN = "https://imageserver.gisdata.mn.gov/cgi-bin/wms";
+let locMNCaps = null, locSrcs = [], locPick = "", locTok = 0, locMode = "new";
+const locFmtRes = m => m < 0.3 ? Math.round(m / IN) + " in" : m < 1 ? Math.round(m * 100) + " cm" : (Math.round(m * 10) / 10) + " m";
+const locDate = t => new Date(t).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+async function locMNLayers() {   // MnGeo's list of photo layers (asked once): color ones from 2008 on, with their extent and detail
+  if (locMNCaps) return locMNCaps;
+  try {
+    const t = await (await fetch(LOC_MN + "?SERVICE=WMS&REQUEST=GetCapabilities")).text(), x = new DOMParser().parseFromString(t, "text/xml"), out = [];
+    for (const ly of x.getElementsByTagName("Layer")) {
+      if ([...ly.children].some(c => c.tagName === "Layer")) continue;   // a group of layers
+      const kid = tag => [...ly.children].find(c => c.tagName === tag), name = (kid("Name") || {}).textContent, title = ((kid("Title") || {}).textContent || "").trim();
+      const bb = [...ly.children].find(c => c.tagName === "BoundingBox" && c.getAttribute("SRS") === "EPSG:26915");
+      if (!name || !bb || !/color/i.test(title) || /cir$|infrared/i.test(name + " " + title)) continue;
+      const yr = +((title.match(/(19|20)\d\d/) || [0])[0]); if (yr < 2008) continue;
+      out.push({ name, title, yr, res: +bb.getAttribute("resx") || 1, bb: ["minx", "miny", "maxx", "maxy"].map(k => +bb.getAttribute(k)) });
+    }
+    locMNCaps = out;
+  } catch (e) { return []; }   // couldn't reach it: the nationwide photos still work, and it's asked again next time
+  return locMNCaps;
+}
+async function locSources(L, W) {
+  const [x0, y0, x1, y1] = locBox(L, W), sr = locSR(L), bx = [x0, y0, x1, y1].map(v => v.toFixed(2)).join(",");
+  const arc = (base, px, extra = "") => `${base}?bbox=${bx}&bboxSR=${sr}&imageSR=${sr}&size=${px},${px}&format=jpg&f=image${extra}`;
+  const S = [
+    { id: "naip", name: "USDA farm photo (NAIP)", note: "Summer, natural color. Whole US.", res: 0.6, url: px => arc(LOC_NAIP + "/exportImage", px) },
+    { id: "naipcir", name: "NAIP infrared", note: "Plants show red; water and wet ground show dark.", res: 0.6, url: px => arc(LOC_NAIP + "/exportImage", px, "&bandIds=3,0,1") },
+    { id: "usgs", name: "USGS photo map", note: "A mix of older photos. Whole US.", res: 1, url: px => arc(LOC_IMG + "/export", px) },
+  ];
+  // Minnesota (its server works in UTM zone 15, NAD83, about a meter from the WGS84 grid used here)
+  if (L.zone === 15 && L.lat > 43.3 && L.lat < 49.5 && L.lon > -97.5 && L.lon < -89.3) {
+    const mn = (await locMNLayers()).filter(m => L.E >= m.bb[0] && L.E <= m.bb[2] && L.N >= m.bb[1] && L.N <= m.bb[3]).sort((a, b) => b.yr - a.yr || a.res - b.res).slice(0, 6);
+    for (const m of mn) S.push({ id: "mn:" + m.name, name: m.title.replace(/\s+\d+(\.\d+)?\s*(in|ft|cm|m)$/i, "").replace(/^\d{4}\s+color\s+/i, "") + " " + m.yr, yr: m.yr, note: "Minnesota state photos.", res: m.res,
+      url: px => `${LOC_MN}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=${m.name}&STYLES=&SRS=EPSG:26915&BBOX=${bx}&WIDTH=${px}&HEIGHT=${px}&FORMAT=image/jpeg` });
+  }
+  return S;
+}
+async function locNaipDate(L) {   // when the NAIP photo under the center was taken, and its detail
+  try {
+    const d = await (await fetch(`${LOC_NAIP}/query?geometry=${L.E.toFixed(1)},${L.N.toFixed(1)}&geometryType=esriGeometryPoint&inSR=${locSR(L)}&spatialRel=esriSpatialRelIntersects&where=Category%3D1&outFields=acquisition_date,resolution_value&returnGeometry=false&f=json`)).json();
+    const a = (d.features || []).map(f => f.attributes).filter(a => a && a.acquisition_date).sort((p, q) => q.acquisition_date - p.acquisition_date)[0];
+    return a ? { when: locDate(a.acquisition_date), res: +a.resolution_value || 0.6 } : null;
+  } catch (e) { return null; }
+}
+function locRenderSrcs() {
+  $("loc-srcs").innerHTML = locSrcs.map(s => `<button type="button" data-src="${esc(s.id)}" aria-pressed="${s.id === locPick}"><span class="th"><img alt="" src="${esc(s.url(200))}"><i>Didn’t load</i></span><b>${esc(s.name)}</b><small>${esc([s.when || "", locFmtRes(s.res) + " detail"].filter(Boolean).join(" · "))}</small><small>${esc(s.note)}</small></button>`).join("");
+}
+function locShowPick() {
+  const s = locSrcs.find(x => x.id === locPick); if (!s) return;
+  for (const b of $("loc-srcs").querySelectorAll("[data-src]")) b.setAttribute("aria-pressed", String(b.dataset.src === locPick));
   const im = $("loc-img"); $("loc-wait").hidden = false; $("loc-wait").textContent = "Loading photo…";
   im.onload = () => { $("loc-wait").hidden = true; };
-  im.onerror = () => { $("loc-wait").hidden = false; $("loc-wait").textContent = "The preview photo didn’t load. Check the internet connection."; };
-  im.src = `${LOC_IMG}?bbox=${locBox().map(v => v.toFixed(1)).join(",")}&bboxSR=${locSR()}&imageSR=${locSR()}&size=420,420&format=jpg&f=image`;
+  im.onerror = () => { $("loc-wait").hidden = false; $("loc-wait").textContent = "This photo didn’t load. Pick another one below, or check the internet connection."; };
+  im.src = s.url(420);
+}
+async function locPreview() {
+  if (!loc) return;
+  const tok = ++locTok, L = loc, W = locSize(), ft = Math.round(W / FT).toLocaleString();
+  $("loc-prev").hidden = false; $("loc-go").disabled = false;
+  $("loc-where").textContent = `${L.lat.toFixed(5)}, ${L.lon.toFixed(5)}${L.label ? " · " + L.label : ""} · ${W >= 1000 ? W / 1000 + " km" : W + " m"} (${ft} ft) square.${locMode === "new" ? " Click the photo to move the center." : ""}`;
+  const S = await locSources(L, W); if (tok !== locTok) return;
+  locSrcs = S;
+  if (!S.some(s => s.id === locPick)) locPick = S.slice().sort((a, b) => Math.round(a.res * 100) - Math.round(b.res * 100) || (b.yr || 0) - (a.yr || 0))[0].id;   // the sharpest one to start with, newest if two are as sharp
+  locRenderSrcs(); locShowPick();
+  locNaipDate(L).then(d => { if (tok !== locTok || !d) return; for (const s of locSrcs) if (s.id.startsWith("naip")) { s.when = d.when; s.res = d.res; } locRenderSrcs(); });
+}
+$("loc-srcs").addEventListener("click", e => { const b = e.target.closest("[data-src]"); if (!b) return; locPick = b.dataset.src; locShowPick(); });
+$("loc-srcs").addEventListener("error", e => { const b = e.target.closest && e.target.closest("[data-src]"); if (b) b.classList.add("bad"); }, true);
+// the chosen photo, sharp: about its own detail (at least 2 px a meter), at most 4000 px; smaller or NAIP if that fails
+async function locPhoto(L, W, src) {
+  const want = Math.max(Math.min(4000, W * 2), Math.min(4000, Math.round(W / src.res)));
+  const tries = [[src, want], [src, Math.min(want, 2048)]];
+  if (src.id !== "naip") { const n = locSrcs.find(s => s.id === "naip"); if (n) tries.push([n, Math.min(4000, W * 2)]); }
+  for (const [s, px] of tries) {
+    try { const r = await fetch(s.url(px)); if (r.ok && /image/.test(r.headers.get("content-type") || "")) return { blob: await r.blob(), src: s, px }; } catch (e) {}
+  }
+  return null;
 }
 async function locFind() {
   const q = $("loc-q").value.trim(); if (!q) { locStatus("Type coordinates (like 46.7052, -92.4651) or an address first."); return; }
@@ -7719,13 +7818,14 @@ $("loc-q").addEventListener("keydown", e => { if (e.key === "Enter") { e.prevent
 $("loc-size").onchange = () => locPreview();
 $("loc-name").oninput = () => { $("loc-name").dataset.auto = "0"; };
 $("loc-wrap").addEventListener("click", e => {   // move the center to the clicked spot
-  if (!loc) return;
+  if (!loc || locMode === "photo") return;
   const r = $("loc-wrap").getBoundingClientRect(), W = locSize(), E = loc.E + ((e.clientX - r.left) / r.width - 0.5) * W, N = loc.N - ((e.clientY - r.top) / r.height - 0.5) * W;
   const g = utmInv(E, N, loc.zone); loc = Object.assign({}, loc, { E, N, lat: g.lat, lon: g.lon }); locPreview();
 });
 $("loc-close").onclick = () => $("locdlg").close();
-$("proj-place").onclick = openLoc;
-$("empty-place").onclick = openLoc;
+$("proj-place").onclick = () => openLoc();
+$("empty-place").onclick = () => openLoc();
+$("l-rephoto").onclick = () => { $("layers").hidden = true; $("open-layers").setAttribute("aria-expanded", "false"); openLoc("photo"); };
 // OpenStreetMap roads in the square, as Site Plan road shapes (same types as osm_roads.py)
 async function locRoads(L, W) {
   const [x0, y0, x1, y1] = locBox(L, W), cs = [[x0, y0], [x1, y0], [x0, y1], [x1, y1]].map(([E, N]) => utmInv(E, N, L.zone));
@@ -7749,6 +7849,14 @@ async function locRoads(L, W) {
 }
 $("loc-go").onclick = async () => {
   if (!loc) return;
+  if (locMode === "photo") {   // just a new photo for this project
+    const go = $("loc-go"); go.disabled = true; locStatus("Downloading the photo…");
+    const got = await locPhoto(loc, state.geo.size, locSrcs.find(x => x.id === locPick) || locSrcs[0]);
+    if (!got) { locStatus("That photo didn’t download. Try another one, or try again in a minute."); go.disabled = false; return; }
+    await kvSet(PK("image"), got.blob); await loadImageBlob(got.blob, false);
+    state.skipPhoto = false; state.layers.photo.on = true; state.geo.photo = got.src.name + (got.src.when ? " (" + got.src.when + ")" : ""); save(); touchProject(); renderLayers(); requestDraw();
+    go.disabled = false; $("locdlg").close(); lstatus(`Photo changed to ${state.geo.photo}.`); return;
+  }
   const L = loc, W = locSize(), n = LOC_N[W] || 505, box = locBox(L, W).map(v => v.toFixed(2)).join(","), sr = locSR(L), go = $("loc-go");
   go.disabled = true;
   try {
@@ -7763,15 +7871,14 @@ $("loc-go").onclick = async () => {
     const raw = new Uint16Array(t.w * t.h); for (let i = 0; i < raw.length; i++) { const v = ok(t.z[i]) ? t.z[i] : zmin; raw[i] = Math.max(0, Math.min(65535, Math.round((v - zmin) / zrange * 65535))); }
     const hpng = new Blob([await encodePNG16(t.w, t.h, raw)], { type: "image/png" });
     locStatus("Downloading the aerial photo…");
-    const px = Math.min(4096, W * 2), ir = await fetch(`${LOC_IMG}?bbox=${box}&bboxSR=${sr}&imageSR=${sr}&size=${px},${px}&format=jpg&f=image`);
-    const photo = ir.ok && /image/.test(ir.headers.get("content-type") || "image") ? await ir.blob() : null;
+    const got = await locPhoto(L, W, locSrcs.find(x => x.id === locPick) || locSrcs[0]), photo = got && got.blob;
     let roads = [];
     if ($("loc-roads").checked) { locStatus("Asking OpenStreetMap for the roads (the USGS road map if it’s busy)…"); roads = await locRoads(L, W); }
     locStatus("Starting the new project…");
     const id = newPid(), name = $("loc-name").value.trim() || `Site at ${L.lat.toFixed(4)}, ${L.lon.toFixed(4)}`;
     const shapes = (roads || []).map((r, i) => Object.assign({ id: i + 1 }, r));
     const plan = { shapes, nextId: shapes.length + 1, imageWidthM: W, zmin, zrange, units: state.units, skipPhoto: !photo,
-      layers: { contour: { on: true } }, geo: { lat: +L.lat.toFixed(6), lon: +L.lon.toFixed(6), zone: L.zone, xmin: +(L.E - W / 2).toFixed(2), ymax: +(L.N + W / 2).toFixed(2), size: W, cells: n, label: L.label, got: new Date().toISOString().slice(0, 10), water: true } };
+      layers: { contour: { on: true } }, geo: { lat: +L.lat.toFixed(6), lon: +L.lon.toFixed(6), zone: L.zone, xmin: +(L.E - W / 2).toFixed(2), ymax: +(L.N + W / 2).toFixed(2), size: W, cells: n, label: L.label, got: new Date().toISOString().slice(0, 10), photo: got ? got.src.name + (got.src.when ? " (" + got.src.when + ")" : "") : "", water: true } };
     await kvSet(`p:${id}:heightmap`, hpng);
     if (photo) await kvSet(`p:${id}:image`, photo);
     await kvSet(`p:${id}:plan`, JSON.stringify(plan));
