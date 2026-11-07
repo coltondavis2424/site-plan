@@ -181,6 +181,10 @@ canvas.select{cursor:default}
 /* Dialog */
 dialog{border:0;border-radius:12px;padding:0;background:var(--surface);color:var(--ink);width:min(560px,calc(100% - 24px));box-shadow:0 20px 60px rgba(0,0,0,.4)}
 dialog::backdrop{background:rgba(5,10,8,.55)}
+.locwrap{position:relative;width:100%;max-width:420px;aspect-ratio:1;margin:8px auto 4px;border-radius:8px;overflow:hidden;background:var(--bg);border:1px solid var(--line);cursor:crosshair}
+.locwrap img{width:100%;height:100%;display:block;object-fit:cover}
+.locwrap .pin{position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px;border:2px solid #fff;border-radius:50%;box-shadow:0 0 0 2px #E8590C;pointer-events:none}
+.locwrap .wait{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px;pointer-events:none}
 .dlg{padding:20px}
 .dlg h2{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:24px;margin:0 0 6px}
 .dlg p{margin:0 0 12px;color:var(--muted)}
@@ -600,7 +604,7 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
           <div class="field"><label for="zmin">Lowest elevation (m)</label><input id="zmin" type="number" step="0.01" inputmode="decimal"></div>
           <div class="field"><label for="zrange">Height range (m)</label><input id="zrange" type="number" step="0.01" min="0.01" inputmode="decimal"></div>
         </div>
-        <p>Both numbers are in <code>unreal_settings.txt</code> in your PropertySim_Terrain folder.</p>
+        <p id="z-note">Both numbers are in <code>unreal_settings.txt</code> in your PropertySim_Terrain folder.</p>
         <p id="s-water"></p>
         <div class="row"><label class="ghost small" for="f-water">Add water_overlay.png</label><button class="ghost small" id="w-calc">Work out water flow here</button></div>
         <p class="status" id="l-status" role="status"></p>
@@ -622,6 +626,7 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
           <button class="primary" id="skip">Start designing</button>
           <label class="ghost" for="file" style="cursor:pointer">Add a background image</label>
         </div>
+        <div class="row" style="margin-top:8px"><button class="ghost" id="empty-place">Get the ground and photo for a place</button></div>
         <p style="margin:14px 0 0;font-size:14px">For your property, <code>aerial_boundary.png</code> from <code>PropertySim_Terrain</code> covers 2,017 m across and lines up with your Unreal terrain. You can also drop an image here.</p>
       </div>
     </div>
@@ -890,12 +895,33 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
     <hr>
     <h3 style="font-family:'Barlow Condensed',sans-serif;font-size:18px;margin:0 0 8px">Start a new project</h3>
     <div class="row"><input id="proj-newname" type="text" placeholder="Project name" style="flex:1;min-width:160px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px"><button class="ghost" id="proj-new">Create</button></div>
-    <p class="muted" style="font-size:13px;margin:8px 0 0">This project stays saved in this browser. A background image is optional.</p>
+    <div class="row" style="margin-top:8px"><button class="ghost" id="proj-place">Start from a place (address or coordinates)…</button></div>
+    <p class="muted" style="font-size:13px;margin:8px 0 0">This project stays saved in this browser. A background image is optional. Starting from a place downloads the ground, an aerial photo and roads for you.</p>
     <hr>
     <h3 style="font-family:'Barlow Condensed',sans-serif;font-size:18px;margin:0 0 8px">Other projects in this browser</h3>
     <ul class="projlist" id="proj-list"></ul>
     <div class="status" id="proj-status" role="status"></div>
     <div class="row" style="justify-content:flex-end"><button class="ghost" id="proj-undo" hidden>Undo</button><button class="ghost" id="proj-close" autofocus>Close</button></div>
+  </div>
+</dialog>
+<dialog id="locdlg" aria-labelledby="loc-title">
+  <div class="dlg">
+    <h2 id="loc-title">New project from a place</h2>
+    <p class="muted" style="font-size:13px;margin:0 0 10px">Type coordinates or an address. Site Plan downloads the ground shape (USGS lidar elevation), an aerial photo and the roads for a square around that spot, and starts a new project with them. Works anywhere in the United States.</p>
+    <div class="field"><label for="loc-q">Coordinates or address</label><input id="loc-q" type="text" autocomplete="off" placeholder="46.7052, -92.4651  or  123 Main St, Esko, MN"></div>
+    <div class="row"><button class="ghost" id="loc-find">Find it</button></div>
+    <p class="muted" style="font-size:12px;margin:6px 0 0">Have a parcel ID? Look the parcel up on your county’s property map, copy the coordinates of a spot on it, and paste them here.</p>
+    <div id="loc-prev" hidden>
+      <div class="locwrap" id="loc-wrap" title="Click to move the center of the square there"><img id="loc-img" alt="Aerial photo of the area"><div class="pin"></div><div class="wait" id="loc-wait">Loading photo…</div></div>
+      <p class="muted" id="loc-where" style="font-size:13px;margin:0 0 8px;text-align:center"></p>
+      <div class="pair">
+        <div class="field"><label for="loc-size">Area</label><select id="loc-size"><option value="250">250 m square (820 ft)</option><option value="500" selected>500 m square (1,640 ft)</option><option value="1000">1 km square (3,280 ft)</option><option value="2000">2 km square (6,560 ft)</option></select></div>
+        <div class="field"><label for="loc-name">Project name</label><input id="loc-name" type="text" autocomplete="off"></div>
+      </div>
+      <label class="muted" style="font-size:13px;display:flex;gap:6px;align-items:center"><input type="checkbox" id="loc-roads" checked> Also bring in the roads (OpenStreetMap, or the USGS road map when it’s busy)</label>
+    </div>
+    <div class="status" id="loc-status" role="status"></div>
+    <div class="row" style="justify-content:flex-end"><button class="ghost" id="loc-close">Cancel</button><button class="primary" id="loc-go" disabled>Get the data</button></div>
   </div>
 </dialog>
 <input type="file" id="bp-file" accept="image/*,.pdf,application/pdf" hidden>
@@ -1568,6 +1594,7 @@ function renderLayers() {
   $("s-water").textContent = waterImg ? "Water map loaded. It updates by itself after you reshape the ground with the terrain brush." : hm ? "Add the water map made by water_flow.py, or work it out here from your terrain." : "Add the water map made by water_flow.py.";
   $("t-dl").hidden = !hm; $("t-reset").hidden = !hmOrig; $("w-calc").disabled = !hm || waterBusy;
   $("zmin").value = state.zmin; $("zrange").value = state.zrange;
+  if (state.geo) $("z-note").textContent = `Set when this project was made from a place (${state.geo.lat.toFixed(5)}, ${state.geo.lon.toFixed(5)}, UTM zone ${state.geo.zone}N; ${state.geo.size} m square from USGS elevation, ${state.geo.got}). Use these two numbers if you bring the heightmap into Unreal.`;
 }
 function updateReadout(w) {
   const e = elevAt(w), r = $("readout");
@@ -7547,6 +7574,215 @@ $("proj-new").onclick = async () => {
   const id = newPid(); projects.push({ id, name, updated: Date.now() }); await kvSet("projects", projects);
   await switchProject(id);
 };
+/* ---------- new project from a place: USGS elevation + aerial photo + OpenStreetMap roads ---------- */
+// The square is laid out in UTM meters (WGS84, zone from the longitude), the same way new_site_project.py does it:
+// origin = top-left corner, x east, y south. Heights come from the USGS 3DEP elevation service (lidar where it exists),
+// the photo from the USGS imagery map, roads from OpenStreetMap (Overpass), addresses from OpenStreetMap (Nominatim).
+const UTM_A = 6378137, UTM_F = 1 / 298.257223563, UTM_E2 = UTM_F * (2 - UTM_F), UTM_EP2 = UTM_E2 / (1 - UTM_E2), UTM_K0 = 0.9996;
+const utmZone = lon => Math.min(60, Math.max(1, Math.floor((lon + 180) / 6) + 1));
+const utmL0 = z => ((z - 1) * 6 - 180 + 3) * Math.PI / 180;
+function utmFwd(lat, lon, zone) {
+  const e2 = UTM_E2, p = lat * Math.PI / 180, l = lon * Math.PI / 180, sp = Math.sin(p), cp = Math.cos(p), tp = Math.tan(p);
+  const N = UTM_A / Math.sqrt(1 - e2 * sp * sp), T = tp * tp, C = UTM_EP2 * cp * cp, A = cp * (l - utmL0(zone));
+  const M = UTM_A * ((1 - e2 / 4 - 3 * e2 * e2 / 64 - 5 * e2 ** 3 / 256) * p - (3 * e2 / 8 + 3 * e2 * e2 / 32 + 45 * e2 ** 3 / 1024) * Math.sin(2 * p) + (15 * e2 * e2 / 256 + 45 * e2 ** 3 / 1024) * Math.sin(4 * p) - (35 * e2 ** 3 / 3072) * Math.sin(6 * p));
+  return { E: 500000 + UTM_K0 * N * (A + (1 - T + C) * A ** 3 / 6 + (5 - 18 * T + T * T + 72 * C - 58 * UTM_EP2) * A ** 5 / 120),
+    N: UTM_K0 * (M + N * tp * (A * A / 2 + (5 - T + 9 * C + 4 * C * C) * A ** 4 / 24 + (61 - 58 * T + T * T + 600 * C - 330 * UTM_EP2) * A ** 6 / 720)) };
+}
+function utmInv(E, Nn, zone) {
+  const e2 = UTM_E2, e1 = (1 - Math.sqrt(1 - e2)) / (1 + Math.sqrt(1 - e2)), mu = Nn / UTM_K0 / (UTM_A * (1 - e2 / 4 - 3 * e2 * e2 / 64 - 5 * e2 ** 3 / 256));
+  const p1 = mu + (3 * e1 / 2 - 27 * e1 ** 3 / 32) * Math.sin(2 * mu) + (21 * e1 * e1 / 16 - 55 * e1 ** 4 / 32) * Math.sin(4 * mu) + (151 * e1 ** 3 / 96) * Math.sin(6 * mu) + (1097 * e1 ** 4 / 512) * Math.sin(8 * mu);
+  const s1 = Math.sin(p1), c1 = Math.cos(p1), t1 = Math.tan(p1), N1 = UTM_A / Math.sqrt(1 - e2 * s1 * s1), T1 = t1 * t1, C1 = UTM_EP2 * c1 * c1;
+  const R1 = UTM_A * (1 - e2) / (1 - e2 * s1 * s1) ** 1.5, D = (E - 500000) / (N1 * UTM_K0);
+  const lat = p1 - (N1 * t1 / R1) * (D * D / 2 - (5 + 3 * T1 + 10 * C1 - 4 * C1 * C1 - 9 * UTM_EP2) * D ** 4 / 24 + (61 + 90 * T1 + 298 * C1 + 45 * T1 * T1 - 252 * UTM_EP2 - 3 * C1 * C1) * D ** 6 / 720);
+  const lon = utmL0(zone) + (D - (1 + 2 * T1 + C1) * D ** 3 / 6 + (5 - 2 * C1 + 28 * T1 - 3 * C1 * C1 + 8 * UTM_EP2 + 24 * T1 * T1) * D ** 5 / 120) / c1;
+  return { lat: lat * 180 / Math.PI, lon: lon * 180 / Math.PI };
+}
+// "46.7052, -92.4651", "46.7052 N 92.4651 W", "46°42'18.7"N 92°27'54.4"W" → {lat, lon}; null if it isn't coordinates
+function parseLatLon(t) {
+  t = String(t || "").trim().replace(/[′’]/g, "'").replace(/[″”]/g, '"');
+  if (!t || /[a-df-mo-rt-vx-z]{2,}/i.test(t.replace(/\b[NSEW]\b/gi, ""))) return null;   // words: an address
+  const re = /([-+]?\d+(?:\.\d+)?)\s*(?:°|d|\s)?\s*(?:(\d+(?:\.\d+)?)\s*')?\s*(?:(\d+(?:\.\d+)?)\s*")?\s*([NSEW])?/gi, v = [];
+  for (const m of t.matchAll(re)) {
+    if (!m[0].trim() || m[1] == null) continue;
+    let d = Math.abs(+m[1]) + (m[2] ? +m[2] / 60 : 0) + (m[3] ? +m[3] / 3600 : 0); if (m[1].startsWith("-")) d = -d;
+    const h = (m[4] || "").toUpperCase(); if (h === "S" || h === "W") d = -Math.abs(d);
+    v.push({ d, h });
+  }
+  if (v.length !== 2) return null;
+  let [a, b] = v; if (a.h === "E" || a.h === "W" || b.h === "N" || b.h === "S") [a, b] = [b, a];
+  let lat = a.d, lon = b.d, flipped = false;
+  if (Math.abs(lat) > 90 && Math.abs(lon) <= 90) [lat, lon] = [lon, lat];
+  if (!(Math.abs(lat) <= 90 && Math.abs(lon) <= 180)) return null;
+  if (lat > 0 && lon > 60 && !b.h) { lon = -lon; flipped = true; }   // US data only: a longitude typed without its minus sign is west
+  return { lat, lon, flipped };
+}
+// minimal TIFF reader for what the elevation service sends: one band, 32-bit float, not compressed, strips or tiles
+function readTiffF32(buf) {
+  const dv = new DataView(buf), le = dv.getUint16(0) === 0x4949, u16 = o => dv.getUint16(o, le), u32 = o => dv.getUint32(o, le);
+  if (u16(2) !== 42) throw new Error("not a TIFF");
+  const ifd = u32(4), n = u16(ifd), tag = {};
+  for (let i = 0; i < n; i++) {
+    const e = ifd + 2 + i * 12, id = u16(e), ty = u16(e + 2), cnt = u32(e + 4), sz = ty === 3 ? 2 : ty === 4 ? 4 : 1, at = cnt * sz <= 4 ? e + 8 : u32(e + 8);
+    const vals = []; if (ty === 3 || ty === 4) for (let k = 0; k < cnt; k++) vals.push(ty === 3 ? u16(at + k * 2) : u32(at + k * 4)); tag[id] = vals;
+  }
+  const w = tag[256][0], h = tag[257][0], bits = (tag[258] || [32])[0], fmt = (tag[339] || [1])[0], comp = (tag[259] || [1])[0], spp = (tag[277] || [1])[0];
+  if (bits !== 32 || fmt !== 3 || comp !== 1 || spp !== 1) throw new Error("unexpected elevation format");
+  const z = new Float32Array(w * h);
+  if (tag[324]) {   // tiles
+    const tw = tag[322][0], th = tag[323][0], across = Math.ceil(w / tw);
+    tag[324].forEach((off, t) => { const tx = (t % across) * tw, ty = Math.floor(t / across) * th;
+      for (let y = 0; y < th && ty + y < h; y++) for (let x = 0; x < tw && tx + x < w; x++) z[(ty + y) * w + tx + x] = dv.getFloat32(off + (y * tw + x) * 4, le); });
+  } else {   // strips
+    const rps = (tag[278] || [h])[0];
+    tag[273].forEach((off, k) => { for (let i = 0; i < rps * w && k * rps * w + i < w * h; i++) z[k * rps * w + i] = dv.getFloat32(off + i * 4, le); });
+  }
+  return { w, h, z };
+}
+const LOC_N = { 250: 253, 500: 505, 1000: 1009, 2000: 2017 };   // heightmap sizes Unreal likes, about 1 m a cell
+const LOC_ELEV = "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage";
+const LOC_IMG = "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/export";
+const LOC_OVERPASS = ["https://overpass-api.de/api/interpreter", "https://maps.mail.ru/osm/tools/overpass/api/interpreter", "https://overpass.private.coffee/api/interpreter"];
+const LOC_TNM = "https://carto.nationalmap.gov/arcgis/rest/services/transportation/MapServer";
+// USGS National Map roads (layer id → Site Plan road type): the backup when OpenStreetMap is busy. No driveways in it.
+const LOC_TNM_LAYERS = [[29, "road_paved"], [30, "road_paved"], [31, "road_paved"], [32, "road_paved"], [33, "road_paved"], [35, "field_lane"], [37, "trail"]];
+async function locFetch(url, ms) {
+  const ac = new AbortController(), tm = setTimeout(() => ac.abort(), ms);
+  try { const r = await fetch(url, { signal: ac.signal }); return r.ok ? await r.json() : null; } catch (e) { return null; } finally { clearTimeout(tm); }
+}
+function locClip(pts, W) {   // polyline → the pieces inside the 0..W square (Liang–Barsky per segment)
+  const out = []; let cur = null;
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const a = pts[i], b = pts[i + 1], dx = b.x - a.x, dy = b.y - a.y; let t0 = 0, t1 = 1, ok = true;
+    for (const [p, q] of [[-dx, a.x], [dx, W - a.x], [-dy, a.y], [dy, W - a.y]]) {
+      if (Math.abs(p) < 1e-12) { if (q < 0) { ok = false; break; } continue; }
+      const r = q / p; if (p < 0) { if (r > t1) { ok = false; break; } if (r > t0) t0 = r; } else { if (r < t0) { ok = false; break; } if (r < t1) t1 = r; }
+    }
+    if (!ok) { cur = null; continue; }
+    const A = { x: +(a.x + dx * t0).toFixed(3), y: +(a.y + dy * t0).toFixed(3) }, B = { x: +(a.x + dx * t1).toFixed(3), y: +(a.y + dy * t1).toFixed(3) };
+    if (!cur || t0 > 1e-9) { cur = [A]; out.push(cur); }
+    cur.push(B); if (t1 < 1 - 1e-9) cur = null;
+  }
+  return out.filter(p => p.length >= 2 && p.some((q, i) => i && Math.hypot(q.x - p[i - 1].x, q.y - p[i - 1].y) > 0.5));
+}
+const locRoad = (rt, name, pts) => { const R = ROADS[rt]; return { name: name || R.name.replace(", two lanes", ""), kind: "road", closed: false, roadType: rt, points: pts, thickness: R.widthFt * FT, width: R.widthFt * FT, surface: R.surface, depth: R.depthIn * IN }; };
+async function locRoadsTNM(L, W) {
+  const [x0, y0, x1, y1] = locBox(L, W), sr = locSR(L), out = [];
+  const res = await Promise.all(LOC_TNM_LAYERS.map(([id]) => locFetch(`${LOC_TNM}/${id}/query?geometry=${x0},${y0},${x1},${y1}&geometryType=esriGeometryEnvelope&inSR=${sr}&outSR=${sr}&spatialRel=esriSpatialRelIntersects&outFields=name&returnGeometry=true&f=json`, 30000)));
+  if (res.every(d => !d || !d.features)) return null;
+  res.forEach((d, k) => { for (const f of (d && d.features) || []) for (const path of (f.geometry && f.geometry.paths) || []) {
+    if (path.length < 2) continue;
+    for (const piece of locClip(path.map(([E, N]) => ({ x: E - x0, y: y1 - N })), W)) out.push(locRoad(LOC_TNM_LAYERS[k][1], (f.attributes || {}).name, piece));
+  } });
+  return out;
+}
+let loc = null;   // {lat, lon, zone, E, N, label}
+const locSize = () => +$("loc-size").value || 500;
+const locBox = (L = loc, W = locSize()) => [L.E - W / 2, L.N - W / 2, L.E + W / 2, L.N + W / 2];   // xmin, ymin, xmax, ymax (UTM m)
+const locSR = (L = loc) => 32600 + L.zone;
+function locStatus(t) { $("loc-status").textContent = t; }
+function openLoc() {
+  if ($("projdlg").open) $("projdlg").close();
+  locStatus(""); $("loc-go").disabled = !loc; $("loc-prev").hidden = !loc;
+  $("locdlg").showModal(); setTimeout(() => $("loc-q").focus(), 30);
+}
+function locSet(lat, lon, label) {
+  const zone = utmZone(lon), u = utmFwd(lat, lon, zone);
+  loc = { lat, lon, zone, E: u.E, N: u.N, label: label || "" };
+  if (!$("loc-name").value.trim() || $("loc-name").dataset.auto === "1") { $("loc-name").value = (label ? label.split(",").slice(0, 2).join(",").trim() : `Site at ${lat.toFixed(4)}, ${lon.toFixed(4)}`).slice(0, 60); $("loc-name").dataset.auto = "1"; }
+  locPreview();
+}
+function locPreview() {
+  if (!loc) return;
+  $("loc-prev").hidden = false; $("loc-go").disabled = false;
+  const W = locSize(), ft = Math.round(W / FT).toLocaleString();
+  $("loc-where").textContent = `${loc.lat.toFixed(5)}, ${loc.lon.toFixed(5)}${loc.label ? " · " + loc.label : ""} · ${W >= 1000 ? W / 1000 + " km" : W + " m"} (${ft} ft) square. Click the photo to move the center.`;
+  const im = $("loc-img"); $("loc-wait").hidden = false; $("loc-wait").textContent = "Loading photo…";
+  im.onload = () => { $("loc-wait").hidden = true; };
+  im.onerror = () => { $("loc-wait").hidden = false; $("loc-wait").textContent = "The preview photo didn’t load. Check the internet connection."; };
+  im.src = `${LOC_IMG}?bbox=${locBox().map(v => v.toFixed(1)).join(",")}&bboxSR=${locSR()}&imageSR=${locSR()}&size=420,420&format=jpg&f=image`;
+}
+async function locFind() {
+  const q = $("loc-q").value.trim(); if (!q) { locStatus("Type coordinates (like 46.7052, -92.4651) or an address first."); return; }
+  const c = parseLatLon(q);
+  if (c) { locSet(c.lat, c.lon, ""); locStatus(c.flipped ? "That longitude had no minus sign, so it was taken as west (the US side)." : ""); return; }
+  locStatus("Looking up that address…");
+  try {
+    const r = await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&q=" + encodeURIComponent(q), { headers: { Accept: "application/json" } });
+    const d = await r.json();
+    if (!d.length) { locStatus("Couldn’t find that address. Try adding the town and state, or paste coordinates instead (in Google Maps, right-click the spot and click the numbers to copy them)."); return; }
+    locSet(+d[0].lat, +d[0].lon, d[0].display_name);
+    locStatus("Found it. Rural addresses can land on the road or the middle of the section, so check the photo and click your spot if it’s off.");
+  } catch (e) { locStatus("Couldn’t reach the address lookup. This needs the internet (it doesn’t work inside the claude.ai version). You can still paste coordinates."); }
+}
+$("loc-find").onclick = locFind;
+$("loc-q").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); locFind(); } });
+$("loc-size").onchange = () => locPreview();
+$("loc-name").oninput = () => { $("loc-name").dataset.auto = "0"; };
+$("loc-wrap").addEventListener("click", e => {   // move the center to the clicked spot
+  if (!loc) return;
+  const r = $("loc-wrap").getBoundingClientRect(), W = locSize(), E = loc.E + ((e.clientX - r.left) / r.width - 0.5) * W, N = loc.N - ((e.clientY - r.top) / r.height - 0.5) * W;
+  const g = utmInv(E, N, loc.zone); loc = Object.assign({}, loc, { E, N, lat: g.lat, lon: g.lon }); locPreview();
+});
+$("loc-close").onclick = () => $("locdlg").close();
+$("proj-place").onclick = openLoc;
+$("empty-place").onclick = openLoc;
+// OpenStreetMap roads in the square, as Site Plan road shapes (same types as osm_roads.py)
+async function locRoads(L, W) {
+  const [x0, y0, x1, y1] = locBox(L, W), cs = [[x0, y0], [x1, y0], [x0, y1], [x1, y1]].map(([E, N]) => utmInv(E, N, L.zone));
+  const s0 = Math.min(...cs.map(c => c.lat)), s1 = Math.max(...cs.map(c => c.lat)), w0 = Math.min(...cs.map(c => c.lon)), w1 = Math.max(...cs.map(c => c.lon));
+  const query = `[out:json][timeout:40];way["highway"](${s0},${w0},${s1},${w1});out geom;`;
+  const usgs = locRoadsTNM(L, W);   // asked at the same time, used only if OpenStreetMap doesn't answer
+  let data = null;
+  data = await new Promise(res => { let left = LOC_OVERPASS.length; for (const url of LOC_OVERPASS) locFetch(url + "?data=" + encodeURIComponent(query), 20000).then(d => { if (d && d.elements) res(d); else if (!--left) res(null); }); });
+  if (!data) { const r = await usgs; if (r) r.src = "USGS"; return r; }
+  const MAJOR = new Set(["motorway", "trunk", "primary", "secondary", "tertiary", "motorway_link", "trunk_link", "primary_link", "secondary_link", "tertiary_link", "residential", "unclassified", "road"]);
+  const UNPAVED = new Set(["unpaved", "gravel", "fine_gravel", "compacted", "dirt", "ground", "earth", "grass", "sand", "pebblestone"]);
+  const type = (hw, sf) => MAJOR.has(hw) ? (UNPAVED.has(sf) ? "road_gravel" : "road_paved") : hw === "service" ? (sf === "concrete" ? "drive_concrete" : sf === "asphalt" || sf === "paved" ? "drive_asphalt" : "drive_gravel") : hw === "track" ? "field_lane" : ["path", "footway", "bridleway", "cycleway"].includes(hw) ? "trail" : null;
+  const out = [];
+  for (const el of data.elements || []) {
+    if (el.type !== "way" || !el.geometry) continue;
+    const t = el.tags || {}, rt = type(t.highway || "", t.surface || ""); if (!rt || el.geometry.length < 2) continue;
+    const pts = el.geometry.map(g => { const u = utmFwd(g.lat, g.lon, L.zone); return { x: u.E - x0, y: y1 - u.N }; });
+    for (const piece of locClip(pts, W)) out.push(locRoad(rt, t.name || t.ref, piece));
+  }
+  out.src = "OpenStreetMap"; return out;
+}
+$("loc-go").onclick = async () => {
+  if (!loc) return;
+  const L = loc, W = locSize(), n = LOC_N[W] || 505, box = locBox(L, W).map(v => v.toFixed(2)).join(","), sr = locSR(L), go = $("loc-go");
+  go.disabled = true;
+  try {
+    locStatus("Downloading the ground shape from USGS…");
+    const er = await fetch(`${LOC_ELEV}?bbox=${box}&bboxSR=${sr}&imageSR=${sr}&size=${n},${n}&format=tiff&pixelType=F32&noData=-9999&compression=None&interpolation=RSP_BilinearInterpolation&f=image`);
+    if (!er.ok) throw new Error("elev");
+    let t; try { t = readTiffF32(await er.arrayBuffer()); } catch (e) { throw new Error("elev"); }
+    const ok = v => isFinite(v) && v > -500 && v < 9000; let zmin = Infinity, zmax = -Infinity, good = 0;
+    for (const v of t.z) if (ok(v)) { good++; if (v < zmin) zmin = v; if (v > zmax) zmax = v; }
+    if (good < t.z.length * 0.5) { locStatus("USGS has no elevation for most of that square. It covers the United States; check the coordinates."); go.disabled = false; return; }
+    zmin = Math.floor((zmin - 2) * 100) / 100; const zrange = Math.ceil((Math.max(zmax - zmin, 1) + 3) * 100) / 100;   // 2 m to dig and 3 m to pile with the terrain brush
+    const raw = new Uint16Array(t.w * t.h); for (let i = 0; i < raw.length; i++) { const v = ok(t.z[i]) ? t.z[i] : zmin; raw[i] = Math.max(0, Math.min(65535, Math.round((v - zmin) / zrange * 65535))); }
+    const hpng = new Blob([await encodePNG16(t.w, t.h, raw)], { type: "image/png" });
+    locStatus("Downloading the aerial photo…");
+    const px = Math.min(4096, W * 2), ir = await fetch(`${LOC_IMG}?bbox=${box}&bboxSR=${sr}&imageSR=${sr}&size=${px},${px}&format=jpg&f=image`);
+    const photo = ir.ok && /image/.test(ir.headers.get("content-type") || "image") ? await ir.blob() : null;
+    let roads = [];
+    if ($("loc-roads").checked) { locStatus("Asking OpenStreetMap for the roads (the USGS road map if it’s busy)…"); roads = await locRoads(L, W); }
+    locStatus("Starting the new project…");
+    const id = newPid(), name = $("loc-name").value.trim() || `Site at ${L.lat.toFixed(4)}, ${L.lon.toFixed(4)}`;
+    const shapes = (roads || []).map((r, i) => Object.assign({ id: i + 1 }, r));
+    const plan = { shapes, nextId: shapes.length + 1, imageWidthM: W, zmin, zrange, units: state.units, skipPhoto: !photo,
+      layers: { contour: { on: true } }, geo: { lat: +L.lat.toFixed(6), lon: +L.lon.toFixed(6), zone: L.zone, xmin: +(L.E - W / 2).toFixed(2), ymax: +(L.N + W / 2).toFixed(2), size: W, cells: n, label: L.label, got: new Date().toISOString().slice(0, 10), water: true } };
+    await kvSet(`p:${id}:heightmap`, hpng);
+    if (photo) await kvSet(`p:${id}:image`, photo);
+    await kvSet(`p:${id}:plan`, JSON.stringify(plan));
+    projects.push({ id, name, updated: Date.now() }); await kvSet("projects", projects);
+    locStatus(`Done${photo ? "" : " (no photo came back)"}${roads === null ? "; the road maps didn’t answer, so no roads" : roads.length ? `, ${roads.length} road${roads.length === 1 ? "" : "s"} from ${roads.src}` : ""}. Opening it…`);
+    await switchProject(id);
+  } catch (e) {
+    locStatus("Couldn’t download from the USGS map servers. This needs the internet (it doesn’t work inside the claude.ai version). Try again in a minute; their servers are sometimes slow.");
+    go.disabled = false;
+  }
+};
 let delArmed = null;
 $("proj-list").addEventListener("click", async e => {
   const o = e.target.closest("[data-open]"), d = e.target.closest("[data-del]");
@@ -8999,6 +9235,7 @@ new ResizeObserver(resize).observe(stage);
   else if (state.skipPhoto) { if (state.shapes.length) fit(state.shapes.flatMap(s => s.points)); else START_VIEW(); }
   else $("empty").hidden = false;
   renderPanel(); updateHistory(); updateUI(); culvertWatch(); renderDirt();
+  if (state.geo && state.geo.water && hm) { delete state.geo.water; save(); fit(); requestDraw(); waterShow = true; setTimeout(runWater, 300); }   // just made from a place
   cleanStorage(loaded);
   await initFile();
   if (loaded) { const j = JSON.stringify(state), h = strHash(j); fileDirty = !!fileH && h !== fileHash; if (h !== lastBkHash) await makeBackup(j, "When the project opened", h); }
