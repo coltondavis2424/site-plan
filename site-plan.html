@@ -6743,7 +6743,14 @@ function wvDraw() {
     const behind = ["framing", "elec", "plumb"].includes(act);
     g.save(); g.globalAlpha = behind ? .4 : 1;
     wallPath(); g.clip();
-    if (wvOut()) { wvDrawSiding(g, wvSideOf(), 0, 0, L, H); }
+    if (wvOut()) {
+      wvDrawSiding(g, wvSideOf(), 0, 0, L, H);
+      const RG = wvRoof();
+      if (RG && RG.loft && (RG.kind === "gable" || RG.kind === "shedend") && wvGableOwn()) {   // loft gable end: its own siding above the knee wall, trim board between
+        const a = wS(0, RG.H), b2 = wS(L, RG.top + 1); g.save(); g.beginPath(); g.rect(a.x, b2.y, b2.x - a.x, a.y - b2.y); g.clip(); wvDrawSiding(g, wvGableSide(), 0, RG.H, L, RG.top + 1); g.restore();
+        const t0 = wS(0, RG.H + 5.5 / 12); g.fillStyle = "#F4F1EA"; g.fillRect(a.x, t0.y, b2.x - a.x, a.y - t0.y); g.strokeStyle = "rgba(0,0,0,.35)"; g.lineWidth = 1; g.strokeRect(a.x, t0.y, b2.x - a.x, a.y - t0.y);
+      }
+    }
     else {
       g.fillStyle = (wv.v.paint || {})[fr.vf] || "#F1EEE6"; g.fill();
       g.strokeStyle = "rgba(0,0,0,.12)"; g.setLineDash([3, 4]);   // 4×8 sheets hung sideways
@@ -6821,6 +6828,10 @@ function wvSideOf() {   // siding on the face seen from here: saved choice, else
   return { type: t, color: WV_SIDING.find(r => r[0] === t)[2] };
 }
 // Fill a clip path (already set on g) with the siding pattern, view feet x0..x1, y0..y1.
+function wvGableSide() {   // siding on the gable triangle seen from here: its own choice (v.gside[vf]), else the wall's
+  const gv = (wv.v.gside || {})[wvFrame().vf]; return gv || wvSideOf();
+}
+const wvGableOwn = () => !!(wv.v.gside || {})[wvFrame().vf];
 function wvDrawSiding(g, sd, x0, y0, x1, y1) {
   const a = wS(x0, y1), b = wS(x1, y0); g.fillStyle = sd.color; g.fillRect(a.x, a.y, b.x - a.x, b.y - a.y);
   const ln = (p, q, w, c) => { g.strokeStyle = c; g.lineWidth = w; g.beginPath(); g.moveTo(p.x, p.y); g.lineTo(q.x, q.y); g.stroke(); };
@@ -6879,7 +6890,7 @@ function wvDrawRoof(g, R) {
     const xa = R.x0 - R.ov, xb = R.x1 + R.ov, tri = [[R.x0, R.H]]; for (let k = 0; k <= 40; k++) { const x = R.x0 + (R.x1 - R.x0) * k / 40; tri.push([x, wvRoofY(R, x)]); } tri.push([R.x1, R.H]);
     if (!R.loft) poly(tri, "#E9E5DA");
     if (R.loft) {}
-    else if (out && dw) { g.save(); poly(tri); g.clip(); wvDrawSiding(g, wvSideOf(), R.x0, R.H, R.x1, R.top + 0.5); g.restore(); }
+    else if (out && dw) { g.save(); poly(tri); g.clip(); wvDrawSiding(g, wvGableSide(), R.x0, R.H, R.x1, R.top + 0.5); g.restore(); if (wvGableOwn()) poly([[R.x0, R.H], [R.x1, R.H], [R.x1, R.H + 5.5 / 12], [R.x0, R.H + 5.5 / 12]], "#F4F1EA", "rgba(0,0,0,.35)"); }
     else if (fram) {   // gable end truss: bottom chord on the plate, studs at the wall's spacing, top chords
       const fx = 1.5 / 12, ocf = (wv.v.oc || 16) / 12;
       // bottom chord, trimmed to stop under the top chord at each heel
@@ -6934,7 +6945,11 @@ function wvTools() {
     <div class="field"><label>&nbsp;</label><button class="ghost small" id="wv-addblock" aria-pressed="${!!(wv.tool && wv.tool.block)}">▭ Add blocking</button></div></div>`;
   else if (l === "openings") h = `<h3>Add a door or window</h3><div class="dz-presets">${Object.entries(OTYPES).map(([k, n]) => `<button data-addopen="${k}"><span>${esc(n)}</span><small>${esc(fl(OPEN_DEFAULT_W[k] / 12))} wide</small></button>`).join("")}</div>`;
   else if (l === "drywall" && wvOut()) { const sd = wvSideOf(); h = `<h3>Siding on this side</h3><div class="field"><label for="wv-sidetype">Siding</label><select id="wv-sidetype">${optList(WV_SIDING.map(r => [r[0], r[1]]), sd.type)}</select></div>
-    <div class="field"><label for="wv-sidecol">Color</label><input id="wv-sidecol" type="color" value="${esc(sd.color)}" style="height:40px;padding:2px"></div><p class="muted" style="font-size:12px;margin:4px 0 0">Covers the gable too. The material list still counts the siding chosen for the whole building.</p>`; }
+    <div class="field"><label for="wv-sidecol">Color</label><input id="wv-sidecol" type="color" value="${esc(sd.color)}" style="height:40px;padding:2px"></div>${(() => { const RG = wvRoof(); if (!RG || !(RG.kind === "gable" || RG.kind === "shedend")) return ""; const own = wvGableOwn(), gs = wvGableSide();
+      return `<h3>Gable end siding</h3><p class="muted" style="font-size:12px;margin:0 0 6px">The triangle up under the roof. Pick something different to set it apart (board and batten, shakes, another color).</p>
+      <div class="field"><label for="wv-gsidetype">Siding</label><select id="wv-gsidetype">${optList([["same", "Same as the wall"]].concat(WV_SIDING.map(r => [r[0], r[1]])), own ? gs.type : "same")}</select></div>`
+      + (own ? `<div class="field"><label for="wv-gsidecol">Color</label><input id="wv-gsidecol" type="color" value="${esc(gs.color)}" style="height:40px;padding:2px"></div>` : ""); })()}
+    <p class="muted" style="font-size:12px;margin:4px 0 0">The material list still counts the siding chosen for the whole building.</p>`; }
   else if (l === "drywall") h = `<h3>Drywall on this side</h3><div class="field"><label for="wv-paint">Paint color</label><input id="wv-paint" type="color" value="${esc((v.paint || {})[wvFrame().vf] || "#F1EEE6")}" style="height:40px;padding:2px"></div>
     <div class="field"><label for="wv-dwth">Thickness</label><select id="wv-dwth">${optList([["0.5", "½″"], ["0.625", "⅝″ (fire-rated)"]], v.dwTh || "0.5")}</select></div>`;
   else {
@@ -6948,10 +6963,18 @@ function wvTools() {
     }
   }
   $("wv-tools").innerHTML = h;
-  $("wv-hint").textContent = wv.tool && wv.tool.run ? `Tap to start the ${WV_RUNS[wv.tool.run][0].toLowerCase()}, tap to bend it, and tap the last point again to finish. It stays level or straight up and down; hold Shift for an angle.` : wv.tool && wv.tool.stud ? "Tap where the new stud goes, or press and slide to place it exactly." : wv.tool && wv.tool.block ? "Tap between two studs at the height you want the blocking; keep holding to slide it up or down. Tap Add blocking again when you are done." : wvOut() && l === "drywall" ? "Siding covers the outside of this wall and its gable. Pick the kind and color on the left." : wvOut() && ["elec", "plumb", "finish"].includes(l) ? "From outside you get outdoor things: tap one to put it on the wall, then drag it where it goes." : WV_HINTS[l];
+  $("wv-hint").textContent = wv.tool && wv.tool.run ? `Tap to start the ${WV_RUNS[wv.tool.run][0].toLowerCase()}, tap to bend it, and tap the last point again to finish. It stays level or straight up and down; hold Shift for an angle.` : wv.tool && wv.tool.stud ? "Tap where the new stud goes, or press and slide to place it exactly." : wv.tool && wv.tool.block ? "Tap between two studs at the height you want the blocking; keep holding to slide it up or down. Tap Add blocking again when you are done." : wvOut() && l === "drywall" ? "Siding covers the outside of this wall. Pick the kind and color on the left; a gable end can have its own." : wvOut() && ["elec", "plumb", "finish"].includes(l) ? "From outside you get outdoor things: tap one to put it on the wall, then drag it where it goes." : WV_HINTS[l];
 }
 document.addEventListener("change", e => {
-  if (!wv || !e.target || !["wv-sidetype", "wv-sidecol"].includes(e.target.id)) return;
+  if (!wv || !e.target || !["wv-sidetype", "wv-sidecol", "wv-gsidetype", "wv-gsidecol"].includes(e.target.id)) return;
+  if (e.target.id === "wv-gsidetype" || e.target.id === "wv-gsidecol") {   // gable end: its own siding, or back to the wall's
+    const fr = wvFrame(), cur = wvGableSide(), gside = Object.assign({}, wv.v.gside || {});
+    if (e.target.id === "wv-gsidecol") gside[fr.vf] = { type: cur.type, color: e.target.value };
+    else if (e.target.value === "same") delete gside[fr.vf];
+    else { const r = WV_SIDING.find(x => x[0] === e.target.value); gside[fr.vf] = { type: e.target.value, color: r ? r[2] : cur.color }; }
+    if (Object.keys(gside).length) wv.v.gside = gside; else delete wv.v.gside;
+    wvTools(); wvDraw(); return;
+  }
   const fr = wvFrame(), cur = wvSideOf(), side = Object.assign({}, wv.v.side || {});
   if (e.target.id === "wv-sidetype") { const r = WV_SIDING.find(x => x[0] === e.target.value); side[fr.vf] = { type: e.target.value, color: r ? r[2] : cur.color }; }
   else side[fr.vf] = { type: cur.type, color: e.target.value };
@@ -7205,7 +7228,7 @@ $("wv-del").onclick = () => {
   else if (sel.item) wv.v.items = wv.v.items.filter(i => i !== sel.item);
   wv.sel = null; wvFields(); wvDraw();
 };
-function wvEmpty(v) { return !v.items.length && !(v.blocks || []).length && !(v.studAdd || []).length && !(v.studDel || []).length && (v.oc || 16) === 16 && (v.layFrom || "lo") === "lo" && !Object.keys(v.paint || {}).length && !v.dwTh && !Object.keys(v.side || {}).length; }
+function wvEmpty(v) { return !v.items.length && !(v.blocks || []).length && !(v.studAdd || []).length && !(v.studDel || []).length && (v.oc || 16) === 16 && (v.layFrom || "lo") === "lo" && !Object.keys(v.paint || {}).length && !v.dwTh && !Object.keys(v.side || {}).length && !Object.keys(v.gside || {}).length; }
 $("wv-done").onclick = () => {
   const v = wv.v;
   if (wv.isNew && !wvEmpty(v)) dz.views.push(v);
