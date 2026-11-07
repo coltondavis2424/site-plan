@@ -5088,6 +5088,9 @@ function cornerHTML(s) {
 function parentOf(x) { return x && x.bid ? state.shapes.find(s => s.id === x.bid) : null; }
 function inGroup(x) { const b = parentOf(x); return !!(b && b.grouped && !x.free); }
 function groupRoot(x) { return x && inGroup(x) ? parentOf(x) : x; }
+// What a first tap on the map picks: the whole structure. Walls, rooms, doors, stairs and items inside a building (grouped
+// or not) pick their building first; once that building (or something in it) is picked, a tap picks the piece itself.
+function pickRoot(x) { const b = x && x.bid && x.level ? parentOf(x) : null; return b && b.kind === "building" ? b : groupRoot(x); }
 function isLocked(x) { if (!x) return false; if (x.locked) return true; return inGroup(x) && !!parentOf(x).locked; }
 function isFrozen(x) { return isLocked(x); }   // grouped items can still be picked and changed on their own; they keep moving with the building
 const GROUP_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:6px"><rect x="3" y="3" width="11" height="11" rx="1.5"/><rect x="10" y="10" width="11" height="11" rx="1.5"/></svg>';
@@ -8302,9 +8305,9 @@ function tap(sx, sy) {
   updateReadout(w);
   if (tool === "select") {
     // The first tap picks the whole building; tap it again to pick the wall, room or door under your finger.
-    const h = hitShape(w, sx, sy), root = groupRoot(h), cur = state.shapes.find(x => x.id === selected);
+    const h = hitShape(w, sx, sy), root = pickRoot(h), cur = state.shapes.find(x => x.id === selected);
     if (cur && !isFrozen(cur) && cur.points.some(q => dist(toS(q), { x: sx, y: sy }) < 14)) { renderPanel(); requestDraw(); return; }   // tapped one of its corners: keep it picked
-    const s = h && root && h !== root && cur && groupRoot(cur) === root ? h : root;
+    const s = h && root && h !== root && cur && pickRoot(cur) === root ? h : root;
     if ((s ? s.id : null) !== selected) { selCorner = null; addCorner = null; $("d-extra").innerHTML = ""; }
     selected = s ? s.id : null; renderPanel(); requestDraw();
     if (s && h && s !== h) $("hint").textContent = `Tap again to pick just this ${({ wall: "wall", room: "room", opening: "door or window", stair: "stairs" })[h.kind] || "piece"} inside ${s.name}.`;
@@ -8504,7 +8507,7 @@ cv.addEventListener("pointerdown", e => {
         const a = s.points[ei], b = s.points[(ei + 1) % s.points.length], u = unit(a, b);
         drag = { type: "edge", s, i: ei, start: toW(p.x, p.y), o: s.points.map(q => ({ ...q })), n: { x: -u.y, y: u.x }, undoPushed: false };
       }
-      else if ((() => { const hh = hitShape(toW(p.x, p.y)); return hh && (groupRoot(hh) === s || hh === s); })()) {
+      else if ((() => { const hh = hitShape(toW(p.x, p.y)); return hh && (pickRoot(hh) === s || hh === s); })()) {
         const grp = s.kind === "building" ? [s, ...childrenOf(s).filter(c => !c.free)] : s.kind === "shape" ? [s, ...childrenOf(s)] : [s];
         drag = { type: "move", s, start: toW(p.x, p.y), grp: grp.map(g => ({ g, o: g.points.map(q => ({ ...q })) })), undoPushed: false, host: s.kind === "opening" ? openHost(s) : null };
       }
