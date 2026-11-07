@@ -66,6 +66,9 @@ button{cursor:pointer}
 .seg button[aria-pressed="true"]{background:var(--flag);color:var(--flag-ink)}
 .panel-toggle{display:none}
 .show-sm{display:none}
+.wv-compass{display:inline-flex;align-items:center;gap:6px;font:600 13px/1 "Barlow Condensed",sans-serif;color:var(--muted);white-space:nowrap}
+.wv-compass svg{display:block}
+.wv-nav{display:inline-flex;gap:4px}
 
 /* Layout */
 .main{display:grid;grid-template-columns:76px 1fr 300px;min-height:0}
@@ -791,6 +794,8 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
             <div class="field"><label for="dz-wsel">Type</label><select id="dz-wsel"><option value="3.5">3½″</option><option value="4.5">2×4 (4½″)</option><option value="6.5">2×6 (6½″)</option><option value="8">8″ block</option><option value="12">12″ foundation</option></select></div>
           </div>
           <div class="row"><button class="primary small" id="dz-wview">Wall view</button><button class="ghost small" id="dz-waddc" aria-pressed="false" title="Then press on the wall where the corner goes, and drag it">＋ Add a corner</button><button class="danger small" id="dz-wdel">Remove wall</button></div>
+          <div id="dz-wendbox" hidden><div class="row"><button class="ghost small" id="dz-wend" title="Upper floors that cover only part of the building: the floor stops at this wall, and this wall becomes an outside wall">This floor ends at this wall</button></div>
+          <p class="muted" style="font-size:13px;margin:4px 0 0">For a floor over only part of the building: the part on the far side of this wall is cut off (open below or roof there), and this wall becomes an outside wall. Do it on two walls to keep just the part between them.</p></div>
           <p class="muted" style="font-size:13px;margin:8px 0 0">Wall view opens a side view of this wall: studs, doors and windows, wiring, plumbing, drywall and what hangs on it. Double-click a wall to open it too.</p>
         </div>
         <h3>Options</h3>
@@ -830,6 +835,8 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
     <div class="dz-head">
       <h2 id="wv-title">Wall view</h2>
       <button class="ghost hstep" id="wv-undo" title="Undo (Ctrl+Z)" aria-label="Undo" disabled>↶</button><button class="ghost hstep" id="wv-redo" title="Redo (Ctrl+X)" aria-label="Redo" disabled>↷</button>
+      <span class="wv-compass" id="wv-compass" title="Which way you are looking at this wall"></span>
+      <span class="wv-nav"><button class="ghost" id="wv-prev" title="The wall that meets this one at its left end">◀<span class="hide-sm"> Left wall</span></button><button class="ghost" id="wv-next" title="The wall that meets this one at its right end"><span class="hide-sm">Right wall </span>▶</button></span>
       <button class="ghost" id="wv-flip">Other side</button>
       <button class="ghost" id="wv-cancel">Cancel</button>
       <button class="primary" id="wv-done">Done</button>
@@ -1088,7 +1095,7 @@ function inPoly(p, pts) {
 
 /* ---------- formatting ---------- */
 function fmtLen(m) {
-  if (m < 0 && Math.abs(m) > 1e-9) return "-" + fmtLen(-m);
+  if (m < 0) { if (state.units === "m" ? Math.round(-m * 100) > 0 : Math.round(-m / IN * 2) > 0) return "-" + fmtLen(-m); m = 0; }   // never "-0"
   if (state.units === "m") return m.toFixed(2) + " m";
   const h = Math.round(m / IN * 2), ft = Math.floor(h / 24), rem = h - ft * 24, i = Math.floor(rem / 2), half = rem % 2;
   const inch = (i || !half || ft ? String(i) : "") + (half ? "½" : "") + '"';
@@ -5686,6 +5693,7 @@ function dzSelFields() {
     if (document.activeElement !== $("dz-doff")) $("dz-doff").value = fl(Math.abs(dm.off));
   }
   if (isWall) { $("dz-wallhead").textContent = s.ext ? "Exterior wall" : "Selected wall"; $("dz-wdel").hidden = !!s.ext; }
+  $("dz-wendbox").hidden = !(isWall && !s.ext && dz.lv !== GROUND);
   if (isOpen) {
     const wIn = Math.round(s.w * 12), widths = OWIDTHS.includes(wIn) ? OWIDTHS : [...OWIDTHS, wIn].sort((a, b) => a - b);
     $("dz-osel").innerHTML = optList(Object.entries(OTYPES), s.otype);
@@ -6337,6 +6345,42 @@ $("dz-roomq").addEventListener("keydown", e => {
   if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); dzRoomMenu(false); $("dz-addroom").focus(); }
   else if (e.key === "Enter") { e.preventDefault(); const b = [...$("dz-presets").querySelectorAll("button[data-p]")].find(x => !x.hidden); if (b) b.click(); }
 });
+// "This floor ends at this wall" (upper floors over part of the building): cut the floor's outline along an inside wall,
+// keeping the side with the floor's middle. The new outside wall's inside face sits on the old wall's face on that side,
+// so the rooms keep their size. Doors and windows stay where they are (on the old wall they move onto the new outside
+// wall); outside ones that are no longer on the floor are taken out. One designer Undo step.
+function dzEndAt(w) {
+  const len = Math.hypot(w.x2 - w.x1, w.y2 - w.y1); if (len < 1) return;
+  const u = { x: (w.x2 - w.x1) / len, y: (w.y2 - w.y1) / len }, c = { x: w.x1, y: w.y1 }, mid = centroid(dz.poly);
+  let n = { x: -u.y, y: u.x }; if ((mid.x - c.x) * n.x + (mid.y - c.y) * n.y < 0) n = { x: -n.x, y: -n.y };
+  const d0 = w.th / 2 - dz.t, f = p => (p.x - c.x) * n.x + (p.y - c.y) * n.y - d0, P = dz.poly, out = [];
+  for (let i = 0; i < P.length; i++) {   // keep the half where f >= 0
+    const a = P[i], b = P[(i + 1) % P.length], fa = f(a), fb = f(b);
+    if (fa >= 0) out.push(a);
+    if ((fa >= 0) !== (fb >= 0)) { const t = fa / (fa - fb); out.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }); }
+  }
+  const NP = out.filter((p, i) => Math.hypot(p.x - out[(i + 1) % out.length].x, p.y - out[(i + 1) % out.length].y) > 1e-4)
+    .map(p => ({ x: Math.round(p.x * 1e6) / 1e6 + 0, y: Math.round(p.y * 1e6) / 1e6 + 0 }));
+  if (NP.length < 3 || polyArea(NP) < 4 || polyArea(NP) > polyArea(P) - 1) { $("dz-hint").textContent = "This wall doesn't cut the floor anywhere, so nothing changed."; return; }
+  const at = dz.opens.map(o => { const g = (o.ref.type === "ext" || (o.ref.type === "wall" && o.ref.wid === w.id)) && openGeom(o); return g ? g.c : null; });
+  dz.poly = NP; syncBox();
+  const E = extSides(); let lost = 0;
+  dz.opens = dz.opens.filter((o, k) => {
+    const q = at[k]; if (!q) return true;
+    let best = null, bd = Infinity, bt = 0;
+    for (const L of E) { const l = Math.hypot(L.x2 - L.x1, L.y2 - L.y1) || 1, t = ((q.x - L.x1) * (L.x2 - L.x1) + (q.y - L.y1) * (L.y2 - L.y1)) / l, tt = Math.max(0, Math.min(l, t)), dd = Math.hypot(L.x1 + (L.x2 - L.x1) * tt / l - q.x, L.y1 + (L.y2 - L.y1) * tt / l - q.y); if (dd < bd) { bd = dd; best = L; bt = t; } }
+    const l = best ? Math.hypot(best.x2 - best.x1, best.y2 - best.y1) : 0;
+    if (!best || bd > 1 || bt < o.w / 2 - 0.01 || bt > l - o.w / 2 + 0.01) { lost++; return false; }
+    o.ref = { type: "ext", idx: best.idx }; o.along = bt; return true;
+  });
+  dz.walls = dz.walls.filter(x => x !== w);
+  const IN = innerPoly(), off = dz.rooms.filter(r => !inPoly({ x: r.x + r.w / 2, y: r.y + r.h / 2 }, IN)).length;
+  dz.sel = null; dzFields(); dzSelFields(); dzDraw();
+  $("dz-hint").textContent = "This floor now ends at that wall (" + fmtLen(dz.W * FT) + " × " + fmtLen(dz.D * FT) + ")."
+    + (lost ? " " + lost + (lost > 1 ? " doors/windows" : " door/window") + " on the part cut off came out." : "")
+    + (off ? " " + off + (off > 1 ? " rooms are" : " room is") + " now outside the floor: move or remove them." : "") + " Ctrl+Z puts it back.";
+}
+$("dz-wend").onclick = () => { const w = dzSel(); if (w && "x1" in w && !w.ext) dzEndAt(w); };
 function dzSetFoot() {
   const w = parseLen($("dz-w").value), d = parseLen($("dz-d").value), x = parseLen($("dz-x").value || "0"), y = parseLen($("dz-y").value || "0");
   if (isRectPoly()) {
@@ -6689,7 +6733,8 @@ function openWallView(S, from) {
   wv = { v, S, nL, face, isNew, layer: "framing", runPick: { elec: { type: "wire", size: "14/2" }, plumb: { type: "cold", size: 0.5 } }, show: { framing: true, openings: true, elec: true, plumb: true, drywall: false, finish: true }, sel: null, tool: null, view: null,
     undo: JSON.stringify({ v, opens: dz.opens, wallH: dz.wallH, extSide: dz.extSide || null, extGable: dz.extGable || null }) };
   wvSetLayer("framing");
-  $("wallview").showModal(); wvHist = { u: [], r: [], last: wvKey() }; stepButtons(); requestAnimationFrame(wvResize);
+  if (!$("wallview").open) $("wallview").showModal();
+  wvHist = { u: [], r: [], last: wvKey() }; stepButtons(); requestAnimationFrame(wvResize);
 }
 // The loft floor (a half story under the roof): {o, LH (loftHeads), knee, ceil, Hv}; null on other floors.
 function wvLoft() {
@@ -7108,8 +7153,61 @@ function wvSetLayer(l) {
   $("wv-layers").innerHTML = WV_LAYERS.map(([k, name0, c]) => [k, k === "drywall" && wvOut() ? "Siding" : k === "finish" && wvOut() ? "Outside items" : name0, c]).map(([k, name, c]) => `<div class="wv-layer"><button data-l="${k}" aria-pressed="${k === l}"><span class="sw" style="background:${c}"></span>${esc(name)}</button><label><input type="checkbox" data-show="${k}"${wv.show[k] ? " checked" : ""}> Show</label></div>`).join("");
   wvTools(); wvFields(); wvTitle(); wvDraw();
 }
+// Compass: the arrow points north as seen from where you stand (up = into the wall), and the text says which way you face.
+function wvCompass() {
+  const n = { x: wv.nL.x * wv.face, y: wv.nL.y * wv.face }, F = dz.F, rot = (dz.rot || 0) * Math.PI / 180;
+  const rd = p => ({ x: p.x * Math.cos(rot) - p.y * Math.sin(rot), y: p.x * Math.sin(rot) + p.y * Math.cos(rot) });
+  const lk = F.dir(...Object.values(rd({ x: -n.x, y: -n.y }))), L = Math.hypot(lk.x, lk.y) || 1, look = { x: lk.x / L, y: lk.y / L }, right = { x: -look.y, y: look.x };
+  const N = { x: 0, y: -1 }, ax = N.x * right.x + N.y * right.y, ay = N.x * look.x + N.y * look.y;   // north in (right, up) of the view
+  const brg = (Math.atan2(look.x, -look.y) * 180 / Math.PI + 360) % 360, name = ["north", "northeast", "east", "southeast", "south", "southwest", "west", "northwest"][Math.round(brg / 45) % 8];
+  const deg = Math.atan2(ax, ay) * 180 / Math.PI;
+  $("wv-compass").innerHTML = `<svg width="36" height="36" viewBox="-15 -15 30 30" aria-hidden="true"><circle r="13.5" fill="var(--surface)" stroke="var(--line)"/><g transform="rotate(${deg.toFixed(1)})"><path d="M0,-11 L4,1 L0,-1.5 L-4,1 Z" fill="#E0522B"/><path d="M0,11 L4,-1 L0,1.5 L-4,-1 Z" fill="var(--muted)" opacity=".6"/><text x="6.5" y="-6" font-size="7" font-weight="700" fill="#E0522B" transform="rotate(${(-deg).toFixed(1)} 6.5 -8.5)" text-anchor="middle">N</text></g></svg><span class="hide-sm">Facing ${name}</span>`;
+  $("wv-compass").dataset.facing = name; $("wv-compass").dataset.north = deg.toFixed(1);
+}
+// The next wall at this wall's left (dir -1) or right (dir +1) end, the way you'd turn standing where you are: inside a room
+// the corner wall, outside around the corner. Only the stretch up to the next wall meeting it on your side is shown.
+function wvNextSeg(dir) {
+  const fr = wvFrame(), n = { x: wv.nL.x * wv.face, y: wv.nL.y * wv.face }, A = wvPt(wv.v, fr.t(0)), B = wvPt(wv.v, fr.t(fr.L));
+  let r = unit(A, B); const E = dir > 0 ? B : A; if (dir < 0) r = { x: -r.x, y: -r.y };
+  const all = [...extSides(), ...dz.walls], th = d => Math.atan2(d.x * n.x + d.y * n.y, d.x * r.x + d.y * r.y);   // angle from r toward n
+  let best = null;
+  for (const L of all) {
+    const len = Math.hypot(L.x2 - L.x1, L.y2 - L.y1); if (len < 0.3) continue;
+    const u = { x: (L.x2 - L.x1) / len, y: (L.y2 - L.y1) / len }, t = (E.x - L.x1) * u.x + (E.y - L.y1) * u.y;
+    if (t < -L.th / 2 - 0.35 || t > len + L.th / 2 + 0.35 || Math.abs((E.x - L.x1) * u.y - (E.y - L.y1) * u.x) > L.th / 2 + 0.35) continue;
+    const tc = Math.max(0, Math.min(len, t)), P = { x: L.x1 + u.x * tc, y: L.y1 + u.y * tc };
+    for (const [d, avail] of [[u, len - tc], [{ x: -u.x, y: -u.y }, tc]]) {
+      if (avail < 0.5) continue; const a = th(d); if (a > Math.PI * 0.97) continue;   // straight back along this wall
+      if (!best || a > best.a + 1e-6) best = { a, L, d, P, avail };
+    }
+  }
+  if (!best) return null;
+  const { L, d, P } = best, dn = d.x * n.x + d.y * n.y, dr = d.x * r.x + d.y * r.y;
+  const nn = { x: -dn * r.x + dr * n.x, y: -dn * r.y + dr * n.y };   // d turned a quarter further (from r toward n): the side you're on
+  let end = best.avail;
+  for (const W of all) {   // the first wall meeting it on your side
+    if (W === L || (W.ext && L.ext && W.idx === L.idx) || (!W.ext && !L.ext && W.id === L.id)) continue;
+    for (const [q, o] of [[{ x: W.x1, y: W.y1 }, { x: W.x2, y: W.y2 }], [{ x: W.x2, y: W.y2 }, { x: W.x1, y: W.y1 }]]) {
+      const s1 = (q.x - P.x) * d.x + (q.y - P.y) * d.y, off = (q.x - P.x) * nn.x + (q.y - P.y) * nn.y;
+      if (s1 > 0.5 && s1 < end && Math.abs(off) <= L.th / 2 + W.th + 0.35 && ((o.x - q.x) * nn.x + (o.y - q.y) * nn.y) > 0.3) end = s1;
+    }
+  }
+  const seg = Object.assign(dzWallSeg(L), { x1: P.x, y1: P.y, x2: P.x + d.x * end, y2: P.y + d.y * end }), m = { x: P.x + d.x * end / 2, y: P.y + d.y * end / 2 };
+  return { seg, from: { x: m.x + nn.x * (L.th / 2 + 1), y: m.y + nn.y * (L.th / 2 + 1) } };
+}
+function wvGo(dir) {
+  if (!wv) return; const nx = wvNextSeg(dir);
+  if (!nx) { $("wv-hint").textContent = "No wall meets this one at its " + (dir > 0 ? "right" : "left") + " end."; return; }
+  const v = wv.v, layer = wv.layer, show = { ...wv.show };
+  if (wv.isNew && !wvEmpty(v)) dz.views.push(v);
+  if (!wv.isNew && wvEmpty(v)) dz.views = dz.views.filter(x => x !== v);
+  openWallView(nx.seg, nx.from); wv.show = show; wvSetLayer(layer);
+}
+$("wv-prev").onclick = () => wvGo(-1);
+$("wv-next").onclick = () => wvGo(1);
 function wvTitle() {
   const { S, nL, face } = wv, n = { x: nL.x * face, y: nL.y * face }, here = wvSideLabel(S, n), other = wvSideLabel(S, { x: -n.x, y: -n.y });
+  try { wvCompass(); } catch (e) { $("wv-compass").innerHTML = ""; }
   $("wv-title").textContent = `Wall view · ${here === "Inside" || here === "Outside" ? here : here + " side"}`;
   $("wv-flip").innerHTML = `<span class="hide-sm">Look from ${esc(other === "Inside" || other === "Outside" ? other.toLowerCase() : other)}</span><span class="show-sm">Flip</span>`;
   const Lf = wvLoft();
