@@ -401,6 +401,8 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
 @media (max-width:760px){
   .layers{left:12px;right:12px;width:auto;max-height:70%}
   .readout{bottom:12px}
+  /* iPhone Safari zooms the whole page in when you tap a box with text under 16px (then you have to pan sideways): 16px on phones */
+  input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]),select,textarea{font-size:16px!important}
   .main{grid-template-columns:1fr;grid-template-rows:1fr auto}
   .tools{flex-direction:row;justify-content:flex-start;order:2;padding:6px;border-top:1px solid var(--spruce-soft);overflow-x:auto;overflow-y:hidden}
   .tools .grp{display:none}
@@ -8874,6 +8876,8 @@ $("filter").addEventListener("input", e => { filterText = e.target.value; render
 function renderSelbar() {
   const s = state.shapes.find(x => x.id === selected);
   $("selbar").hidden = !s || !$("actions").hidden;
+  // the ground elevation box sits just above the selection bar while it shows, so it never covers its buttons
+  requestAnimationFrame(() => { const sb = $("selbar"); $("readout").style.bottom = sb.hidden ? "" : (sb.offsetHeight + 20) + "px"; });
   if (!s) return;
   $("sb-name").textContent = s.name || ({ note: "Note", dim: "Dimension" })[s.kind] || "Selected";
   $("sb-design").hidden = s.kind !== "building";
