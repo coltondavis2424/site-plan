@@ -748,7 +748,7 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
           </div>
           <div class="field"><label for="dz-rstyle">Kind</label><select id="dz-rstyle"><option value="room">Room</option><option value="open">Open to below/above</option><option value="stair">Stairs</option></select></div>
           <div class="field" id="dz-sgo-f" hidden><label for="dz-sgo">Goes</label><select id="dz-sgo"></select></div>
-          <div class="row"><button class="ghost small" id="dz-rot">Turn 90°</button><button class="ghost small" id="dz-dup">Duplicate</button><button class="ghost small" id="dz-rshape" title="Turn it into a room you can give any shape: move its corners, add corners">Change its shape</button><button class="danger small" id="dz-del">Remove</button></div>
+          <div class="row"><button class="ghost small" id="dz-rot">Turn 90°</button><button class="ghost small" id="dz-dup">Duplicate</button><button class="ghost small" id="dz-raddc" aria-pressed="false" title="Then press on a side of the room where the corner goes, and drag it">＋ Add a corner</button><button class="ghost small" id="dz-rshape" title="Turn it into a room you can give any shape: move its corners, add corners">Change its shape</button><button class="danger small" id="dz-del">Remove</button></div>
           <div id="dz-rviews"><p class="muted" style="font-size:13px;margin:10px 0 6px">Wall views from inside this room</p>
           <div class="row"><button class="ghost small" data-side="0">Top wall</button><button class="ghost small" data-side="1">Right wall</button><button class="ghost small" data-side="2">Bottom wall</button><button class="ghost small" data-side="3">Left wall</button></div></div>
         </div>
@@ -758,7 +758,7 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
           <div class="field"><label for="dz-pstyle">Kind</label><select id="dz-pstyle"><option value="room">Room</option><option value="open">Open to below/above</option></select></div>
           <p class="muted" id="dz-pinfo" style="margin:0 0 6px"></p>
           <p class="muted" style="margin:0 0 8px;font-size:12px">Drag inside to move it. Drag a corner to move that corner; drag a small dot in the middle of a side to add a corner there. Walls aren't made from this room's sides: draw them with the Wall tool.</p>
-          <div class="row"><button class="ghost small" id="dz-pcdel" disabled>Remove corner</button><button class="danger small" id="dz-pdel">Remove</button></div>
+          <div class="row"><button class="ghost small" id="dz-paddc" aria-pressed="false" title="Then press on a side of the room where the corner goes, and drag it">＋ Add a corner</button><button class="ghost small" id="dz-pcdel" disabled>Remove corner</button><button class="danger small" id="dz-pdel">Remove</button></div>
         </div>
         <div id="dz-dimbox" hidden>
           <h3>Selected dimension</h3>
@@ -782,7 +782,7 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
             <div class="field"><label for="dz-wlen">Length</label><input id="dz-wlen" type="text" inputmode="decimal"></div>
             <div class="field"><label for="dz-wsel">Type</label><select id="dz-wsel"><option value="3.5">3½″</option><option value="4.5">2×4 (4½″)</option><option value="6.5">2×6 (6½″)</option><option value="8">8″ block</option><option value="12">12″ foundation</option></select></div>
           </div>
-          <div class="row"><button class="primary small" id="dz-wview">Wall view</button><button class="danger small" id="dz-wdel">Remove wall</button></div>
+          <div class="row"><button class="primary small" id="dz-wview">Wall view</button><button class="ghost small" id="dz-waddc" aria-pressed="false" title="Then press on the wall where the corner goes, and drag it">＋ Add a corner</button><button class="danger small" id="dz-wdel">Remove wall</button></div>
           <p class="muted" style="font-size:13px;margin:8px 0 0">Wall view opens a side view of this wall: studs, doors and windows, wiring, plumbing, drywall and what hangs on it. Double-click a wall to open it too.</p>
         </div>
         <h3>Options</h3>
@@ -6102,6 +6102,7 @@ dzc.addEventListener("pointerdown", e => {
     if (h.ref.type === "free") Object.assign(o, { cx: h.c.x, cy: h.c.y, ux: h.u.x, uy: h.u.y, th: h.th }); else o.along = h.along;
     dz.opens.push(o); dz.sel = o.id; dz.hover = null; dz.ohover = null; dzSelFields(); dzDraw(); return;
   }
+  if (dz.addCorner != null && dz.tool === "move" && e.button === 0 && dzCornerPress(p, e)) return;
   if (dzDimPress(p)) return;
   if (dz.dsel != null) { dz.dsel = null; dzSelFields(); }
   const oHit = dz.opens.map(o => ({ o, E: openEnds(o) })).filter(x => x.E && segDist(p, x.E[0], x.E[1]) * dk <= Math.max(7, x.E[2].th * dk / 2 + 3))[0];
@@ -6116,8 +6117,8 @@ dzc.addEventListener("pointerdown", e => {
   const sel = dzSel();
   if (sel && "h" in sel) { const i = dzHandles(sel).findIndex(([x, y]) => Math.hypot((x - p.x) * dk, (y - p.y) * dk) < 11); if (i >= 0) { dDrag = { mode: "size", r: sel, edges: HANDLE_EDGES[i], o: { ...sel } }; return; } }
   if (sel && "x1" in sel && !sel.ext) {
-    if (Math.hypot((sel.x1 - p.x) * dk, (sel.y1 - p.y) * dk) < 11) { dDrag = { mode: "wend", w: sel, end: 1 }; return; }
-    if (Math.hypot((sel.x2 - p.x) * dk, (sel.y2 - p.y) * dk) < 11) { dDrag = { mode: "wend", w: sel, end: 2 }; return; }
+    if (Math.hypot((sel.x1 - p.x) * dk, (sel.y1 - p.y) * dk) < 11) { dDrag = { mode: "wend", w: sel, end: 1, also: dzJoined(sel, 1) }; return; }
+    if (Math.hypot((sel.x2 - p.x) * dk, (sel.y2 - p.y) * dk) < 11) { dDrag = { mode: "wend", w: sel, end: 2, also: dzJoined(sel, 2) }; return; }
   }
   const wHit = dz.walls.filter(w => wallDist(w, p) * dk <= Math.max(7, w.th * dk / 2 + 2)).sort((a, b) => wallDist(a, p) - wallDist(b, p))[0];
   if (wHit) { dz.sel = wHit.id; dDrag = { mode: "wmove", w: wHit, start: p, o: { ...wHit } }; dzSelFields(); dzDraw(); return; }
@@ -6184,9 +6185,9 @@ dzc.addEventListener("pointermove", e => {
     const q = dzSnapPt(p, null, e.shiftKey), s = dDrag.start;
     dz.rdraft = { x: Math.min(s.x, q.x), y: Math.min(s.y, q.y), w: Math.abs(q.x - s.x), h: Math.abs(q.y - s.y) }; dzDraw(); return;
   }
-  if (dDrag.mode === "wend") {
+  if (dDrag.mode === "wend" || dDrag.mode === "wcorner") {
     const w = dDrag.w, other = dDrag.end === 1 ? { x: w.x2, y: w.y2 } : { x: w.x1, y: w.y1 }, q = dzWallEnd(other, p, e.shiftKey);
-    if (dDrag.end === 1) { w.x1 = q.x; w.y1 = q.y; } else { w.x2 = q.x; w.y2 = q.y; }
+    for (const [ww, end] of [[w, dDrag.end], ...(dDrag.also || [])]) { if (end === 1) { ww.x1 = q.x; ww.y1 = q.y; } else { ww.x2 = q.x; ww.y2 = q.y; } }
     dzSelFields(); dzDraw(); return;
   }
   if (dDrag.mode === "wmove") {
@@ -6314,6 +6315,52 @@ $("dz-rot").onclick = () => { const r = dzSel(); if (r && "h" in r) { [r.w, r.h]
 $("dz-dup").onclick = () => { const r = dzSel(); if (!r || !("h" in r)) return; const s = dzFindSpot(r.w, r.h), c = Object.assign({}, r, { id: dz.nid++, x: s.x, y: s.y }); dz.rooms.push(c); dz.sel = c.id; dzSelFields(); dzDraw(); };
 $("dz-del").onclick = () => { dz.rooms = dz.rooms.filter(x => x.id !== dz.sel); dz.fixedRooms = (dz.fixedRooms || []).filter(x => x.id !== dz.sel); dz.sel = null; dz.pcorner = null; dzSelFields(); dzDraw(); };
 $("dz-pdel").onclick = () => $("dz-del").onclick();
+// "＋ Add a corner" (rooms of any shape, rectangles, inside walls): armed by the button, the next press on that room's side
+// or that wall puts a corner there and drags it. A wall becomes two walls meeting at the corner; doors and windows stay put.
+function dzCornerBtns() { for (const id of ["dz-raddc", "dz-paddc", "dz-waddc"]) $(id).setAttribute("aria-pressed", String(dz && dz.addCorner != null && dz.addCorner === dz.sel)); }
+function dzArmCorner(id, what) {
+  if (dz.addCorner === id) { dz.addCorner = null; dzCornerBtns(); $("dz-hint").textContent = "No corner added."; return; }
+  dz.addCorner = id; dzSetTool("move"); dz.sel = id; dzSelFields(); dzCornerBtns(); dzDraw();
+  $("dz-hint").textContent = `Press on the ${what} where the new corner goes, then drag it into place (Esc to stop).`;
+}
+function dzJoined(w, end) {   // other walls with an end at this wall's end: they move with it
+  const x = end === 1 ? w.x1 : w.x2, y = end === 1 ? w.y1 : w.y2, out = [];
+  for (const o of dz.walls) if (o !== w) { if (Math.hypot(o.x1 - x, o.y1 - y) < 0.01) out.push([o, 1]); else if (Math.hypot(o.x2 - x, o.y2 - y) < 0.01) out.push([o, 2]); }
+  return out;
+}
+function dzCornerPress(p, e) {
+  const id = dz.addCorner; dz.addCorner = null; dzCornerBtns();
+  const pr = (dz.fixedRooms || []).find(r => r.id === id);
+  if (pr) {   // a room of any shape: the nearest side
+    let bi = -1, bd = Infinity, bq = null;
+    pr.pts.forEach((a, i) => { const b = pr.pts[(i + 1) % pr.pts.length], L2 = (b.x - a.x) ** 2 + (b.y - a.y) ** 2 || 1, t = Math.max(0, Math.min(1, ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / L2)), q = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }, d = Math.hypot(q.x - p.x, q.y - p.y); if (d < bd) { bd = d; bi = i; bq = q; } });
+    if (bi >= 0 && bd * dk < 14) {
+      pr.pts.splice(bi + 1, 0, bq); dz.sel = pr.id; dz.pcorner = bi + 1; dDrag = { mode: "pcorner", r: pr, i: bi + 1 };
+      $("dz-hint").textContent = "Drag the new corner where it goes. Remove corner takes it out again.";
+      dzSelFields(); dzDraw(); return true;
+    }
+  }
+  const w = dz.walls.find(x => x.id === id);
+  if (w && wallDist(w, p) * dk <= Math.max(14, w.th * dk / 2 + 4)) {
+    const L = Math.hypot(w.x2 - w.x1, w.y2 - w.y1);
+    if (L > 1.01) {
+      const t = Math.max(0.5, Math.min(L - 0.5, projAlong(w, p))), c = { x: w.x1 + (w.x2 - w.x1) * t / L, y: w.y1 + (w.y2 - w.y1) * t / L };
+      const w2 = Object.assign({}, w, { id: dz.nid++, x1: w.x2, y1: w.y2, x2: c.x, y2: c.y });   // from the far end back to the corner
+      w.x2 = c.x; w.y2 = c.y;
+      for (const o of dz.opens) if (o.ref && o.ref.type === "wall" && o.ref.wid === w.id && o.along > t) { o.ref = { type: "wall", wid: w2.id }; o.along = L - o.along; o.hinge = o.hinge ? 0 : 1; o.side = -o.side; }
+      dz.walls.push(w2); dz.sel = w.id;
+      dDrag = { mode: "wcorner", w, end: 2, also: [[w2, 2]] };
+      $("dz-hint").textContent = "Drag the corner where it goes: the wall is now two walls meeting there. Drag their shared end later to move the corner again.";
+      dzSelFields(); dzDraw(); return true;
+    }
+  }
+  $("dz-hint").textContent = "That press wasn't on it, so no corner was added. Click ＋ Add a corner again and press right on the side or wall.";
+  return false;
+}
+$("dz-paddc").onclick = () => { const r = dzSelP(); if (r) dzArmCorner(r.id, "side of the room"); };
+$("dz-raddc").onclick = () => { const r = dzSel(); if (!r || !("h" in r) || r.type === "stair") return; $("dz-rshape").onclick(); dzArmCorner(dz.sel, "side of the room"); };
+$("dz-waddc").onclick = () => { const w = dzSel(); if (w && "x1" in w && !w.ext) dzArmCorner(w.id, "wall"); };
+document.addEventListener("keydown", e => { if (e.key === "Escape" && dz && dz.addCorner != null && $("designer").open && !$("wallview").open) { e.preventDefault(); e.stopImmediatePropagation(); dz.addCorner = null; dzCornerBtns(); $("dz-hint").textContent = "No corner added."; } }, true);
 $("dz-pcdel").onclick = () => { const r = dzSelP(); if (!r || dz.pcorner == null || r.pts.length <= 3) return; r.pts.splice(dz.pcorner, 1); dz.pcorner = null; dzSelFields(); dzDraw(); };
 $("dz-pname").addEventListener("input", e => { const r = dzSelP(); if (r) { r.name = e.target.value; dzDraw(); } });
 $("dz-pstyle").addEventListener("change", e => { const r = dzSelP(); if (r) { r.style = e.target.value; dzDraw(); } });
