@@ -5082,8 +5082,13 @@ function nearestWall(w) {
     for (let i = 0; i < n; i++) {
       const a = P[i], b = P[(i + 1) % P.length], dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy; if (!L2) continue;
       const t = Math.max(0, Math.min(1, ((w.x - a.x) * dx + (w.y - a.y) * dy) / L2)), c = { x: a.x + dx * t, y: a.y + dy * t }, d = dist(c, w);
-      if (d < bd) { bd = d; best = { s, c, u: unit(a, b) }; }
+      if (d < bd) { bd = d; best = { s, c, u: unit(a, b), a, b }; }
     }
+  }
+  if (best && tool === "door" && !shiftHeld) {   // near the middle of the wall line: right in the middle
+    const m = { x: (best.a.x + best.b.x) / 2, y: (best.a.y + best.b.y) / 2 };
+    best.centered = dist(best.c, m) <= Math.max(0.15, 14 / view.s) && dist(best.a, best.b) >= state.openWidthIn * IN;
+    if (best.centered) best.c = m;
   }
   return best;
 }
@@ -5595,7 +5600,7 @@ function autoDimension(b, lv, k = 1) {   // k < 1 packs the rows closer (plan se
     const A = outer[i], B = outer[(i + 1) % n], len = dist(A, B); if (len < 2) continue;
     const u = unit(A, B), inw = { x: -u.y, y: u.x }, out = { x: -inw.x, y: -inw.y };
     const along = p => (p.x - A.x) * u.x + (p.y - A.y) * u.y, depth = p => (p.x - A.x) * inw.x + (p.y - A.y) * inw.y;
-    const Wp = [], Op = [];
+    const Wp = [], Op = [], Oe = [];   // wall ends, opening centers, opening edges
     for (const L of walls) for (let k = 0; k < L.length - 1; k++) {
       const p = L[k], q = L[k + 1], du = unit(p, q);
       if (Math.abs(du.x * u.x + du.y * u.y) > 0.2) continue;
@@ -5604,11 +5609,13 @@ function autoDimension(b, lv, k = 1) {   // k < 1 packs the rows closer (plan se
     for (const L of opens) {
       const m = { x: (L[0].x + L[1].x) / 2, y: (L[0].y + L[1].y) / 2 }, du = unit(L[0], L[1]);
       if (Math.abs(du.x * u.x + du.y * u.y) < 0.9) continue;
-      const al = along(m); if (Math.abs(depth(m) - t / 2) <= t / 2 + .35 && al > 0 && al < len) Op.push(al);
+      const al = along(m); if (Math.abs(depth(m) - t / 2) <= t / 2 + .35 && al > 0 && al < len) { Op.push(al); for (const e of L) Oe.push(Math.max(0, Math.min(len, along(e)))); }
     }
     let prot = 0;
     for (const p of extra) { const al = along(p); if (al > -1 && al < len + 1) prot = Math.max(prot, -depth(p)); }
-    const rowWalls = uniqSorted([0, ...Wp, len]), rowAll = uniqSorted([0, ...Wp, ...Op, len]), rows = [];
+    // nearest the wall: to the edges of the doors and windows, then to their centers, then the walls, then overall
+    const rowWalls = uniqSorted([0, ...Wp, len]), rowEdge = uniqSorted([0, ...Wp, ...Oe, len]), rowAll = uniqSorted([0, ...Wp, ...Op, len]), rows = [];
+    if (rowEdge.length > rowWalls.length) rows.push(rowEdge);
     if (rowAll.length > rowWalls.length) rows.push(rowAll);
     if (rowWalls.length > 2) rows.push(rowWalls);
     rows.push([0, len]);
@@ -6112,6 +6119,8 @@ function dzOpenDims(ref, along, w, p, skipId) {
 const dzHoverTag = h => h ? fl(h.lo - h.prev) + "|" + fl(h.next - h.hi) + "|" + fl(h.near === "prev" ? h.along - h.prev : h.next - h.along) + "|" + h.near : "";
 function dzDrawHover(g) {
   if (dz && dz.tool === "open" && dz.ohover) dzGapDims(g, dz.ohover);
+  const ch = dz && dz.ocentered && (dz.tool === "open" && dz.ohover ? dz.ohover : dDrag && dDrag.mode === "omove" ? dz.odims : null);
+  if (ch) { const { L, u, n } = ch, c = { x: L.x1 + u.x * ch.along, y: L.y1 + u.y * ch.along }, q = k => dS(c.x + n.x * k, c.y + n.y * k), a = q(-L.th / 2 - 0.9), b = q(L.th / 2 + 0.9); g.save(); g.strokeStyle = MARK; g.lineWidth = 2; g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke(); const t = q(-L.th / 2 - 1.3); g.fillStyle = MARK; g.font = "600 12px Barlow, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("Centered", t.x, t.y); g.restore(); }
   if (dz && dDrag && dDrag.mode === "omove" && dz.odims) dzGapDims(g, dz.odims);
   const h = dz && dz.tool === "wall" && !dz.wdraft ? dz.whover : null; if (!h) return;
   const { L, u, n } = h, face = t => ({ x: L.x1 + u.x * t + n.x * L.th / 2, y: L.y1 + u.y * t + n.y * L.th / 2 });
@@ -6300,7 +6309,7 @@ dzc.addEventListener("pointerdown", e => {
     dz.wdraft = { x1: s.x, y1: s.y, x2: s.x, y2: s.y, th: dz.wallTh, n0: hv ? hv.n : null }; dz.whover = null; dDrag = { mode: "wall", sx: e.clientX, sy: e.clientY }; dzDraw(); return;
   }
   if (dz.tool === "open") {
-    const h = dzOpenHit(p); if (!h) { $("dz-hint").textContent = "Click right on a wall to place the opening."; return; }
+    const h = dzOpenHit(p, e.shiftKey); if (!h) { $("dz-hint").textContent = "Click right on a wall to place the opening."; return; }
     const o = { id: dz.nid++, otype: dz.openType, w: dz.openW / 12, hinge: 0, side: 1, label: "", ref: h.ref };
     if (h.ref.type === "free") Object.assign(o, { cx: h.c.x, cy: h.c.y, ux: h.u.x, uy: h.u.y, th: h.th }); else o.along = h.along;
     dz.opens.push(o); dz.sel = o.id; dz.hover = null; dz.ohover = null; dzSelFields(); dzDraw(); return;
@@ -6364,15 +6373,15 @@ dzc.addEventListener("pointermove", e => {
   if (dz.tool === "wall" && !dz.wdraft && !dDrag) { const hv = e.shiftKey ? null : dzWallHover(p); if (hv || dz.whover) { dz.whover = hv; dzc.dataset.hover = hv ? fl(hv.lo - hv.prev) + "|" + fl(hv.next - hv.hi) + "|" + hv.near : ""; dzDraw(); } return; }
   if (dz.tool === "wall" && dz.wdraft && (dDrag || dz.wdraft.waiting)) { const end = dzWallEnd({ x: dz.wdraft.x1, y: dz.wdraft.y1 }, p, e.shiftKey); dz.wdraft.x2 = end.x; dz.wdraft.y2 = end.y; dzDraw(); return; }
   if (dz.tool === "open" && !dDrag) {
-    const h = dzOpenHit(p); dz.hover = h ? (() => { const hw = dz.openW / 24; return { a: { x: h.c.x - h.u.x * hw, y: h.c.y - h.u.y * hw }, b: { x: h.c.x + h.u.x * hw, y: h.c.y + h.u.y * hw }, th: h.th }; })() : null;
-    dz.ohover = h && h.ref.type !== "free" ? dzOpenDims(h.ref, h.along, dz.openW / 12, p) : null; dzc.dataset.hover = dzHoverTag(dz.ohover);
+    const h = dzOpenHit(p, e.shiftKey); dz.ocentered = !!(h && h.centered); dz.hover = h ? (() => { const hw = dz.openW / 24; return { a: { x: h.c.x - h.u.x * hw, y: h.c.y - h.u.y * hw }, b: { x: h.c.x + h.u.x * hw, y: h.c.y + h.u.y * hw }, th: h.th }; })() : null;
+    dz.ohover = h && h.ref.type !== "free" ? dzOpenDims(h.ref, h.along, dz.openW / 12, p) : null; dzc.dataset.hover = dzHoverTag(dz.ohover); dzc.dataset.centered = dz.ocentered ? "1" : "";
     dzDraw(); return;
   }
   if (!dDrag) return;
   if (dDrag.mode === "omove") {
     const o = dDrag.o;
     if (o.ref.type === "free") { const d = (p.x - o.cx) * o.ux + (p.y - o.cy) * o.uy, sd = Math.round(d / dz.snap) * dz.snap; o.cx += o.ux * sd; o.cy += o.uy * sd; }
-    else { const L = lineOf(o.ref); if (L) { const len = Math.hypot(L.x2 - L.x1, L.y2 - L.y1); o.along = Math.max(o.w / 2, Math.min(len - o.w / 2, Math.round(projAlong(L, p) / dz.snap) * dz.snap)); } }
+    else { const L = lineOf(o.ref); if (L) { const len = Math.hypot(L.x2 - L.x1, L.y2 - L.y1); o.along = Math.max(o.w / 2, Math.min(len - o.w / 2, Math.round(projAlong(L, p) / dz.snap) * dz.snap)); const cs = e.shiftKey ? { centered: false } : dzCenterSnap(o.ref, o.along, o.w, p, o.id, projAlong(L, p)); if (cs.centered) o.along = cs.along; dz.ocentered = cs.centered; } }
     dz.odims = o.ref.type !== "free" ? dzOpenDims(o.ref, o.along, o.w, p, o.id) : null; dzc.dataset.hover = dzHoverTag(dz.odims);
     dzDraw(); return;
   }
@@ -6471,13 +6480,21 @@ $("dz-wlen").addEventListener("change", e => {
   const L = Math.hypot(w.x2 - w.x1, w.y2 - w.y1) || 1; w.x2 = w.x1 + (w.x2 - w.x1) / L * v; w.y2 = w.y1 + (w.y2 - w.y1) / L * v; dzSelFields(); dzDraw();
 });
 $("dz-wdel").onclick = () => { if (typeof dz.sel === "string") return; dz.opens = dz.opens.filter(o => !(o.ref.type === "wall" && o.ref.wid === dz.sel)); dz.walls = dz.walls.filter(x => x.id !== dz.sel); dz.sel = null; dzSelFields(); dzDraw(); };
-function dzOpenHit(p) {
+// Near the middle of the clear stretch it sits in (between the walls, ends or openings each side): right in the middle.
+function dzCenterSnap(ref, along, w, p, skipId, raw) {
+  const D = dzOpenDims(ref, along, w, p, skipId); if (!D) return { along, centered: false };
+  const mid = (D.prev + D.next) / 2;
+  if (D.next - D.prev >= w - 1e-6 && Math.abs(raw - mid) <= Math.max(0.5, 12 / dk)) return { along: Math.max(w / 2, Math.min(D.len - w / 2, mid)), centered: true };
+  return { along, centered: false };
+}
+function dzOpenHit(p, free) {
   let best = null, bd = 12 / dk;
   for (const t of dzTargets()) { const d = wallDist(t.L, p); if (d < bd) { bd = d; best = t; } }
   if (!best) return null;
   const L = best.L, len = Math.hypot(L.x2 - L.x1, L.y2 - L.y1) || 1, u = { x: (L.x2 - L.x1) / len, y: (L.y2 - L.y1) / len }, hw = dz.openW / 24;
-  const along = Math.max(hw, Math.min(len - hw, Math.round(projAlong(L, p) / dz.snap) * dz.snap));
-  return { ref: best.ref, along, c: { x: L.x1 + u.x * along, y: L.y1 + u.y * along }, u, th: L.th };
+  let along = Math.max(hw, Math.min(len - hw, Math.round(projAlong(L, p) / dz.snap) * dz.snap)), centered = false;
+  if (!free && best.ref.type !== "free") ({ along, centered } = dzCenterSnap(best.ref, along, dz.openW / 12, p, null, projAlong(L, p)));
+  return { ref: best.ref, along, centered, c: { x: L.x1 + u.x * along, y: L.y1 + u.y * along }, u, th: L.th };
 }
 $("dz-omeas").addEventListener("change", e => { state.oMeas = e.target.value; save(); dzc.focus && $("dz-stage").focus(); dzDraw(); });
 $("dz-otype").addEventListener("change", e => { dz.openType = e.target.value; dz.openW = OPEN_DEFAULT_W[dz.openType] || 36; dzSetTool("open"); });
