@@ -9167,7 +9167,8 @@ document.addEventListener("keydown", e => {
   const k = e.key.toLowerCase();
   if (/^[0-9.]$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && lenMode()) { e.preventDefault(); lenOpen(e.key); return; }
   if (k === "escape" && fplace) { fplace = null; $("hint").textContent = "Put back. Click to place it again."; requestDraw(); return; }
-  if (k === "escape") { if (draft.length) { draft = []; dimPhase = false; updateUI(); } else { measure = []; selected = null; renderPanel(); requestDraw(); } }
+  // Escape in any other tool drops what was being drawn and goes back to Select; in Select it clears the pick
+  if (k === "escape") { if (tool !== "select") { setTool("select"); $("hint").textContent = "Back to Select."; requestDraw(); } else { draft = []; measure = []; selected = null; renderPanel(); requestDraw(); } }
   else if (k === "enter" && (tool in MULTI || (tool === "rect" && state.bldShape === "poly") || (tool === "shape" && state.shapeType === "poly"))) finishWall(false);
   else if ((k === "delete" || k === "backspace") && selected) { e.preventDefault(); deleteSelected(); }
   else if (k === "v") setTool("select"); else if (k === "b") setTool("rect");
