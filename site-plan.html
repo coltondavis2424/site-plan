@@ -7064,7 +7064,7 @@ function wvResize() {
   wW = r.width; wH = r.height; wvc.width = Math.round(wW * pr); wvc.height = Math.round(wH * pr); wvc.style.width = wW + "px"; wvc.style.height = wH + "px";
   wctx.setTransform(pr, 0, 0, pr, 0, 0); wvDraw();
 }
-function wvExt() { const fr = wvFrame(), R = wvRoof(); let a = 0, c = fr.L, top = Math.max(wvHt(), 1); if (R) { a = Math.min(a, R.x0 - R.ov - 0.3); c = Math.max(c, R.x1 + R.ov + 0.3); top = Math.max(top, R.top + 0.4); } return { a, c, top }; }
+function wvExt() { const fr = wvFrame(), R = wv.show.roof === false ? null : wvRoof(); let a = 0, c = fr.L, top = Math.max(wvHt(), 1); if (R) { a = Math.min(a, R.x0 - R.ov - 0.3); c = Math.max(c, R.x1 + R.ov + 0.3); top = Math.max(top, R.top + 0.4); } return { a, c, top }; }
 function wvFitK() { const e = wvExt(), pad = 60; return Math.min((wW - pad * 2) / Math.max(e.c - e.a, 1), (wH - pad * 2 - 40) / Math.max(e.top, 1)); }
 function wvView() {
   if (wv.view) { wk = wv.view.k; wox = wv.view.x; woy = wv.view.y; return; }
@@ -7152,7 +7152,7 @@ function wvDraw() {
   g.strokeStyle = "rgba(0,0,0,.06)"; g.lineWidth = 1;
   for (let x = Math.floor(-wox / wk / step) * step; wS(x, 0).x < wW; x += step) { const s = wS(x, 0); g.beginPath(); g.moveTo(s.x, 0); g.lineTo(s.x, wH); g.stroke(); }
   for (let y = Math.floor((woy - wH) / wk / step) * step; wS(0, y).y > 0; y += step) { const s = wS(0, y); g.beginPath(); g.moveTo(0, s.y); g.lineTo(wW, s.y); g.stroke(); }
-  const W0 = wS(0, H), W1 = wS(L, 0), RF = wvRoof();
+  const W0 = wS(0, H), W1 = wS(L, 0), RF = wv.show.roof === false ? null : wvRoof();
   wvc.dataset.roof = RF ? RF.kind : ""; wvc.dataset.above = RF ? RF.stack.length : 0; const endR = RF && (RF.kind === "gable" || RF.kind === "shedend"); if (endR) wvDrawRoof(g, RF);   // gable behind the wall; an eave hangs in front of its top
   g.fillStyle = "#E9E5DA"; wallPath(); g.fill();
   if (wv.show.framing && wvLoft() && H > 0.2) {   // loft: the double top plate follows the roof
@@ -7172,6 +7172,13 @@ function wvDraw() {
       if (wv.sel && wv.sel.block === f.id) { g.save(); g.strokeStyle = MARK; g.lineWidth = 2.5; g.strokeRect(a.x - 2, a.y - 2, f.w * wk + 4, f.h * wk + 4); g.restore(); }
     }
     if (wv.sel && wv.sel.stud != null && f.t != null && Math.abs(f.t - wv.sel.stud) < 1e-6 && (f.kind === "stud" || f.kind === "added")) { g.save(); g.strokeStyle = MARK; g.lineWidth = 2.5; g.strokeRect(a.x - 2, a.y - 2, f.w * wk + 4, f.h * wk + 4); g.restore(); }
+  }
+  const gaps = wvStudGaps(); wvc.dataset.gaps = gaps.length; wvStudWarn();
+  if (wv.show.framing) for (const gp of gaps) {   // too wide a bay: red, with how far apart they are
+    const a = wS(gp.x0, H - WI(3)), b = wS(gp.x1, WI(1.5));
+    g.save(); g.fillStyle = "rgba(201,42,42,.18)"; g.fillRect(a.x, a.y, b.x - a.x, b.y - a.y); g.strokeStyle = "#C92A2A"; g.lineWidth = 2; g.setLineDash([6, 4]); g.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y);
+    const txt = fl(gp.x1 - gp.x0) + " apart", ty = (a.y + b.y) / 2; g.font = "700 12px Barlow, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; const tw = g.measureText(txt).width;
+    g.setLineDash([]); g.fillStyle = "#C92A2A"; g.fillRect((a.x + b.x) / 2 - tw / 2 - 4, ty - 9, tw + 8, 18); g.fillStyle = "#fff"; g.fillText(txt, (a.x + b.x) / 2, ty); g.restore();
   }
   const items = wvVisibleItems(), runs = items.filter(q => q.pts), boxes = items.filter(q => !q.pts);
   for (const q of runs) if (q.it.layer === "plumb") wvDrawRun(q, wv.sel && wv.sel.item === q.it);
@@ -7205,12 +7212,7 @@ function wvDraw() {
   if (RF && !endR) { g.save(); if (act === "framing") g.globalAlpha = 0.85; wvDrawRoof(g, RF); g.restore(); }
   if (wv.show.openings) for (const q of wvOpenings()) {   // openings cut through everything
     const x0 = fr.x(q.t) - q.w / 2, a = wS(x0, q.head), b = wS(x0 + q.w, q.sill), w = b.x - a.x, h = b.y - a.y;
-    const win = q.o.otype === "window";
-    g.fillStyle = win ? "#CFE3F0" : q.o.otype === "opening" ? "#F4F2EC" : "#EADFCB"; g.fillRect(a.x, a.y, w, h);
-    g.strokeStyle = INK; g.lineWidth = 1.5; g.strokeRect(a.x, a.y, w, h);
-    if (win) { g.lineWidth = 1; g.beginPath(); g.moveTo(a.x + w / 2, a.y); g.lineTo(a.x + w / 2, a.y + h); g.stroke(); }
-    else if (q.o.otype === "overhead") { g.lineWidth = 1; for (let i = 1; i < 4; i++) { g.beginPath(); g.moveTo(a.x, a.y + h * i / 4); g.lineTo(a.x + w, a.y + h * i / 4); g.stroke(); } }
-    else if (q.o.otype !== "opening") { g.beginPath(); g.arc(q.o.hinge ? a.x + 10 : a.x + w - 10, a.y + h * .52, 2.5, 0, Math.PI * 2); g.fillStyle = INK; g.fill(); }
+    wvPaintOpening(g, q.o.otype || "door", a.x, a.y, w, h, !q.o.hinge, wk);
     g.fillStyle = INK; g.font = '600 12px "Barlow Condensed", sans-serif'; g.textAlign = "center"; g.textBaseline = "middle";
     if (w > 40) g.fillText((OTYPES[q.o.otype] || "Opening") + " " + fl(q.w) + " × " + fl(q.head - q.sill), a.x + w / 2, a.y + Math.min(h / 2, 14));
     if (wv.sel && wv.sel.open === q.o) { g.save(); g.strokeStyle = MARK; g.lineWidth = 2.5; g.setLineDash([5, 3]); g.strokeRect(a.x - 3, a.y - 3, w + 6, h + 6); g.restore(); }
@@ -7232,6 +7234,20 @@ function wvDraw() {
   if (st != null) wvStudDims(fr.x(st));
   const s = wvSelGeom();
   if (s) { wvDim(0, s.y0, s.x0, s.y0, fl(s.x0), 14); wvDim(s.x0, 0, s.x0, s.y0, fl(s.y0), -14); }
+}
+// Bays wider than the stud spacing: gaps between full-height studs (center to center) over the o.c., not counting
+// the space over a door or window (its header carries that). Returns [{x0, x1}] in view feet.
+function wvStudGaps() {
+  const fr = wvFrame(), oc = WI(wv.v.oc || 16), tol = WI(1 / 8);
+  const xs = wvFraming().filter(f => ["stud", "added", "end", "king"].includes(f.kind)).map(f => f.x + f.w / 2).sort((a, b) => a - b);
+  const cs = wvOpenings().map(q => fr.x(q.t)), out = [];
+  for (let i = 1; i < xs.length; i++) if (xs[i] - xs[i - 1] > oc + tol && !cs.some(c => c > xs[i - 1] && c < xs[i])) out.push({ x0: xs[i - 1], x1: xs[i] });
+  return out;
+}
+function wvStudWarn() {   // panel text for the framing layer
+  const el = $("wv-studwarn"); if (!el) return; const G = wvStudGaps(), oc = wv.v.oc || 16;
+  el.hidden = !G.length;
+  el.innerHTML = G.length ? `<b>Studs too far apart</b> in ${G.length} place${G.length > 1 ? "s" : ""} (shown in red): ${G.map(g => esc(fl(g.x1 - g.x0))).join(", ")} center to center. With ${esc(fmtInches(oc))} spacing there should be a stud at least every ${esc(fmtInches(oc))}. Add a stud there or move one back.` : "";
 }
 function wvStudChain() {   // stud centers left to right (view feet), with a stud being placed
   const xs = wvFraming().filter(f => ["stud", "added", "end", "king"].includes(f.kind)).map(f => f.x + f.w / 2);
@@ -7301,6 +7317,57 @@ function wvDrawSiding(g, sd, x0, y0, x1, y1) {
 }
 // The roof over this wall, when it's an outside wall of the top floor: a gable end (wall across the ridge),
 // an eave (wall along the ridge), a hip end, or a shed end. View feet: x0..x1 = the building's ends along this wall.
+// One opening as seen face on (screen px): what is put in, not just a box. hingeL = hinges on the left. k = px per foot.
+function wvPaintOpening(g, type, x, y, w, h, hingeL, k) {
+  const glass = "#CFE3F0", slab = "#EADFCB", trim = Math.max(2, 0.29 * k), lw = Math.max(1, Math.min(1.5, k / 20));
+  const rect = (x0, y0, ww, hh, fill, stroke = INK, l = lw) => { if (fill) { g.fillStyle = fill; g.fillRect(x0, y0, ww, hh); } if (stroke) { g.strokeStyle = stroke; g.lineWidth = l; g.strokeRect(x0, y0, ww, hh); } };
+  const line = (x0, y0, x1, y1, l = lw, dash) => { g.save(); g.strokeStyle = INK; g.lineWidth = l; if (dash) g.setLineDash(dash); g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke(); g.restore(); };
+  const knob = (cx, cy) => { g.beginPath(); g.arc(cx, cy, Math.max(2, 0.12 * k), 0, Math.PI * 2); g.fillStyle = INK; g.fill(); };
+  const pull = (cx, cy) => { g.fillStyle = INK; g.fillRect(cx - 1.5, cy - Math.max(4, 0.35 * k), 3, Math.max(8, 0.7 * k)); };
+  // a door leaf: two raised panels, hinges on one side, a knob on the other, the swing shown by dashed lines meeting at the hinges
+  const leaf = (x0, ww, hl) => {
+    rect(x0, y, ww, h, slab);
+    const m = Math.max(3, ww * 0.16), ph = (h - 3 * m) / 2; if (ww > 18 && ph > 6) { rect(x0 + m, y + m, ww - 2 * m, ph, null, "rgba(0,0,0,.35)", 1); rect(x0 + m, y + 2 * m + ph, ww - 2 * m, ph, null, "rgba(0,0,0,.35)", 1); }
+    const hx = hl ? x0 : x0 + ww; for (const f of [0.12, 0.5, 0.88]) { g.fillStyle = INK; g.fillRect(hx - (hl ? 0 : 3), y + h * f - 4, 3, 8); }
+    knob(hl ? x0 + ww - Math.max(6, 0.25 * k) : x0 + Math.max(6, 0.25 * k), y + h * 0.53);
+    line(hl ? x0 + ww : x0, y, hx, y + h / 2, 1, [5, 4]); line(hl ? x0 + ww : x0, y + h, hx, y + h / 2, 1, [5, 4]);
+  };
+  if (type === "window") {
+    rect(x - trim, y - trim, w + 2 * trim, h + 2 * trim, "#F4F2EC");   // casing
+    rect(x, y, w, h, glass);
+    const r = Math.max(2, 0.12 * k); rect(x + r, y + r, w - 2 * r, h - 2 * r, null, INK, 1);
+    line(x, y + h / 2, x + w, y + h / 2, Math.max(2, 0.14 * k));   // meeting rail of a double-hung window
+    line(x + w / 2 - 6, y + h / 2 - 4, x + w / 2 + 6, y + h / 2 - 4, 1);   // sash lock
+  } else if (type === "double") {
+    rect(x - trim, y - trim, w + 2 * trim, h + trim, "#F4F2EC");
+    leaf(x, w / 2, true); leaf(x + w / 2, w / 2, false);
+    line(x + w / 2, y, x + w / 2, y + h, Math.max(2, 0.1 * k));   // where the two leaves meet (astragal)
+  } else if (type === "door") {
+    rect(x - trim, y - trim, w + 2 * trim, h + trim, "#F4F2EC");
+    leaf(x, w, hingeL);
+  } else if (type === "patio") {
+    rect(x - trim, y - trim, w + 2 * trim, h + trim, "#F4F2EC");
+    const f = Math.max(3, 0.18 * k); rect(x, y, w / 2 + f / 2, h, "#E8E4DA"); rect(x + w / 2 - f / 2, y, w / 2 + f / 2, h, "#E8E4DA");
+    rect(x + f, y + f, w / 2 - 1.5 * f, h - 2 * f, glass, INK, 1); rect(x + w / 2 + f / 2, y + f, w / 2 - 1.5 * f, h - 2 * f, glass, INK, 1);
+    pull(hingeL ? x + w / 2 + 2 * f : x + w / 2 - 2 * f, y + h * 0.5);
+    const ay = y + h * 0.78, ax = x + w / 4 + (hingeL ? w / 2 : 0); line(ax - w / 8, ay, ax + w / 8, ay, 1);   // the sliding panel
+    g.beginPath(); g.moveTo(ax + (hingeL ? -w / 8 : w / 8), ay); g.lineTo(ax + (hingeL ? -w / 8 + 6 : w / 8 - 6), ay - 4); g.lineTo(ax + (hingeL ? -w / 8 + 6 : w / 8 - 6), ay + 4); g.closePath(); g.fillStyle = INK; g.fill();
+  } else if (type === "slider") {
+    rect(x - trim, y - trim, w + 2 * trim, h + trim, "#F4F2EC");
+    const pw = w * 0.52; rect(x, y, pw, h, slab); rect(x + w - pw, y, pw, h, "#E3D6BE");   // two panels on two tracks, overlapping
+    pull(x + Math.max(8, 0.35 * k), y + h * 0.5); pull(x + w - Math.max(8, 0.35 * k), y + h * 0.5);
+  } else if (type === "overhead") {
+    rect(x - trim, y - trim, w + 2 * trim, h + trim, "#F4F2EC");
+    rect(x, y, w, h, "#E6E2DA");
+    const n = 4, sh = h / n; for (let i = 1; i < n; i++) line(x, y + sh * i, x + w, y + sh * i, 1);
+    const pn = Math.max(2, Math.round(w / Math.max(18, 2.2 * k))), pw = w / pn;
+    for (let i = 0; i < n; i++) for (let j = 0; j < pn; j++) rect(x + j * pw + pw * 0.12, y + i * sh + sh * 0.2, pw * 0.76, sh * 0.6, i === 0 ? glass : null, "rgba(0,0,0,.3)", 1);
+    g.fillStyle = INK; g.fillRect(x + w / 2 - 8, y + h - sh * 0.45, 16, 3);   // handle
+  } else {   // cased opening: trim around, nothing in it
+    rect(x - trim, y - trim, w + 2 * trim, h + trim, "#F4F2EC"); rect(x, y, w, h, "#F4F2EC");
+  }
+  g.strokeStyle = INK; g.lineWidth = 1.5; g.strokeRect(x, y, w, h);
+}
 function wvRoof() {
   if (!wv || !dz || !dz.b) return null;
   const S = wv.S, nL = wv.nL;
@@ -7368,7 +7435,8 @@ function wvDrawRoof(g, R) {
 }
 function wvSetLayer(l) {
   wv.layer = l; wv.tool = null; wv.draft = null; wv.show[l] = true;
-  $("wv-layers").innerHTML = WV_LAYERS.map(([k, name0, c]) => [k, k === "drywall" && wvOut() ? "Siding" : k === "finish" && wvOut() ? "Outside items" : name0, c]).map(([k, name, c]) => `<div class="wv-layer"><button data-l="${k}" aria-pressed="${k === l}"><span class="sw" style="background:${c}"></span>${esc(name)}</button><label><input type="checkbox" data-show="${k}"${wv.show[k] ? " checked" : ""}> Show</label></div>`).join("");
+  $("wv-layers").innerHTML = WV_LAYERS.map(([k, name0, c]) => [k, k === "drywall" && wvOut() ? "Siding" : k === "finish" && wvOut() ? "Outside items" : name0, c]).map(([k, name, c]) => `<div class="wv-layer"><button data-l="${k}" aria-pressed="${k === l}"><span class="sw" style="background:${c}"></span>${esc(name)}</button><label><input type="checkbox" data-show="${k}"${wv.show[k] ? " checked" : ""}> Show</label></div>`).join("")
+    + (wvRoof() ? `<label class="check wv-roofshow" style="margin-top:8px"><input type="checkbox" id="wv-roofshow" data-show="roof"${wv.show.roof !== false ? " checked" : ""}> Show the roof${wvRoof().stack.length ? " and the floors above" : ""}</label>` : "");
   wvTools(); wvFields(); wvTitle(); wvDraw();
 }
 // Compass: the arrow points north as seen from where you stand (up = into the wall), and the text says which way you face.
@@ -7427,7 +7495,7 @@ function wvTitle() {
   if (Lf) $("wv-title").textContent += " · Loft";
 }
 const WV_HINTS = {
-  framing: "Drag Add a stud onto the wall to place one. Drag studs you placed to move them; tap any other stud, then Move or Remove.",
+  framing: "Drag Add a stud onto the wall to place one. Drag any stud to move it (red means studs are too far apart for the spacing). Tap one to type a spot or Remove it.",
   openings: "These are the doors and windows from the floor plan. Drag one to move it, or set its sizes on the left.",
   elec: "Tap an item on the left to add it, then drag it into place. Straight across runs a wire end to end; Draw a wire lets you bend it.",
   plumb: "Add fixtures and stub-outs. Straight across runs a pipe end to end; Draw a pipe lets you bend it. Holes show where it goes through studs.",
@@ -7439,6 +7507,7 @@ function wvTools() {
   if (l === "framing") h = `<h3>Studs</h3><div class="pair"><div class="field"><label for="wv-oc">Stud spacing</label><select id="wv-oc">${optList([[12, '12″ apart'], [16, '16″ apart'], [19.2, '19.2″ apart'], [24, '24″ apart']], v.oc || 16)}</select></div>
     <div class="field"><label for="wv-from">Layout starts at</label><select id="wv-from">${optList([["lo", "Left end"], ["hi", "Right end"]], wvFrame().s > 0 ? v.layFrom || "lo" : (v.layFrom || "lo") === "lo" ? "hi" : "lo")}</select></div></div>
     <div class="row"><button class="ghost small" id="wv-addstud" style="touch-action:none;cursor:grab" title="Drag onto the wall, or click and then tap the spot" aria-pressed="${!!(wv.tool && wv.tool.stud)}">⇕ Add a stud</button><button class="ghost small" id="wv-resetstud">Reset studs</button></div>
+    <p id="wv-studwarn" hidden style="font-size:13px;margin:6px 0 8px;color:#C92A2A"></p>
     <h3>Blocking</h3><p class="muted" style="font-size:12px;margin:0 0 6px">Solid wood between studs to screw into: handrails, TVs, grab bars, cabinets.</p>
     <div class="pair"><div class="field"><label for="wv-bsize">Board</label><select id="wv-bsize">${optList(Object.keys(WV_BLOCK).map(k => [k, blockName(k) + " (" + fmtInches(WV_BLOCK[k]) + " tall)"]), wv.blockSize || "2x8")}</select></div>
     <div class="field"><label>&nbsp;</label><button class="ghost small" id="wv-addblock" aria-pressed="${!!(wv.tool && wv.tool.block)}">▭ Add blocking</button></div></div>`;
@@ -7464,7 +7533,7 @@ function wvTools() {
         + `<div class="row"><button class="ghost small" data-run="across">Straight across</button><button class="ghost small" data-run="draw" aria-pressed="${drawing}">Draw a ${noun}</button></div>`;
     }
   }
-  $("wv-tools").innerHTML = h;
+  $("wv-tools").innerHTML = h; wvStudWarn();
   $("wv-hint").textContent = wv.tool && wv.tool.run ? `Tap to start the ${WV_RUNS[wv.tool.run][0].toLowerCase()}, tap to bend it, and tap the last point again to finish. It stays level or straight up and down; hold Shift for an angle.` : wv.tool && wv.tool.stud ? "Tap where the new stud goes, or press and slide to place it exactly." : wv.tool && wv.tool.block ? "Tap between two studs at the height you want the blocking; keep holding to slide it up or down. Press on a block that is already there to pick it or drag it. Tap Add blocking again when you are done." : wvOut() && l === "drywall" ? "Siding covers the outside of this wall. Pick the kind and color on the left; a gable end can have its own." : wvOut() && ["elec", "plumb", "finish"].includes(l) ? "From outside you get outdoor things: tap one to put it on the wall, then drag it where it goes." : WV_HINTS[l];
 }
 document.addEventListener("change", e => {
@@ -7508,7 +7577,7 @@ function wvFields() {
     $("wv-selname").textContent = sel.added ? "Stud you placed" : "Stud";
     h = wvField("wv-sx", "Center from left end", fl(fr.x(sel.stud))) + (sel.added
       ? `<p class="muted" style="font-size:13px;margin:0 0 8px">Drag it left or right to move it, or type a new spot.</p>`
-      : `<div class="row" style="margin:0 0 8px"><button class="ghost small" id="wv-smove">Move</button></div><p class="muted" style="font-size:13px;margin:0 0 8px">Placed by the stud spacing. Press Move, then drag it, or type a new spot.</p>`);
+      : `<div class="row" style="margin:0 0 8px"><button class="ghost small" id="wv-smove">Move</button></div><p class="muted" style="font-size:13px;margin:0 0 8px">Placed by the stud spacing. Drag it left or right, or type a new spot.</p>`);
   }
   else if (sel.open) {
     const q = wvOpenings().find(q => q.o === sel.open); if (!q) { wv.sel = null; box.hidden = true; return; }
@@ -7587,7 +7656,7 @@ $("wv-selfields").addEventListener("click", e => {
 $("wv-layers").addEventListener("click", e => {
   const b = e.target.closest("[data-l]"); if (b) { wv.sel = null; wvSetLayer(b.dataset.l); }
 });
-$("wv-layers").addEventListener("change", e => { const c = e.target.closest("[data-show]"); if (c) { wv.show[c.dataset.show] = c.checked; wvDraw(); } });
+$("wv-layers").addEventListener("change", e => { const c = e.target.closest("[data-show]"); if (c) { wv.show[c.dataset.show] = c.checked; if (c.dataset.show === "roof") { wv.view = null; wvView(); } wvDraw(); } });
 $("wv-tools").addEventListener("change", e => {
   const v = wv.v, fr = wvFrame();
   if (e.target.id === "wv-oc") v.oc = +e.target.value;
@@ -7679,7 +7748,7 @@ wvc.addEventListener("pointerdown", e => {
   else if (h && h.open) { if (wv.layer !== "openings") wvSetLayer("openings"); const q = wvOpenings().find(q => q.o === h.open); wvDrag = { open: h.open, t0: q.t, sill0: q.sill, head0: q.head, start: p, target: h.open, o: { ...h.open } }; }
   else if (!h) wvDrag = { pan: true, last: { x: p.sx, y: p.sy } };
   else if (h.block != null) { if (wv.layer !== "framing") wvSetLayer("framing"); const bk = wv.v.blocks.find(b => b.id === h.block); wvDrag = bk ? { block: bk, o: { ...bk }, start: p } : null; }
-  else if (h.stud != null) { if (wv.layer !== "framing") wvSetLayer("framing"); wvDrag = h.added ? { stud: true, t0: h.stud, start: p } : null; }
+  else if (h.stud != null) { if (wv.layer !== "framing") wvSetLayer("framing"); wvDrag = { stud: true, t0: h.stud, start: p, layout: !h.added }; }
   else wvDrag = null;
   wvFields(); wvDraw();
 });
@@ -7700,7 +7769,8 @@ wvc.addEventListener("pointermove", e => {
     bk.y = Math.max(WI(1.5), Math.min(wvHt() - WI(3) - h, wvSnap(o.y + p.y - wvDrag.start.y)));
     wvFields(); wvDraw(); return;
   }
-  if (wvDrag.stud) { wvMoveStudTo(wvStudT(wvFrame().x(wvDrag.t0) + p.x - wvDrag.start.x)); wvFields(); wvDraw(); return; }
+  if (wvDrag.stud && wvDrag.layout && Math.abs(p.x - wvDrag.start.x) * wk < 4) return;   // a layout stud: only once it really moves
+  if (wvDrag.stud) { wvDrag.layout = false; wvMoveStudTo(wvStudT(wvFrame().x(wvDrag.t0) + p.x - wvDrag.start.x)); wvFields(); wvDraw(); return; }
   if (wvDrag.pan) { wvView(); wv.view = { k: wk, x: wox + p.sx - wvDrag.last.x, y: woy + p.sy - wvDrag.last.y }; wvDrag.last = { x: p.sx, y: p.sy }; wvDraw(); return; }
   const fr = wvFrame(), dx = p.x - wvDrag.start.x, dy = p.y - wvDrag.start.y;
   if (wvDrag.open) {
