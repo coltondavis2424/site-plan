@@ -2138,7 +2138,80 @@ const ADDON_OPTS = [
   ["Other", [WASTE_OPT]],
 ];
 // Design loads for the engineering sheets (S-0...). The first choice of each is the default (Esko, Carlton County, MN).
+// Where it's built: starting values for the code and design loads by state (and by latitude in MN, elevation out west).
+// Typical low-country values only: the county building department has the exact numbers for the lot.
+// [name, ground snow psf, wind mph (ultimate, risk II), frost depth in, seismic category, code key]
+const US_REG = {
+  AL: ["Alabama", 10, 115, 12, "B", "irc"], AK: ["Alaska", 50, 130, 48, "D", "irc"], AZ: ["Arizona", 0, 110, 12, "B", "irc"], AR: ["Arkansas", 10, 115, 12, "C", "irc"],
+  CA: ["California", 0, 95, 12, "D", "cal"], CO: ["Colorado", 30, 115, 36, "B", "co"], CT: ["Connecticut", 30, 130, 42, "B", "irc"], DE: ["Delaware", 20, 120, 30, "B", "irc"],
+  DC: ["District of Columbia", 25, 115, 30, "B", "irc"], FL: ["Florida", 0, 140, 12, "A", "fl"], GA: ["Georgia", 10, 115, 12, "B", "irc"], HI: ["Hawaii", 0, 130, 12, "D", "irc"],
+  ID: ["Idaho", 20, 110, 24, "C", "irc"], IL: ["Illinois", 20, 115, 36, "B", "irc"], IN: ["Indiana", 20, 115, 36, "B", "irc"], IA: ["Iowa", 30, 115, 42, "A", "irc"],
+  KS: ["Kansas", 20, 115, 30, "A", "irc"], KY: ["Kentucky", 15, 115, 24, "C", "irc"], LA: ["Louisiana", 5, 140, 12, "A", "irc"], ME: ["Maine", 70, 120, 60, "B", "irc"],
+  MD: ["Maryland", 25, 115, 30, "B", "irc"], MA: ["Massachusetts", 40, 130, 48, "B", "irc"], MI: ["Michigan", 40, 115, 42, "A", "irc"], MN: ["Minnesota", 60, 115, 60, "A", "mn2020"],
+  MS: ["Mississippi", 10, 115, 12, "B", "irc"], MO: ["Missouri", 20, 115, 30, "C", "irc"], MT: ["Montana", 40, 115, 48, "C", "irc"], NE: ["Nebraska", 25, 115, 42, "A", "irc"],
+  NV: ["Nevada", 10, 110, 24, "D", "irc"], NH: ["New Hampshire", 60, 120, 48, "B", "irc"], NJ: ["New Jersey", 25, 120, 36, "B", "irc"], NM: ["New Mexico", 15, 115, 24, "B", "irc"],
+  NY: ["New York", 40, 115, 48, "B", "irc"], NC: ["North Carolina", 15, 115, 12, "B", "irc"], ND: ["North Dakota", 50, 115, 60, "A", "irc"], OH: ["Ohio", 20, 115, 36, "A", "irc"],
+  OK: ["Oklahoma", 10, 115, 24, "B", "irc"], OR: ["Oregon", 20, 105, 18, "D", "irc"], PA: ["Pennsylvania", 30, 115, 36, "B", "irc"], RI: ["Rhode Island", 30, 130, 42, "B", "irc"],
+  SC: ["South Carolina", 10, 120, 12, "C", "irc"], SD: ["South Dakota", 40, 115, 48, "A", "irc"], TN: ["Tennessee", 10, 115, 12, "C", "irc"], TX: ["Texas", 5, 115, 12, "A", "irc"],
+  UT: ["Utah", 30, 110, 30, "D", "irc"], VT: ["Vermont", 60, 115, 48, "B", "irc"], VA: ["Virginia", 20, 115, 24, "B", "irc"], WA: ["Washington", 20, 105, 18, "D", "irc"],
+  WV: ["West Virginia", 25, 115, 24, "B", "irc"], WI: ["Wisconsin", 40, 115, 48, "A", "wiudc"], WY: ["Wyoming", 40, 115, 48, "C", "irc"],
+};
+const US_WEST = new Set(["AZ", "CA", "CO", "ID", "MT", "NV", "NM", "OR", "UT", "WA", "WY"]);
+// Codes on the list. Most states adopt an IRC edition, often city by city or county by county.
+const ENG_CODE_LIST = [
+  ["irc2021", "2021 IRC, as adopted where you build"], ["irc2024", "2024 IRC, as adopted where you build"], ["irc2018", "2018 IRC, as adopted where you build"], ["irc2015", "2015 IRC, as adopted where you build"],
+  ["mn2020", "2020 Minnesota Residential Code (2018 IRC)"], ["wiudc", "Wisconsin Uniform Dwelling Code (SPS 320–325)"], ["cal2022", "2022 California Residential Code"], ["fl2023", "Florida Building Code, Residential (8th ed., 2023)"],
+];
+const ENG_CODE_ST = { mn2020: "mn2020", wiudc: "wiudc", cal: "cal2022", fl: "fl2023", co: "irc2021", irc: "irc2021" };
+// The project's spot: a place-made project knows it (state.geo, with st / county found once on line); otherwise the building's own choice, else Minnesota.
+function engRegion(b) {
+  const w = b && b.build && b.build.where, g = state.geo;
+  if (w && w !== "auto" && US_REG[w]) return { st: w, name: US_REG[w][0], picked: true, lat: g && g.st === w ? g.lat : null, county: g && g.st === w ? g.county : "" };
+  if (g && g.st && US_REG[g.st]) return { st: g.st, name: US_REG[g.st][0], county: g.county || "", lat: g.lat, lon: g.lon, sdc: g.sdc, auto: true };
+  return { st: "MN", name: "Minnesota", none: true, lat: null };
+}
+function engElevFt() { return state.zmin != null && isFinite(state.zmin) ? (state.zmin + (state.zrange || 0) / 2) * 3.28084 : null; }
+// Starting values for a region: {code, pg, wind, frost, sdc, why}
+function engRegionDefs(R) {
+  const T = US_REG[R.st] || US_REG.MN; let [, pg, wind, frost, sdc, ck] = T, why = "typical for " + T[0];
+  if (R.st === "MN" && R.lat != null) { const north = R.lat >= 45.9; pg = north ? 60 : 50; frost = north ? 60 : 42; why = (north ? "northern" : "southern") + " Minnesota"; }
+  if (R.st === "MN" && R.lat == null && R.none) why = "Carlton County, MN";
+  if (R.county) why = R.county + ", " + R.st;
+  const el = engElevFt();
+  if (US_WEST.has(R.st) && el != null && el > 6000 && R.lat != null) { pg = Math.max(pg, el > 8000 ? 100 : 50); why += ", about " + Math.round(el / 100) * 100 + " ft up (mountain snow: ask the county)"; }
+  if (R.sdc) sdc = R.sdc;
+  return { code: ENG_CODE_ST[ck] || "irc2021", pg: String(pg), wind: String(wind), frost: String(frost), sdc, why };
+}
+// The design-load rows follow the region: its values come first (the default) and are marked
+function engRows(b) {
+  const R = engRegion(b), D = engRegionDefs(R), rows = ENG_OPTS[1], row = k => rows.find(r => r[0] === k);
+  const mark = (vals, def, fmt) => { const L = [...new Set([def, ...vals.map(String)])]; return L.map(v => [v, fmt(v) + (v === def ? " (" + D.why + ")" : "")]); };
+  const g = state.geo, here = g && g.st && US_REG[g.st] ? US_REG[g.st][0] + (g.county ? ", " + g.county : "") : null;
+  row("where")[2] = [["auto", here ? "Where the project is: " + here : "Minnesota (the project has no location; pick a state)"], ...Object.entries(US_REG).sort((p, q) => p[1][0].localeCompare(q[1][0])).map(([k, v]) => [k, v[0]])];
+  row("code")[2] = [...ENG_CODE_LIST.filter(([k]) => k === D.code), ...ENG_CODE_LIST.filter(([k]) => k !== D.code)].map(([k, t]) => [k, t + (k === D.code ? " (usual in " + R.name + ")" : "")]);
+  row("pg")[2] = mark([0, 5, 10, 15, 20, 25, 30, 35, 40, 50, 60, 70, 80, 100], D.pg, v => v + " psf");
+  row("wind")[2] = mark([95, 105, 110, 115, 120, 130, 140, 150, 160], D.wind, v => v + " mph");
+  row("frost")[2] = mark([0, 12, 18, 24, 30, 36, 42, 48, 60], D.frost, v => v === "0" ? "None (no frost)" : v + "″");
+  row("sdc")[2] = mark(["A", "B", "C", "D"], D.sdc, v => v);
+  return D;
+}
+// Once per place-made project (on line): its state and county, from OpenStreetMap. (The USGS seismic service blocks web pages, so the
+// seismic category comes from the state table.)
+let engLooking = false;
+async function engLookup() {
+  const g = state.geo; if (!g || g.lat == null || engLooking || g.st || g.lookedAt > Date.now() - 864e5 || !navigator.onLine) return;
+  engLooking = true;
+  try {
+    const ac = new AbortController(), tm = setTimeout(() => ac.abort(), 15000);
+    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=8&lat=${g.lat}&lon=${g.lon}`, { signal: ac.signal }); clearTimeout(tm);
+    const j = await r.json(), a = (j && j.address) || {}, iso = a["ISO3166-2-lvl4"] || "";
+    if (/^US-/.test(iso) && US_REG[iso.slice(3)]) { g.st = iso.slice(3); g.county = a.county || ""; }
+  } catch (e) {}
+  g.lookedAt = Date.now(); engLooking = false; save();
+  if (g.st && $("matdlg").open) renderMat();
+}
 const ENG_OPTS = ["Design loads (for the engineer)", [
+  ["where", "Where it's built", [["auto", "Where the project is"]]],
   ["code", "Building code", [["mn2020", "2020 Minnesota Residential Code (2018 IRC)"], ["irc2021", "2021 IRC (most Colorado counties)"], ["irc2018", "2018 IRC"]]],
   ["use", "Building use", [["auto", "Guess from its name"], ["house", "Home (R-3)"], ["garage", "Garage or shop (U)"], ["ag", "Shed, coop or barn (U, low risk)"]]],
   ["pg", "Ground snow load", [60, 50, 40, 35, 30, 25, 20, 70, 80, 100].map(n => [String(n), n + " psf" + (n === 60 ? " (Carlton County, MN)" : n === 50 ? " (southern MN)" : n === 30 ? " (SE Colorado plains, check county)" : "")])],
@@ -2156,6 +2229,7 @@ function matOpt(s) {
   const d = defsOf(matOptsFor(s));
   if (matOptsFor(s) === MAT_OPTS) d.pitch = "6";
   if (matOptsFor(s) === POST_OPTS) d.pitch = "4";
+  if (s.kind === "building") { const D = engRegionDefs(engRegion(s)); for (const k of ["code", "pg", "wind", "frost", "sdc"]) d[k] = D[k]; }
   return Object.assign(d, s.build || {});
 }
 const MAT_DEF = defsOf(MAT_OPTS); MAT_DEF.pitch = "6";
@@ -2919,10 +2993,11 @@ function stickList(b) {
 
 // ---- the material list window ----
 let matB = null;
-function openMat(b) { matB = b.id; renderMat(); if (!$("matdlg").open) $("matdlg").showModal(); }
+function openMat(b) { matB = b.id; engLookup(); renderMat(); if (!$("matdlg").open) $("matdlg").showModal(); }
 let matTab = "list";
 function renderMat() {
   const b = state.shapes.find(s => s.id === matB && ["building", "deck", "addon"].includes(s.kind)); if (!b) { if ($("matdlg").open) $("matdlg").close(); return; }
+  if (b.kind === "building") engRows(b);
   const { S, sum, o } = matList(b), OPTS = matOptsFor(b);
   $("mat-title").textContent = (matTab === "order" ? "Build order · " : "Material list · ") + b.name;
   const upper = b.kind === "building" && topLv(b) > GROUND;
@@ -2979,7 +3054,9 @@ $("mat-opts").addEventListener("click", e => {
 });
 $("mat-opts").addEventListener("change", e => {
   const k = e.target.dataset.mo, b = state.shapes.find(s => s.id === matB); if (!k || !b) return;
-  pushUndo(); b.build = Object.assign({}, b.build, { [k]: e.target.value }); afterChange(); renderMat();
+  pushUndo(); b.build = Object.assign({}, b.build, { [k]: e.target.value });
+  if (k === "where") for (const q of ["code", "pg", "wind", "frost", "sdc"]) delete b.build[q];
+  afterChange(); renderMat();
 });
 $("mat-close").onclick = () => $("matdlg").close();
 $("mat-csv").onclick = async () => {
@@ -4004,7 +4081,7 @@ function engSuggest(span, w, wl, lim, CD, plies, lum) {
 }
 function engUse(b, o) { if (o.use && o.use !== "auto") return o.use; const n = (b.name || "").toLowerCase(); return /garage|shop/.test(n) ? "garage" : /shed|coop|barn|stable|storage|lean|pole/.test(n) ? "ag" : "house"; }
 const ENG_USE = { house: ["Home", "R-3", "II"], garage: ["Garage or shop", "U", "II"], ag: ["Shed, coop or barn", "U", "I"] };
-const ENG_CODE = { mn2020: "2020 Minnesota Residential Code (MN Rules ch. 1309, 2018 IRC) with MN Rules 1303 (snow, frost)", irc2021: "2021 International Residential Code, as adopted by the county", irc2018: "2018 International Residential Code, as adopted locally" };
+const ENG_CODE = { mn2020: "2020 Minnesota Residential Code (MN Rules ch. 1309, 2018 IRC) with MN Rules 1303 (snow, frost)", irc2024: "2024 International Residential Code, as adopted locally", irc2021: "2021 International Residential Code, as adopted locally", irc2018: "2018 International Residential Code, as adopted locally", irc2015: "2015 International Residential Code, as adopted locally", wiudc: "Wisconsin Uniform Dwelling Code (Wis. Admin. Code SPS 320–325)", cal2022: "2022 California Residential Code (Title 24, Part 2.5)", fl2023: "Florida Building Code, Residential, 8th edition (2023)" };
 // Snow (ASCE 7-16 ch. 7), dead and live loads.
 function engLoads(b, o = matOpt(b)) {
   const use = engUse(b, o), pg = +o.pg || 60, Is = use === "ag" ? 0.8 : 1.0, Ct = use === "house" ? 1.1 : 1.2, Ce = 1.0;
@@ -4069,7 +4146,7 @@ function engChecks(b) {
   {
     const H = floors.reduce((a, f) => a + Ld.wallDL * f.H, 0); let D = roofD + H, L = 0;
     for (const f of floors) if (joisted(f) || (f.loft && o.rframe === "truss")) { const [LL, DL] = fLoad(f), t = (f.loft ? sp.span : Math.min(f.L, f.W) / (joisted(f) && Math.min(f.L, f.W) > 16 ? 2 : 1)) / 2; D += DL * t; L += LL * t; }
-    const qa = +o.soil || 1500, frost = +o.frost || 60;
+    const qa = +o.soil || 1500, frost = o.frost != null && o.frost !== "" ? Math.max(12, +o.frost) : 60;
     if (post) {
       const poc = +o.poc || 8, Pp = (roofD + roofS) * poc, A = Pp / qa, dia = Math.sqrt(4 * A / Math.PI) * 12;
       out.foot.push(["Post footing", Math.round(Pp).toLocaleString() + " lb per post (" + poc + " ft spacing)", Math.ceil(dia) + "\" round pad or " + Math.ceil(Math.sqrt(A) * 12) + "\" square", "Pad bottom at least " + frost + "\" down", "ENGINEER"]);
@@ -4333,7 +4410,8 @@ function psBuild(b) {
       for (let p = 0; p * nc < cols.length; p++) page(eN++ ? "S-0." + (eN - 1) : "S-0", title + (p ? " (cont.)" : ""), "", cols.slice(p * nc, p * nc + nc).map((c, i) => `<div class="ps-html" style="left:${n2(ax + i * (cw + 0.25))}in;top:${ay}in;width:${n2(cw)}in;height:${n2(ah)}in">${c.join("")}</div>`).join(""));
     };
     const crit = [
-      ["Code", ENG_CODE[o.code] || ENG_CODE.mn2020],
+      ["Code", ENG_CODE[o.code] || ENG_CODE.irc2021],
+      ["Location", (() => { const R = engRegion(b); return (R.county ? R.county + ", " : "") + R.name + (R.none ? " (assumed; no location set)" : ""); })()],
       ["Use / occupancy", U[0] + ", " + U[1] + ", risk category " + U[2] + "; construction type V-B"],
       ["Ground snow load, pg", Ld.pg + " psf" + ((o.code || "mn2020") === "mn2020" ? " (MN Rules 1303.1700; confirm with the county)" : " (confirm with the county)")],
       ["Flat-roof snow, pf", "0.7 × Ce " + Ld.Ce + " × Ct " + Ld.Ct + " × Is " + Ld.Is + " × pg = " + Math.round(Ld.pf * 10) / 10 + " psf (ASCE 7-16 eq. 7.3-1)"],
@@ -4342,7 +4420,7 @@ function psBuild(b) {
       ["Floor loads", Ld.fLL + " psf live (" + Ld.loftLL + " psf loft / sleeping rooms), " + Ld.fDL + " psf dead (IRC Table R301.5)"],
       ["Wind", (o.wind || "115") + " mph ultimate (3-second gust), exposure " + (o.exp || "C") + "; ASCE 7-16"],
       ["Seismic", "Design category " + (o.sdc || "A")],
-      ["Frost depth", (o.frost || "60") + "\" to the bottom of footings"],
+      ["Frost depth", (+o.frost ? o.frost + "\" to the bottom of footings" : "none (12\" minimum footing depth)") + " (confirm with the county)"],
       ["Soil", (+o.soil || 1500).toLocaleString() + " psf allowable bearing" + ((+o.soil || 1500) === 1500 ? " (IRC Table R401.4.1 presumptive; no soil report)" : " (soil report required)")],
       ["Wood", LUMBER[E.lum].n + " (Fb " + LUMBER[E.lum].Fb + ", E " + (LUMBER[E.lum].E / 1e6).toFixed(1) + "M psi, NDS 2018); LVL Fb 2,600 psi, E 1.9M psi; treated lumber at concrete and ground"],
       ["Concrete", "3,000 psi footings and walls, 3,500 psi air-entrained for garage floors, porches and steps (IRC Table R402.2, severe weathering)"],
@@ -4489,7 +4567,7 @@ function psBuild(b) {
   return out;
 }
 
-function openPlans(b) { { const PI = state.psInfo || {}; $("ps-addr").value = PI.addr || ""; $("ps-owner").value = PI.owner || ""; $("ps-by").value = PI.by || ""; } ps.b = b.id; ps.paper = PS_PAPER[state.psPaper] ? state.psPaper : "tabloid"; $("ps-paper").value = ps.paper; $("ps-title").textContent = "Plan set · " + b.name; if (!$("plandlg").open) $("plandlg").showModal(); renderPlans(); }
+function openPlans(b) { engLookup(); { const PI = state.psInfo || {}; $("ps-addr").value = PI.addr || ""; $("ps-owner").value = PI.owner || ""; $("ps-by").value = PI.by || ""; } ps.b = b.id; ps.paper = PS_PAPER[state.psPaper] ? state.psPaper : "tabloid"; $("ps-paper").value = ps.paper; $("ps-title").textContent = "Plan set · " + b.name; if (!$("plandlg").open) $("plandlg").showModal(); renderPlans(); }
 function renderPlans() {
   const b = state.shapes.find(s => s.id === ps.b && s.kind === "building"); if (!b) return;
   $("ps-msg").textContent = "Drawing the sheets…";
