@@ -5231,7 +5231,9 @@ function extraHTML(s) {
       : `<p class="muted" style="margin:0 0 8px;font-size:13px">Tap both ends of a dimension printed on the drawing (like the 60'-0" overall), then type its length.</p><div class="row">${btn("bpscale", "Set scale")}</div>`}</div>
       <div class="attach"><p class="attach-title">2. Line it up</p><p class="muted" style="margin:0 0 8px;font-size:13px">Drag it onto the building, then turn it if needed.</p>
       <div class="row">${btn("rot", "⟲ 90°", -90)}${btn("rot", "⟳ 90°", 90)}${btn("rot", "−1°", -1)}${btn("rot", "+1°", 1)}${btn("rot", "−0.1°", -0.1)}${btn("rot", "+0.1°", 0.1)}</div></div>
-      <p class="muted" style="margin:0 0 12px;font-size:13px">3. Trace over it with Walls, Door, Room and Stairs, or in Design floor plan, where it shows underneath too.</p>`;
+      <div class="attach"><p class="attach-title">3. Make it a floor plan</p><p class="muted" style="margin:0 0 8px;font-size:13px">${s.scaled ? "" : "<b>Set the scale first.</b> "}Reads the walls, doors, windows and rooms on the drawing and builds them on this floor of the building. You check it in Design floor plan before anything is saved.</p>
+      <div class="row">${btn("bpread", "Read walls, doors and windows")}</div>
+      <p class="muted" style="margin:8px 0 0;font-size:13px">Works best on a clean drawing (a PDF from the designer, or a sharp, straight-on scan). You can also trace over it by hand with Walls, Door, Room and Stairs.</p></div>`;
   } else if (s.kind === "vehicle") {
     h += `<div class="field"><label>Model</label><select data-prop="model">${optList(Object.entries(VEHICLES).map(([k, m]) => [k, m.name]), s.model)}</select></div>
       <div class="field"><label>Color</label><select data-prop="color">${optList(Object.entries(VCOLORS).map(([k, v]) => [k, v[0]]), s.color)}</select></div>
@@ -5280,16 +5282,25 @@ function extraHTML(s) {
   return h;
 }
 // Roof shape, peak direction, pitch and overhang right in the building's details (the same choices as the material list)
-const ROOF_KEYS = ["roof", "ridge", "pitch", "over"];
+const ROOF_KEYS = ["roof", "ridge", "pitch", "over", "eave"];
 function roofPanelHTML(b) {
   const o = matOpt(b), rows = matOptsFor(b).flatMap(g => g[1]).filter(r => ROOF_KEYS.includes(r[0])).sort((x, y) => ROOF_KEYS.indexOf(x[0]) - ROOF_KEYS.indexOf(y[0]));
   if (!rows.length) return "";
-  const lofty = !!loftLv(b, o);
+  const lofty = !!loftLv(b, o), post = o.frame === "post", top = topLv(b);
+  // stick-framed: the eave sits on the top floor's walls, so the eave height is that floor's wall height (a loft: its knee walls)
+  const eave = post ? "" : lofty ? `<div class="field"><label>Eave height</label><select data-ro="knee">${optList((MAT_OPTS.flatMap(g => g[1]).find(x => x[0] === "knee") || [0, 0, []])[2], String(o.knee))}</select></div>`
+    : `<div class="field"><label for="d-eaveh">Eave height (${esc(levelName(top))} walls)</label><input id="d-eaveh" type="text" inputmode="decimal" value="${esc(fl((b.wallH && b.wallH[top]) || 8))}"></div>`;
   return `<p class="sublabel" style="margin:4px 0 6px;font-size:13px;color:var(--muted);font-weight:500">Roof</p>
-    <div class="pair">${rows.map(([k, label, ch]) => `<div class="field"><label for="d-roof-${k}">${esc(label)}</label><select id="d-roof-${k}" data-ro="${k}">${optList(ch, String(o[k]))}</select></div>`).join("")}</div>
+    <div class="pair">${rows.map(([k, label, ch]) => `<div class="field"><label for="d-roof-${k}">${esc(k === "eave" ? "Eave height (wall height)" : label)}</label><select id="d-roof-${k}" data-ro="${k}">${optList(ch, String(o[k]))}</select></div>`).join("")}${eave}</div>
     <p class="muted" style="margin:0 0 12px;font-size:13px">Used by the 3D view, the plan set, wall views and the material list.${lofty ? " This building has a loft: the material list shows the headroom each pitch gives." : ""}</p>`;
 }
 $("panel").addEventListener("change", e => {
+  if (e.target.id === "d-eaveh") {   // top floor wall height = where the roof sits
+    const b = state.shapes.find(x => x.id === selected); if (!b || b.kind !== "building") return;
+    const v = parseLen(e.target.value), top = topLv(b);
+    if (!(v >= 4 && v <= 30)) { $("hint").textContent = "Type an eave height from 4 to 30 ft, like 9 or 9'-1 1/8\"."; e.target.value = fl((b.wallH && b.wallH[top]) || 8); return; }
+    pushUndo(); b.wallH = Object.assign({}, b.wallH, { [top]: Math.round(v * 96) / 96 }); afterChange(); return;
+  }
   const t = e.target.closest("select[data-ro]"); if (!t) return;
   const b = state.shapes.find(x => x.id === selected); if (!b || b.kind !== "building") return;
   pushUndo(); b.build = Object.assign({}, b.build, { [t.dataset.ro]: t.value }); afterChange();
@@ -5411,12 +5422,13 @@ $("d-extra").addEventListener("click", e => {
   if (act === "design") { openDesigner(s); return; }
   if (act === "rot" && s.locked) { $("hint").textContent = `${s.name} is locked. Unlock it to rotate.`; return; }
   if (act === "autodim") { pushUndo(); autoDimension(s, state.level); $("d-extra").innerHTML = ""; afterChange(); return; }
+  if (act === "bpread") { bpRead(s); return; }
   pushUndo();
   if (act === "bpscale") { calib = { id: s.id, pts: [] }; setTool("bpscale"); $("d-extra").innerHTML = ""; renderPanel(); return; }
   if (act === "calibApply") {
     const ft = parseLen($("calib-len").value);
     if (!(ft > 0) || !calib || calib.pts.length < 2) { $("hint").textContent = "Type the real length, like 60'-0\" or 60."; return; }
-    pushUndo(); scaleAbout(s, calib.pts[0], ft * FT / dist(calib.pts[0], calib.pts[1])); calib = null; setTool("select"); selected = s.id;
+    pushUndo(); scaleAbout(s, calib.pts[0], ft * FT / dist(calib.pts[0], calib.pts[1])); s.scaled = true; calib = null; setTool("select"); selected = s.id;
     $("hint").textContent = "Scale set. Now drag the blueprint onto the building and turn it to match."; $("d-extra").innerHTML = ""; afterChange(); return;
   }
   if (act === "bpupload") { $("bp-file").dataset.bid = s.id; $("bp-file").click(); return; }
@@ -8287,7 +8299,19 @@ async function pdfToPng(file) {
   const vp = page.getViewport({ scale: sc }), c = document.createElement("canvas"); c.width = Math.round(vp.width); c.height = Math.round(vp.height);
   const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height);
   await page.render({ canvasContext: g, viewport: vp }).promise;
-  return await new Promise(res => c.toBlob(res, "image/png"));
+  let texts = [];
+  try {
+    const tc = await page.getTextContent();
+    for (const it of tc.items) {
+      const t = (it.str || "").trim(); if (!t) continue;
+      const m = lib.Util.transform(vp.transform, it.transform), h = Math.hypot(m[2], m[3]);
+      texts.push({ t, x: Math.round(m[4]), y: Math.round(m[5]), h: Math.round(h * 10) / 10, w: Math.round((it.width || 0) * sc) });
+    }
+    if (texts.length > 3000) texts = texts.slice(0, 3000);
+  } catch (e) { texts = []; }
+  const blob = await new Promise(res => c.toBlob(res, "image/png"));
+  blob.texts = texts;
+  return blob;
 }
 async function bpImage(s) {
   if (bpImgs.has(s.id)) return bpImgs.get(s.id);
@@ -8318,9 +8342,285 @@ async function addBlueprint(b, file) {
   const pts = [[cx - wft / 2, cy - hft / 2], [cx + wft / 2, cy - hft / 2], [cx + wft / 2, cy + hft / 2], [cx - wft / 2, cy + hft / 2]].map(([x, y]) => F.toW({ x, y }));
   pushUndo();
   const s = { id: state.nextId++, kind: "underlay", name: "Blueprint · " + file.name.replace(/\.[^.]+$/, ""), bid: b.id, level: state.level, points: pts, closed: true, thickness: 0, opacity: 0.55 };
+  if (blob.texts && blob.texts.length) s.texts = blob.texts;   // words on a PDF page (image pixels), for room names when it is read
   state.shapes.push(s); await kvSet(PK("bp:" + s.id), blob); bpImgs.set(s.id, im);
   selected = s.id; afterChange(); fit(pts);
   $("hint").textContent = "Blueprint placed. Next: Set scale, then line it up with the building.";
+}
+/* ---------- blueprint reading: walls, doors, windows and rooms off a scaled blueprint ----------
+   Everything happens in the building's own frame (feet), so walls come out square to the building.
+   Walls = bands of dark, long strokes 2½"–16" thick (a wall drawn as two lines becomes one band);
+   doors = gaps with a swing arc beside them; windows = 3 or more thin lines across the band (or one thin line in the middle);
+   rooms = the spaces walls close off. The result goes into the designer as an unsaved draft. */
+const BPR = { run: 1.25, gap: 7 / 12, tMin: 2.5 / 12, tMax: 16 / 12, minLen: 1, maxGap: 18 };
+async function bpRead(u) {
+  const b = state.shapes.find(x => x.id === u.bid && x.kind === "building");
+  if (!b) { $("hint").textContent = "This blueprint isn’t on a building."; return; }
+  if (b.grouped) { $("hint").textContent = `${b.name} is grouped. Ungroup all items to change its plan.`; return; }
+  const im = bpImgs.get(u.id) || await bpImage(u);
+  if (!im) { $("hint").textContent = "The blueprint picture couldn’t be loaded."; return; }
+  $("hint").textContent = "Reading the blueprint…"; await new Promise(r => setTimeout(r, 20));
+  let R = null;
+  try { R = bpDetect(b, u, im); } catch (e) { console.warn("blueprint read", e); }
+  if (!R || !R.walls.length) { $("hint").textContent = "No walls found on this blueprint. Set its scale and line it up with the building first. It reads clean line drawings best."; return; }
+  if (u.level !== state.level) { state.level = u.level; renderLevels(); }
+  openDesigner(b);
+  bpApply(R);
+}
+function bpDetect(b, u, im) {
+  const F = buildingFrame(b), P = u.points.map(F.toL), iw = im.naturalWidth || im.width, ih = im.naturalHeight || im.height;
+  const ftPx = dist(P[0], P[1]) / iw;
+  // the part to read: the building grown a quarter each way (the drawing may be bigger than the outline drawn), inside the blueprint
+  const Bb = bbox(b.points.map(F.toL)), Bu = bbox(P), gw = Math.max(Bb.x1 - Bb.x0, Bb.y1 - Bb.y0) * 0.25 + 3;
+  const x0 = Math.max(Bb.x0 - gw, Bu.x0), y0 = Math.max(Bb.y0 - gw, Bu.y0), x1 = Math.min(Bb.x1 + gw, Bu.x1), y1 = Math.min(Bb.y1 + gw, Bu.y1);
+  if (x1 - x0 < 4 || y1 - y0 < 4) return null;
+  const r = Math.max(ftPx, 1 / 48, (x1 - x0) / 2400, (y1 - y0) / 2400), W = Math.ceil((x1 - x0) / r), H = Math.ceil((y1 - y0) / r), N = W * H;
+  const cv2 = document.createElement("canvas"); cv2.width = W; cv2.height = H;
+  const g = cv2.getContext("2d", { willReadFrequently: true });
+  g.fillStyle = "#fff"; g.fillRect(0, 0, W, H);
+  const G = q => ({ x: (q.x - x0) / r, y: (q.y - y0) / r }), g0 = G(P[0]), g1 = G(P[1]), g3 = G(P[3]);
+  g.imageSmoothingEnabled = true; g.imageSmoothingQuality = "high";
+  g.setTransform((g1.x - g0.x) / iw, (g1.y - g0.y) / iw, (g3.x - g0.x) / ih, (g3.y - g0.y) / ih, g0.x, g0.y);
+  g.drawImage(im, 0, 0);
+  const px = g.getImageData(0, 0, W, H).data, lum = new Uint8Array(N);
+  for (let i = 0; i < N; i++) lum[i] = (px[i * 4] * 0.3 + px[i * 4 + 1] * 0.59 + px[i * 4 + 2] * 0.11) | 0;
+  // dark = ink (Otsu's split between paper and ink, never above mid-grey so light fills and grids stay paper)
+  const hist = new Float64Array(256); for (let i = 0; i < N; i++) hist[lum[i]]++;
+  let sum = 0; for (let i = 0; i < 256; i++) sum += i * hist[i];
+  let wB = 0, sB = 0, best = -1, thr = 128;
+  for (let t = 0; t < 256; t++) { wB += hist[t]; if (!wB) continue; const wF = N - wB; if (!wF) break; sB += t * hist[t]; const v = wB * wF * (sB / wB - (sum - sB) / wF) ** 2; if (v > best) { best = v; thr = t; } }
+  thr = Math.min(thr, 170);
+  const dk = new Uint8Array(N); for (let i = 0; i < N; i++) dk[i] = lum[i] <= thr ? 1 : 0;
+  const rh = new Float64Array(64); for (let y = 0; y < H; y += 2) { let a = -1; for (let x = 0; x <= W; x++) { const d = x < W && dk[y * W + x]; if (d && a < 0) a = x; else if (!d && a >= 0) { if (x - a < 64) rh[x - a]++; a = -1; } } }
+  let sw = 1; for (let i = 1; i < 64; i++) if (rh[i] > rh[sw]) sw = i;   // line weight (cells): a wall face is the middle of its line
+  const cells = v => Math.max(1, Math.round(v / r)), runL = cells(BPR.run), gapC = cells(BPR.gap), tMin = BPR.tMin / r, tMax = BPR.tMax / r;
+  // long strokes along x (Hm) and along y (Vm), then short gaps across them filled (two lines of one wall become a band)
+  const Hm = new Uint8Array(N), Vm = new Uint8Array(N);
+  for (let y = 0; y < H; y++) { let a = -1; for (let x = 0; x <= W; x++) { const d = x < W && dk[y * W + x]; if (d && a < 0) a = x; else if (!d && a >= 0) { if (x - a >= runL) Hm.fill(1, y * W + a, y * W + x); a = -1; } } }
+  for (let x = 0; x < W; x++) { let a = -1; for (let y = 0; y <= H; y++) { const d = y < H && dk[y * W + x]; if (d && a < 0) a = y; else if (!d && a >= 0) { if (y - a >= runL) for (let k = a; k < y; k++) Vm[k * W + x] = 1; a = -1; } } }
+  const Hc = Hm.slice(), Vc = Vm.slice();
+  for (let x = 0; x < W; x++) { let last = -1e9; for (let y = 0; y < H; y++) if (Hm[y * W + x]) { if (y - last > 1 && y - last - 1 <= gapC) for (let k = last + 1; k < y; k++) Hc[k * W + x] = 1; last = y; } }
+  for (let y = 0; y < H; y++) { let last = -1e9; for (let x = 0; x < W; x++) if (Vm[y * W + x]) { if (x - last > 1 && x - last - 1 <= gapC) Vc.fill(1, y * W + last + 1, y * W + x); last = x; } }
+  // bands: per step along, the runs across that are wall-thick, linked step to step into pieces
+  const bands = (M, horiz) => {
+    const A = horiz ? W : H, Cn = horiz ? H : W, at = horiz ? (a, c) => M[c * W + a] : (a, c) => M[a * W + c];
+    const open = [], done = [], tolC = 1.5 / 12 / r + 1, tolT = 3 / 12 / r + 1;
+    for (let a = 0; a < A; a++) {
+      let st = -1;
+      for (let c = 0; c <= Cn; c++) {
+        const d = c < Cn && at(a, c);
+        if (d && st < 0) st = c;
+        else if (!d && st >= 0) {
+          const t = c - st, cc = (st + c - 1) / 2; st = -1;
+          if (t < tMin || t > tMax) continue;
+          const m = open.find(o => a - o.last <= 3 && Math.abs(o.c - cc) <= tolC && Math.abs(o.t - t) <= tolT);
+          if (m) { m.last = a; m.n++; m.sc += cc; m.st += t; m.c = m.sc / m.n; m.t = m.st / m.n; }
+          else open.push({ a0: a, last: a, n: 1, sc: cc, st: t, c: cc, t });
+        }
+      }
+      for (let i = open.length - 1; i >= 0; i--) if (a - open[i].last > 3) done.push(open.splice(i, 1)[0]);
+    }
+    done.push(...open);
+    return done.filter(o => (o.last - o.a0 + 1) * r >= BPR.minLen).map(o => ({ h: horiz, c: (horiz ? y0 : x0) + (o.c + 0.5) * r, a: (horiz ? x0 : y0) + o.a0 * r, b: (horiz ? x0 : y0) + (o.last + 1) * r, th: o.t * r }));
+  };
+  // helpers in feet on the ink grid
+  const ink = (hz, al, ac) => { const gx = Math.floor(((hz ? al : ac) - x0) / r), gy = Math.floor(((hz ? ac : al) - y0) / r); return gx >= 0 && gy >= 0 && gx < W && gy < H ? dk[gy * W + gx] : 0; };
+  // door or not: ink beside the gap (swing arc + leaf), and which end the leaf stands at
+  const gapKind = (w, ga, gb) => {
+    const gl = gb - ga, step = r, side = [0, 0];
+    for (const sg of [1, -1]) { let n = 0; for (let al = ga; al < gb; al += step) for (let k = w.th / 2 + 1 / 12; k < w.th / 2 + gl; k += step) n += ink(w.h, al, w.c + sg * k); side[sg > 0 ? 0 : 1] = n * step / gl; }
+    const sg = side[0] >= side[1] ? 1 : -1, dens = Math.max(side[0], side[1]);
+    if (dens < 0.6) return { type: gl >= 6.5 ? "overhead" : "opening" };   // a swing arc and leaf add up to about 2½ times the width in ink
+    const leaf = al0 => { let mx = 0; for (let d = -3 / 12; d <= 3 / 12; d += step) { let run = 0, best2 = 0; for (let k = w.th / 2; k < w.th / 2 + gl * 1.05; k += step) { if (ink(w.h, al0 + d, w.c + sg * k)) { run++; best2 = Math.max(best2, run); } else run = 0; } mx = Math.max(mx, best2 * step); } return mx; };
+    const la = leaf(ga + 1 / 24), lb = leaf(gb - 1 / 24), two = la > 0.45 * gl / 2 && lb > 0.45 * gl / 2 && gl > 4.25;
+    return { type: two ? "double" : "door", hinge: two ? 0 : la >= lb ? 0 : 1, side: w.h ? sg : -sg };
+  };
+  // windows inside a piece: steps where the band shows 3+ thin lines (or one thin line in its middle)
+  const windows = (w, a0, a1) => {
+    const out = [], lo = w.c - w.th / 2 - r, hi = w.c + w.th / 2 + r, n = Math.max(1, Math.round((hi - lo) / r));
+    let s0 = null, miss = 0;
+    const glass = al => {
+      let runs = 0, inRun = false, len = 0, first = 0, tot = 0;
+      for (let k = 0; k <= n; k++) { const d = k < n && ink(w.h, al, lo + k * r); if (d) { if (!inRun) { runs++; first = k; inRun = true; len = 0; } len++; tot++; } else inRun = false; }
+      if (runs >= 3) return true;
+      return runs === 1 && tot < 0.4 * n && first > 0.2 * n && first < 0.7 * n;
+    };
+    for (let al = a0 + r; al < a1 - r; al += r) {
+      if (glass(al)) { if (s0 == null) s0 = al; miss = 0; }
+      else if (s0 != null && ++miss * r > 1.5 / 12) { const e = al - miss * r; if (e - s0 >= 1.25) out.push([s0, e]); s0 = null; miss = 0; }
+    }
+    if (s0 != null && a1 - s0 >= 1.25) out.push([s0, a1]);
+    return out;
+  };
+  // pieces on one line become one wall; what is in the gaps becomes doors and openings
+  const rq = r > 1 / 40 ? 12 : 24, rd = v => Math.round(v * rq) / rq, walls = [];   // whole inches when the drawing is coarser than about 1/3" a pixel
+  for (const hz of [true, false]) {
+    const ps = bands(hz ? Hc : Vc, hz).sort((p, q) => p.c - q.c), lines = [];
+    for (const p of ps) {   // a wall drawn as lines: its faces are the middles of the lines, so take one line weight off
+      const al = (p.a + p.b) / 2, lo = p.c - p.th / 2 - r, n = Math.round((p.th + 2 * r) / r); let runs = 0, on = false;
+      for (let k2 = 0; k2 <= n; k2++) { const d = k2 < n && ink(hz, al, lo + k2 * r); if (d && !on) runs++; on = !!d; }
+      if (runs >= 2) p.th = Math.max(tMin * r, p.th - sw * r);
+    }
+    for (const p of ps) { let L = lines.find(l => Math.abs(l.c - p.c) <= Math.max(l.th, p.th) / 2 && Math.abs(l.th - p.th) <= 3 / 12); if (!L) lines.push(L = { c: p.c, th: p.th, ps: [], n: 0 }); L.ps.push(p); const len = p.b - p.a; L.c = (L.c * L.n + p.c * len) / (L.n + len); L.th = (L.th * L.n + p.th * len) / (L.n + len); L.n += len; }
+    for (const L of lines) {
+      L.ps.sort((p, q) => p.a - q.a);
+      let cur = null;
+      const close = () => { if (cur && cur.b - cur.a >= 1.5) walls.push(cur); cur = null; };
+      for (const p of L.ps) {
+        if (!cur) { cur = { h: hz, c: L.c, th: L.th, a: p.a, b: p.b, opens: [] }; continue; }
+        const gl = p.a - cur.b;
+        if (gl <= 0.75) { cur.b = Math.max(cur.b, p.b); continue; }
+        if (gl > BPR.maxGap) { close(); cur = { h: hz, c: L.c, th: L.th, a: p.a, b: p.b, opens: [] }; continue; }
+        const k = gapKind(cur, cur.b, p.a);
+        const hw = sw * r / 2;   // the edges are the middles of the jamb lines
+        cur.opens.push(Object.assign({ a: cur.b - hw, b: p.a + hw }, k)); cur.b = Math.max(cur.b, p.b);
+      }
+      close();
+    }
+  }
+  for (const w of walls) { const gaps = w.opens.slice(); w.opens = []; let a = w.a; for (const o of [...gaps, { a: w.b, b: w.b }]) { for (const [s0, e] of windows(w, a, o.a)) w.opens.push({ a: s0 - sw * r / 2 - r / 2, b: e + sw * r / 2 + r / 2, type: "window" }); if (o.type) w.opens.push(o); a = o.b; } w.opens.sort((p, q) => p.a - q.a); }
+  {
+    const touch = (p, q) => { if (p.h === q.h) return Math.abs(p.c - q.c) <= (p.th + q.th) / 2 + 0.1 && p.a <= q.b + 0.8 && q.a <= p.b + 0.8; return q.c >= p.a - q.th / 2 - 0.8 && q.c <= p.b + q.th / 2 + 0.8 && p.c >= q.a - p.th / 2 - 0.8 && p.c <= q.b + p.th / 2 + 0.8; };
+    const comp = walls.map(() => -1); let nc = 0, bestC = -1, bestL = 0;
+    walls.forEach((w, i) => { if (comp[i] >= 0) return; const st = [i]; comp[i] = nc; let L = 0; while (st.length) { const j = st.pop(); L += walls[j].b - walls[j].a; walls.forEach((v, k2) => { if (comp[k2] < 0 && touch(walls[j], v)) { comp[k2] = nc; st.push(k2); } }); } if (L > bestL) { bestL = L; bestC = nc; } nc++; });
+    for (let i = walls.length - 1; i >= 0; i--) if (comp[i] !== bestC) walls.splice(i, 1);
+  }
+  // wall ends meet the centerline of the wall they run into
+  const orig = walls.map(w => ({ ...w }));
+  walls.forEach((w, i) => {
+    for (const end of ["a", "b"]) {
+      let bestD = Infinity, to = null, ext2 = 0;
+      orig.forEach((v, j) => {
+        if (j === i || v.h === w.h) return;
+        if (w.c < v.a - w.th / 2 - 0.3 || w.c > v.b + w.th / 2 + 0.3) return;
+        const d = Math.abs(v.c - orig[i][end]); if (d <= v.th / 2 + 0.6 && d < bestD) { bestD = d; to = v.c; ext2 = v.th / 2; }
+      });
+      if (to != null) { w[end] = to; w["e" + end] = ext2; }   // the block still reaches the far face of that wall
+    }
+    w.c = rd(w.c); w.a = rd(w.a); w.b = rd(w.b); w.th = Math.max(2.5 / 12, Math.round(w.th * 24) / 24);
+    for (const o of w.opens) { o.a = rd(o.a); o.b = rd(o.b); }
+  });
+  // walls as solid blocks on a grid (doors closed): what is outside them, the outline, the rooms
+  const S = new Uint8Array(N);
+  for (const w of walls) {
+    const wa = w.a - (w.ea || 0), wb = w.b + (w.eb || 0);
+    const a0 = Math.floor(((w.h ? wa : w.c - w.th / 2) - x0) / r), a1 = Math.ceil(((w.h ? wb : w.c + w.th / 2) - x0) / r);
+    const b0 = Math.floor(((w.h ? w.c - w.th / 2 : wa) - y0) / r), b1 = Math.ceil(((w.h ? w.c + w.th / 2 : wb) - y0) / r);
+    for (let y = Math.max(0, b0); y < Math.min(H, b1); y++) S.fill(1, y * W + Math.max(0, a0), y * W + Math.min(W, a1));
+  }
+  const lab = new Int32Array(N); // -1 outside, 0 wall/unvisited, k room k
+  const flood = (start, val) => { const st = [start]; lab[start] = val; let n = 0; while (st.length) { const i = st.pop(); n++; const x = i % W, y = (i / W) | 0; for (const j of [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, y > 0 ? i - W : -1, y < H - 1 ? i + W : -1]) if (j >= 0 && !S[j] && !lab[j]) { lab[j] = val; st.push(j); } } return n; };
+  for (let x = 0; x < W; x++) for (const y of [0, H - 1]) { const i = y * W + x; if (!S[i] && !lab[i]) flood(i, -1); }
+  for (let y = 0; y < H; y++) for (const x of [0, W - 1]) { const i = y * W + x; if (!S[i] && !lab[i]) flood(i, -1); }
+  // outline of a region (cells where inside(i) is true): longest loop, corners only, in feet
+  const faces = { h: [], v: [] }; for (const w of walls) (w.h ? faces.h : faces.v).push(w.c - w.th / 2, w.c + w.th / 2);
+  const snapF = (v, list) => { let bv = v, bd = 2.5 * r; for (const f of list) { const d = Math.abs(f - v); if (d < bd) { bd = d; bv = f; } } return bv; };
+  const trace = inside => {
+    const nx = new Map(), key = (x, y) => y * (W + 1) + x, ins = (x, y) => x >= 0 && y >= 0 && x < W && y < H && inside(y * W + x);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      if (!ins(x, y)) continue;
+      if (!ins(x, y - 1)) nx.set(key(x, y), key(x + 1, y));
+      if (!ins(x + 1, y)) nx.set(key(x + 1, y), key(x + 1, y + 1));
+      if (!ins(x, y + 1)) nx.set(key(x + 1, y + 1), key(x, y + 1));
+      if (!ins(x - 1, y)) nx.set(key(x, y + 1), key(x, y));
+    }
+    let bestL = null, bestA = 0; const seen = new Set();
+    for (const k0 of nx.keys()) {
+      if (seen.has(k0)) continue;
+      const L = []; let k = k0, guard = 0;
+      while (!seen.has(k) && guard++ < 4e6) { seen.add(k); L.push({ x: k % (W + 1), y: Math.floor(k / (W + 1)) }); k = nx.get(k); if (k == null) break; }
+      const A = Math.abs(polyArea(L)); if (A > bestA) { bestA = A; bestL = L; }
+    }
+    if (!bestL) return null;
+    let Q = bestL.filter((p, i) => { const a = bestL[(i - 1 + bestL.length) % bestL.length], c = bestL[(i + 1) % bestL.length]; return !((a.x === p.x && p.x === c.x) || (a.y === p.y && p.y === c.y)); });
+    Q = Q.map(p => ({ x: x0 + p.x * r, y: y0 + p.y * r }));
+    // corners onto the wall faces they came from
+    Q = Q.map(p => ({ x: snapF(p.x, faces.v), y: snapF(p.y, faces.h) }));
+    Q = Q.filter((p, i) => dist(p, Q[(i + 1) % Q.length]) > 1e-6);
+    return Q.length >= 4 ? Q : null;
+  };
+  let poly = trace(i => lab[i] !== -1), t = null;
+  if (poly && Math.abs(polyArea(poly)) < 40) poly = null;
+  if (poly) poly = poly.map(p => ({ x: rd(p.x), y: rd(p.y) }));   // the outside faces, to the inch on a coarse drawing
+  // which walls are outside walls: a face lies on the outline
+  const onOutline = w => {
+    if (!poly) return false;
+    let along = 0;
+    for (let i = 0; i < poly.length; i++) {
+      const p = poly[i], q = poly[(i + 1) % poly.length], hzE = Math.abs(p.y - q.y) < 1e-6; if (hzE !== w.h) continue;
+      const e = hzE ? p.y : p.x; if (Math.min(Math.abs(e - (w.c - w.th / 2)), Math.abs(e - (w.c + w.th / 2))) > 1.5 / 12) continue;
+      const lo = Math.max(Math.min(hzE ? p.x : p.y, hzE ? q.x : q.y), w.a), hi = Math.min(Math.max(hzE ? p.x : p.y, hzE ? q.x : q.y), w.b); if (hi > lo) along += hi - lo;
+    }
+    return along > 0.5 * (w.b - w.a);
+  };
+  for (const w of walls) w.ext = onOutline(w);
+  const ext = walls.filter(w => w.ext);
+  if (poly && ext.length) { const th = ext.map(w => [w.th, w.b - w.a]).sort((p, q) => p[0] - q[0]), tot = th.reduce((a, x) => a + x[1], 0); let acc = 0; for (const [v, l] of th) { acc += l; if (acc >= tot / 2) { t = v; break; } } }
+  else poly = null;
+  // rooms: spaces the walls close off
+  const rooms = [], texts = (u.texts || []).map(q => { const X = q.x + (q.w || 0) / 2, Y = q.y - (q.h || 0) / 2; return { t: q.t, h: q.h || 0, p: { x: P[0].x + (P[1].x - P[0].x) * X / iw + (P[3].x - P[0].x) * Y / ih, y: P[0].y + (P[1].y - P[0].y) * X / iw + (P[3].y - P[0].y) * Y / ih } }; })
+    .filter(q => /[a-z]{2}/i.test(q.t) && !/\d\s*['′"″]|^\d+\s*[x×]\s*\d+$/i.test(q.t) && q.t.length < 32);
+  let k = 0;
+  for (let i = 0; i < N && rooms.length < 80; i++) {
+    if (S[i] || lab[i]) continue;
+    const id = ++k, n = flood(i, id); if (n * r * r < 16) continue;
+    let bx0 = W, by0 = H, bx1 = 0, by1 = 0; for (let j = 0; j < N; j++) if (lab[j] === id) { const x = j % W, y = (j / W) | 0; if (x < bx0) bx0 = x; if (x > bx1) bx1 = x; if (y < by0) by0 = y; if (y > by1) by1 = y; }
+    const fill = n / ((bx1 - bx0 + 1) * (by1 - by0 + 1)), R = { x0: snapF(x0 + bx0 * r, faces.v), y0: snapF(y0 + by0 * r, faces.h), x1: snapF(x0 + (bx1 + 1) * r, faces.v), y1: snapF(y0 + (by1 + 1) * r, faces.h) };
+    const room = fill >= 0.9 ? { rect: R } : { pts: trace(j => lab[j] === id) };
+    if (!room.rect && !room.pts) continue;
+    const inR = q => room.rect ? q.x > R.x0 && q.x < R.x1 && q.y > R.y0 && q.y < R.y1 : inPoly(q, room.pts);
+    const tx = texts.filter(q => inR(q.p)); let name = "";
+    if (tx.length) { const mh = Math.max(...tx.map(q => q.h)); name = tx.filter(q => q.h >= 0.8 * mh).sort((p, q) => p.p.y - q.p.y || p.p.x - q.p.x).map(q => q.t).join(" ").replace(/\s+/g, " ").trim(); if (name === name.toUpperCase()) name = name.charAt(0) + name.slice(1).toLowerCase(); }
+    room.name = name; rooms.push(room);
+  }
+  return { walls, poly, t, rooms };
+}
+// The reading, put in the designer as this floor's unsaved draft (Cancel puts the floor back as it was)
+function bpApply(R) {
+  dz.rooms = dz.rooms.filter(r => r.type === "stair"); dz.fixedRooms = []; dz.walls = []; dz.opens = [];
+  if (R.poly) { dz.poly = orientPoly(R.poly); if (R.t) dz.t = R.t; syncBox(); const os = [...$("dz-ext").options].map(o => +o.value); $("dz-ext").value = String(os.reduce((a, v) => Math.abs(v - dz.t * 12) < Math.abs(a - dz.t * 12) ? v : a, os[0])); dzFields(); }
+  const sides = () => extSides();
+  let nd = 0, nw = 0, nr = 0, nIn = 0;
+  const addOpen = (o, host, u, m) => {
+    const rec = { id: dz.nid++, otype: o.type, w: Math.round((o.b - o.a) * 24) / 24, hinge: o.hinge || 0, side: o.side || 1, label: "" };
+    if (host.ref.type === "ext") { const L = host.L, lu = unit({ x: L.x1, y: L.y1 }, { x: L.x2, y: L.y2 }); if (lu.x * u.x + lu.y * u.y < 0) { rec.hinge = rec.hinge ? 0 : 1; rec.side = -rec.side; } rec.along = projAlong(L, m); }
+    else rec.along = projAlong(host.L, m);
+    rec.ref = host.ref; dz.opens.push(rec); if (o.type === "window") nw++; else nd++;
+  };
+  const inside = q => inPoly(q, offsetPoly(dz.poly, -0.5));
+  for (const w of R.walls) {
+    const p1 = w.h ? { x: w.a, y: w.c } : { x: w.c, y: w.a }, p2 = w.h ? { x: w.b, y: w.c } : { x: w.c, y: w.b }, u = w.h ? { x: 1, y: 0 } : { x: 0, y: 1 };
+    const mid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+    let host = null;
+    if (w.ext || !R.poly) {   // on an outside wall: its openings go on that side of the outline
+      let bd = w.th / 2 + 0.6;
+      for (const e of sides()) { const eu = unit({ x: e.x1, y: e.y1 }, { x: e.x2, y: e.y2 }); if (Math.abs(eu.x * u.x + eu.y * u.y) < 0.95) continue; const d = segDist(mid, { x: e.x1, y: e.y1 }, { x: e.x2, y: e.y2 }); if (d < bd) { bd = d; host = { ref: { type: "ext", idx: e.idx }, L: e }; } }
+    }
+    if (host) { for (const o of w.opens) { const c = (o.a + o.b) / 2; addOpen(o, host, u, w.h ? { x: c, y: w.c } : { x: w.c, y: c }); } continue; }
+    if (!inside(mid)) continue;   // outside the building: dimension lines, a deck drawn beside it
+    // an inside wall; a wide plain gap splits it in two
+    let a = w.a; const pieces = [], keep = [];
+    for (const o of w.opens) { if (o.type === "overhead" || (o.type === "opening" && o.b - o.a > 6)) { pieces.push([a, o.a]); a = o.b; } else keep.push(o); }
+    pieces.push([a, w.b]);
+    for (const [pa, pb] of pieces) {
+      if (pb - pa < 1) continue;
+      const q1 = w.h ? { x: pa, y: w.c } : { x: w.c, y: pa }, q2 = w.h ? { x: pb, y: w.c } : { x: w.c, y: pb };
+      const W2 = { id: dz.nid++, x1: q1.x, y1: q1.y, x2: q2.x, y2: q2.y, th: w.th }; dz.walls.push(W2); nIn++;
+      for (const o of keep) if (o.a >= pa - 1e-6 && o.b <= pb + 1e-6) addOpen(o, { ref: { type: "wall", wid: W2.id }, L: W2 }, u, w.h ? { x: (o.a + o.b) / 2, y: w.c } : { x: w.c, y: (o.a + o.b) / 2 });
+    }
+  }
+  let n = 0;
+  for (const rm of R.rooms) {
+    const name = rm.name || "Room " + (++n);
+    if (rm.rect) { const q = rm.rect; if (!inside({ x: (q.x0 + q.x1) / 2, y: (q.y0 + q.y1) / 2 })) continue; dz.rooms.push({ id: dz.nid++, name, sub: "", style: "room", type: "room", x: q.x0, y: q.y0, w: q.x1 - q.x0, h: q.y1 - q.y0 }); }
+    else { if (!inside(centroid(rm.pts))) continue; dz.fixedRooms.push({ id: dz.nid++, name, sub: "", style: "room", pts: rm.pts, extra: {}, sid: null, orig: "", opts: null }); }
+    nr++;
+  }
+  $("dz-genwalls").checked = false;   // the walls came off the drawing; don't add more around the rooms
+  dz.sel = null; dzSelFields(); dz.view = null; dzDraw();
+  const msg = `Read off the blueprint: ${R.poly ? "the outline, " : ""}${nIn} inside wall${nIn === 1 ? "" : "s"}, ${nd} door${nd === 1 ? "" : "s"} and opening${nd === 1 ? "" : "s"}, ${nw} window${nw === 1 ? "" : "s"}, ${nr} room${nr === 1 ? "" : "s"}. Check it against the drawing underneath, fix anything it got wrong, then Save to plan. Cancel leaves the floor as it was.`;
+  $("dz-hint").textContent = msg; $("dz-status").textContent = msg;
+  dzc.dataset.read = [R.poly ? 1 : 0, nIn, nd, nw, nr].join("|");
 }
 function scaleAbout(s, c, f) { s.points = s.points.map(p => ({ x: c.x + (p.x - c.x) * f, y: c.y + (p.y - c.y) * f })); }
 $("bp-file").addEventListener("change", e => {
