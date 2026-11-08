@@ -908,7 +908,7 @@ a.shopbtn{text-decoration:none;display:inline-flex;align-items:center;color:inhe
 </dialog>
 <dialog id="matdlg" class="dz" aria-labelledby="mat-title">
   <div class="dz-wrap">
-    <div class="dz-head"><h2 id="mat-title">Material list</h2><span class="mat-msg" id="mat-msg" role="status"></span><label class="v3-opt">Shop at <select id="mat-store" aria-label="Store to look things up at"></select></label><button class="ghost" id="mat-csv">Save as spreadsheet</button><button class="primary" id="mat-close">Close</button></div>
+    <div class="dz-head"><h2 id="mat-title">Material list</h2><span class="mat-msg" id="mat-msg" role="status"></span><label class="v3-opt">Shop at <select id="mat-store" aria-label="Store to look things up at"></select></label><label class="v3-opt">Zip <input id="mat-zip" type="text" inputmode="numeric" maxlength="5" autocomplete="postal-code" placeholder="" aria-label="Your zip code" style="width:72px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px"></label><button class="ghost" id="mat-setstore" title="Opens the store finder on the store website so you can pick your store; its prices then show in every link here">Pick my store</button><button class="ghost" id="mat-csv">Save as spreadsheet</button><button class="primary" id="mat-close">Close</button></div>
     <div class="mat-body"><form class="mat-opts" id="mat-opts" onsubmit="return false"></form><div class="mat-main" id="mat-main"><div class="mat-tabs chips" id="mat-tabs"><button data-mtab="list" aria-pressed="true">Materials</button><button data-mtab="order" aria-pressed="false">Build order</button></div><p class="mat-sum" id="mat-sum"></p><div id="mat-list"></div></div></div>
   </div>
 </dialog>
@@ -3119,7 +3119,11 @@ function renderMat() {
   }
   const cell = r => { const k = matKey(r[0]), v = pr[k], c = typeof r[1] === "number" && v != null ? r[1] * v : null;
     return `<td class="mp">${typeof r[1] === "number" ? `<input type="text" inputmode="decimal" data-pk="${esc(k)}" value="${v != null ? esc(money(v)) : ""}" placeholder="$" aria-label="Price each for ${esc(r[0])}">` : ""}</td><td class="mc">${c != null ? esc(money(c)) : ""}</td>`; };
-  $("mat-list").innerHTML = `<p class="muted" style="font-size:13px;margin:0 0 4px">Click an item to look it up at ${esc(STORES[st][0])} (opens a new tab). Type the price you find in “Each” and the list adds it up. Pick another store at the top.</p>`
+  const zip = state.shopZip || "", picked = state.shopPicked && state.shopPicked[st];
+  if (document.activeElement !== $("mat-zip")) $("mat-zip").value = zip;
+  $("mat-setstore").textContent = picked ? "Change my store" : "Pick my store";
+  $("mat-list").innerHTML = `<p class="muted" style="font-size:13px;margin:0 0 4px">Click an item to look it up at ${esc(STORES[st][0])} (opens a new tab). Type the price you find in “Each” and the list adds it up. Pick another store at the top.</p>
+    <p class="muted" id="mat-localnote" style="font-size:13px;margin:0 0 4px">${picked ? `Prices are for the ${esc(STORES[st][0])} store you picked on their website${zip ? " (near " + esc(zip) + ")" : ""}; their site remembers it. If the links show the wrong store, click Change my store.` : `<b>Local prices:</b> ${zip ? "" : "type your zip code at the top, then "}click <b>Pick my store</b> and set your nearest ${esc(STORES[st][0])} on their website (just once). After that every item link shows that store's price and stock. The stores don't let other websites read their prices, so you still type the price in here.`}</p>`
     + S.filter(s => s.rows.length).map(s => `<section class="mat-sec"><h3>${esc(s.title)}</h3><table><thead><tr><th class="mi"></th><th class="mq">Qty</th><th class="mu"></th><th class="mp">Each</th><th class="mc">Cost</th><th class="mn"></th></tr></thead><tbody>${s.rows.map(r => `<tr><td class="mi">${typeof r[1] === "number" ? `<a href="${esc(STORES[st][1](matQuery(r[0])))}" target="_blank" rel="noopener noreferrer">${esc(r[0])}</a>` : esc(r[0])}</td><td class="mq">${esc(typeof r[1] === "number" ? r[1].toLocaleString() : r[1])}</td><td class="mu">${esc(r[2])}</td>${cell(r)}<td class="mn">${esc(r[3])}</td></tr>`).join("")}</tbody></table></section>`).join("")
     + `<p class="muted" style="font-size:13px">These are estimates for planning and pricing. Store prices change and vary by location. Check spans, headers and local code with your lumber yard or building inspector before ordering.</p>`;
   $("mat-sum").innerHTML = text + priced;
@@ -3142,6 +3146,23 @@ $("mat-list").addEventListener("change", e => {
   pushUndo(); b.build = Object.assign({}, b.build, { prices }); afterChange(); renderMat();
 });
 $("mat-store").addEventListener("change", e => { state.shopStore = e.target.value; save(); renderMat(); });
+// Local prices: the stores have no public price feed and block other pages from reading theirs, and none takes a zip code in a link.
+// What works: pick your store once on the store website (it remembers it), and every item link here then opens with that store's price and stock.
+const STORE_LOC = { homedepot: "https://www.homedepot.com/l/store-locator", lowes: "https://www.lowes.com/store/", menards: "https://www.menards.com/store-details/locator.html" };
+$("mat-zip").addEventListener("change", e => {
+  const z = e.target.value.replace(/\D/g, "").slice(0, 5);
+  if (z && z.length !== 5) { $("mat-msg").textContent = "A zip code has 5 numbers."; e.target.value = state.shopZip || ""; return; }
+  state.shopZip = z; e.target.value = z; save(); renderMat();
+});
+$("mat-zip").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); e.target.blur(); } });
+$("mat-setstore").addEventListener("click", async () => {
+  const st = STORES[state.shopStore] ? state.shopStore : "menards", z = state.shopZip || "", nm = STORES[st][0];
+  let copied = false; if (z) try { await navigator.clipboard.writeText(z); copied = true; } catch (e) {}
+  const w = window.open(STORE_LOC[st], "_blank", "noopener,noreferrer");
+  state.shopPicked = Object.assign({}, state.shopPicked, { [st]: z || true }); save(); renderMat();
+  $("mat-msg").textContent = (z ? (copied ? "Copied " + z + ". On the " + nm + " page, paste it (Ctrl+V) in the store finder" : "On the " + nm + " page, type " + z + " in the store finder") : "On the " + nm + " page, type your zip code in the store finder")
+    + " and set your store. Then come back here: the item links open with that store's prices." + (w ? "" : " (If no tab opened, go to " + nm + "'s website and use its store finder.)");
+});
 $("mat-opts").addEventListener("click", e => {
   const b = state.shapes.find(s => s.id === matB); if (b && e.target.closest("button[data-fit]")) { loftFitApply(b); renderMat(); return; }
   if (b && e.target.closest("button[data-shed]")) { shedPreset(b); renderMat(); return; }
